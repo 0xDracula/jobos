@@ -199,6 +199,26 @@ func (s *Store) Track(ctx context.Context, id uuid.UUID) (*TrackView, error) {
 	return &v, nil
 }
 
+func (s *Store) ListTracks(ctx context.Context, limit int) ([]TrackView, error) {
+	rows, err := s.pool.Query(ctx, `select id from tracks order by created_at desc limit $1`, limit)
+	if err != nil {
+		return nil, err
+	}
+	ids, err := pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
+	if err != nil {
+		return nil, err
+	}
+	out := make([]TrackView, 0, len(ids))
+	for _, id := range ids {
+		v, err := s.Track(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *v)
+	}
+	return out, nil
+}
+
 func (s *Store) AssetBySHA(ctx context.Context, sha string) (path, mime string, err error) {
 	err = s.pool.QueryRow(ctx, `select path, mime from media_assets where sha256 = $1`, sha).Scan(&path, &mime)
 	if errors.Is(err, pgx.ErrNoRows) {

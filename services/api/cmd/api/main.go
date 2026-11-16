@@ -55,6 +55,7 @@ func run(log *slog.Logger) error {
 			Media:       media.New(cfg.MediaServiceURL),
 			MediaRoot:   cfg.MediaRoot,
 			WorkerToken: cfg.WorkerToken,
+			DevUI:       cfg.DevUI,
 			Log:         log,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,

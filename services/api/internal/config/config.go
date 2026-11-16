@@ -12,6 +12,7 @@ type Config struct {
 	MediaRoot       string
 	MigrationsDir   string
 	WorkerToken     string
+	DevUI           bool
 }
 
 func Load() (Config, error) {
@@ -22,6 +23,7 @@ func Load() (Config, error) {
 		MediaRoot:       os.Getenv("MEDIA_ROOT"),
 		MigrationsDir:   os.Getenv("MIGRATIONS_DIR"),
 		WorkerToken:     os.Getenv("WORKER_TOKEN"),
+		DevUI:           os.Getenv("DEV_UI") == "1",
 	}
 	required := []struct{ name, value string }{
 		{"DATABASE_URL", c.DatabaseURL},

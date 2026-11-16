@@ -17,6 +17,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 
+	"jobbos/api/internal/devui"
 	"jobbos/api/internal/store"
 )
 
@@ -24,6 +25,7 @@ type Store interface {
 	AddTrackFromSource(ctx context.Context, in store.SourceTrack) (uuid.UUID, uuid.UUID, bool, error)
 	HasMainMedia(ctx context.Context, trackID uuid.UUID) (bool, error)
 	Track(ctx context.Context, id uuid.UUID) (*store.TrackView, error)
+	ListTracks(ctx context.Context, limit int) ([]store.TrackView, error)
 	AssetBySHA(ctx context.Context, sha string) (string, string, error)
 	Enqueue(ctx context.Context, queue, kind string, payload any, dedupeKey string) (int64, bool, error)
 	ClaimJob(ctx context.Context, queue, worker string, kinds []string) (*store.Job, error)
@@ -40,6 +42,7 @@ type Deps struct {
 	Media       Searcher
 	MediaRoot   string
 	WorkerToken string
+	DevUI       bool
 	Log         *slog.Logger
 }
 
@@ -52,9 +55,16 @@ func New(d Deps) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID, middleware.Recoverer)
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) { writeJSON(w, http.StatusOK, map[string]bool{"ok": true}) })
+	if d.DevUI {
+		r.Get("/dev", func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "/dev/", http.StatusMovedPermanently)
+		})
+		r.Get("/dev/", devui.Handler)
+	}
 
 	r.Route("/api", func(r chi.Router) {
 		r.Get("/search", a.search)
+		r.Get("/tracks", a.listTracks)
 		r.Post("/tracks", a.addTrack)
 		r.Get("/tracks/{id}", a.track)
 		r.Get("/tracks/{id}/audio", a.trackAudio)
@@ -125,6 +135,19 @@ func (a *api) addTrack(w http.ResponseWriter, r *http.Request) {
 		status = http.StatusCreated
 	}
 	writeJSON(w, status, view)
+}
+
+func (a *api) listTracks(w http.ResponseWriter, r *http.Request) {
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+	tracks, err := a.Store.ListTracks(r.Context(), limit)
+	if err != nil {
+		a.serverError(w, "list tracks", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"tracks": tracks})
 }
 
 func (a *api) track(w http.ResponseWriter, r *http.Request) {

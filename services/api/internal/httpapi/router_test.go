@@ -39,6 +39,20 @@ func TestMediaFileRejectsBadNames(t *testing.T) {
 	}
 }
 
+func TestDevPageOnlyWhenEnabled(t *testing.T) {
+	rec := httptest.NewRecorder()
+	testServer().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/dev/", nil))
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("disabled: status %d, want 404", rec.Code)
+	}
+	h := New(Deps{DevUI: true, Log: slog.New(slog.NewTextHandler(io.Discard, nil))})
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/dev/", nil))
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Jobbos dev player") {
+		t.Errorf("enabled: status %d", rec.Code)
+	}
+}
+
 func TestSearchNeedsQuery(t *testing.T) {
 	rec := httptest.NewRecorder()
 	testServer().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/search?q=%20", nil))
