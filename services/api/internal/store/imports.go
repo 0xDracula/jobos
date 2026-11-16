@@ -232,6 +232,51 @@ func (s *Store) RematchPlaylist(ctx context.Context, playlistID uuid.UUID, statu
 	return len(ids), nil
 }
 
+func (s *Store) AddSpotifyTrack(ctx context.Context, t ImportTrack, priority int) (uuid.UUID, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	defer tx.Rollback(ctx)
+	id, created, err := importTrack(ctx, tx, t)
+	if err != nil {
+		return id, err
+	}
+	if created {
+		if _, _, err := enqueue(ctx, tx, JobSpec{Kind: KindMatchTrack, Payload: matchPayload(id, t),
+			DedupeKey: MatchKey(id), Priority: priority}); err != nil {
+			return id, err
+		}
+	}
+	return id, tx.Commit(ctx)
+}
+
+func (s *Store) TrackSources(ctx context.Context, trackID uuid.UUID) ([]SourceView, error) {
+	var exists bool
+	if err := s.pool.QueryRow(ctx, `select exists (select 1 from tracks where id = $1)`, trackID).Scan(&exists); err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, ErrNotFound
+	}
+	rows, err := s.pool.Query(ctx, `select id, provider, external_id, raw_title, uploader, duration_ms, match_score, status
+		from track_sources where track_id = $1 and status <> 'rejected'
+		order by status = 'selected' desc, match_score desc nulls last, created_at`, trackID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []SourceView{}
+	for rows.Next() {
+		var v SourceView
+		if err := rows.Scan(&v.ID, &v.Provider, &v.ExternalID, &v.Title, &v.Uploader, &v.DurationMs, &v.Score, &v.Status); err != nil {
+			return nil, err
+		}
+		out = append(out, v)
+	}
+	return out, rows.Err()
+}
+
 func (s *Store) ChooseSource(ctx context.Context, trackID uuid.UUID, in SourceTrack) (sourceID uuid.UUID, download bool, err error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {

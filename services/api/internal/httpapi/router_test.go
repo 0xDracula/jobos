@@ -138,3 +138,31 @@ func TestLyricsValidatesInput(t *testing.T) {
 		}
 	}
 }
+
+func TestLinksValidateInput(t *testing.T) {
+	cases := []struct{ method, path, body string }{
+		{http.MethodPost, "/api/links", `{"url":"Cairokee Wahdy"}`},
+		{http.MethodPost, "/api/links", `{"url":"ftp://example.com/song"}`},
+		{http.MethodPut, "/api/tracks/01a1e546-b14e-73a9-826b-81452848e479/source", `{"url":"javascript:alert(1)"}`},
+	}
+	for _, c := range cases {
+		rec := httptest.NewRecorder()
+		testServer().ServeHTTP(rec, httptest.NewRequest(c.method, c.path, strings.NewReader(c.body)))
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("%s %s: status %d, want 400", c.method, c.body, rec.Code)
+		}
+	}
+	rec := httptest.NewRecorder()
+	testServer().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/tracks/nope/sources", nil))
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("sources with a bad id: status %d, want 404", rec.Code)
+	}
+}
+
+func TestSearchRejectsUnknownSources(t *testing.T) {
+	rec := httptest.NewRecorder()
+	testServer().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/search?q=wahdy&sources=ytmusic,spotify", nil))
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status %d, want 400", rec.Code)
+	}
+}

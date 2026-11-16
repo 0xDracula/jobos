@@ -57,6 +57,7 @@ func run(log *slog.Logger) error {
 			Store:       st,
 			Media:       mediaService,
 			Resolver:    mediaService,
+			Links:       mediaService,
 			MediaRoot:   cfg.MediaRoot,
 			WorkerToken: cfg.WorkerToken,
 			DevUI:       cfg.DevUI,

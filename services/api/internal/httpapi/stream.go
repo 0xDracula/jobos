@@ -11,6 +11,10 @@ import (
 	"jobbos/api/internal/store"
 )
 
+type Linker interface {
+	Link(ctx context.Context, url string) (*media.Link, error)
+}
+
 type Resolver interface {
 	Resolve(ctx context.Context, provider, externalID string) (*media.Stream, error)
 }

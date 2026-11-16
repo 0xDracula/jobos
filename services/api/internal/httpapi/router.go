@@ -7,6 +7,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -21,6 +22,7 @@ import (
 
 	"jobbos/api/internal/devui"
 	"jobbos/api/internal/importer"
+	"jobbos/api/internal/media"
 	"jobbos/api/internal/store"
 )
 
@@ -37,6 +39,8 @@ type Store interface {
 	Playlist(ctx context.Context, id uuid.UUID) (*store.PlaylistView, error)
 	RematchPlaylist(ctx context.Context, playlistID uuid.UUID, statuses []string) (int, error)
 	ChooseSource(ctx context.Context, trackID uuid.UUID, in store.SourceTrack) (uuid.UUID, bool, error)
+	AddSpotifyTrack(ctx context.Context, t store.ImportTrack, priority int) (uuid.UUID, error)
+	TrackSources(ctx context.Context, trackID uuid.UUID) ([]store.SourceView, error)
 	Lyrics(ctx context.Context, trackID uuid.UUID) (*store.LyricsView, error)
 	SetLyricsOffset(ctx context.Context, trackID uuid.UUID, offsetMs int32) error
 	BackfillLyrics(ctx context.Context) (int, error)
@@ -47,13 +51,14 @@ type Store interface {
 }
 
 type Searcher interface {
-	Search(ctx context.Context, query string, limit int) (json.RawMessage, error)
+	Search(ctx context.Context, query string, limit int, sources []string) (json.RawMessage, error)
 }
 
 type Deps struct {
 	Store       Store
 	Media       Searcher
 	Resolver    Resolver
+	Links       Linker
 	MediaRoot   string
 	WorkerToken string
 	DevUI       bool
@@ -90,6 +95,8 @@ func New(d Deps) http.Handler {
 		r.Get("/tracks/{id}/stream", a.streamTrack)
 		r.Post("/tracks/{id}/cache", a.cacheTrack)
 		r.Put("/tracks/{id}/source", a.chooseSource)
+		r.Get("/tracks/{id}/sources", a.trackSources)
+		r.Post("/links", a.importLink)
 		r.Get("/tracks/{id}/lyrics", a.lyrics)
 		r.Patch("/tracks/{id}/lyrics", a.lyricsOffset)
 		r.Post("/lyrics/backfill", a.backfillLyrics)
@@ -109,6 +116,8 @@ func New(d Deps) http.Handler {
 	return r
 }
 
+var searchSources = map[string]bool{"ytmusic": true, "youtube": true, "soundcloud": true}
+
 func (a *api) search(w http.ResponseWriter, r *http.Request) {
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
 	if q == "" || len(q) > 200 {
@@ -119,7 +128,17 @@ func (a *api) search(w http.ResponseWriter, r *http.Request) {
 	if limit <= 0 || limit > 50 {
 		limit = 20
 	}
-	body, err := a.Media.Search(r.Context(), q, limit)
+	var sources []string
+	if s := r.URL.Query().Get("sources"); s != "" {
+		for _, name := range strings.Split(s, ",") {
+			if !searchSources[name] {
+				writeError(w, http.StatusBadRequest, "sources must be a list of ytmusic, youtube and soundcloud")
+				return
+			}
+			sources = append(sources, name)
+		}
+	}
+	body, err := a.Media.Search(r.Context(), q, limit, sources)
 	if err != nil {
 		a.Log.Error("search", "err", err)
 		writeError(w, http.StatusBadGateway, "search is unavailable")
@@ -212,9 +231,32 @@ func (a *api) chooseSource(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "track not found")
 		return
 	}
-	var in store.SourceTrack
-	if !readJSON(w, r, &in) {
+	var body struct {
+		store.SourceTrack
+		URL string `json:"url"`
+	}
+	if !readJSON(w, r, &body) {
 		return
+	}
+	in := body.SourceTrack
+	if body.URL != "" {
+		if !isLink(body.URL) {
+			writeError(w, http.StatusBadRequest, "url must be a link")
+			return
+		}
+		l, ok := a.link(w, r, body.URL)
+		if !ok {
+			return
+		}
+		if l.Kind != "recording" {
+			writeError(w, http.StatusUnprocessableEntity, "A version must be a link to one recording")
+			return
+		}
+		in = store.SourceTrack{}
+		if err := json.Unmarshal(l.Recording, &in); err != nil {
+			a.serverError(w, "decode recording", err)
+			return
+		}
 	}
 	if err := in.Validate(); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
@@ -305,6 +347,131 @@ func (a *api) backfillEnrich(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusAccepted, map[string]int{"queued": n})
+}
+
+func (a *api) trackSources(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusNotFound, "track not found")
+		return
+	}
+	sources, err := a.Store.TrackSources(r.Context(), id)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "track not found")
+		return
+	}
+	if err != nil {
+		a.serverError(w, "list sources", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"sources": sources})
+}
+
+func isLink(s string) bool {
+	u, err := url.Parse(strings.TrimSpace(s))
+	return err == nil && len(s) <= 2048 && (u.Scheme == "http" || u.Scheme == "https") && u.Host != ""
+}
+
+func (a *api) link(w http.ResponseWriter, r *http.Request, raw string) (*media.Link, bool) {
+	l, err := a.Links.Link(r.Context(), strings.TrimSpace(raw))
+	var linkErr *media.LinkError
+	switch {
+	case errors.As(err, &linkErr):
+		writeError(w, http.StatusUnprocessableEntity, linkErr.Message)
+		return nil, false
+	case err != nil:
+		a.Log.Warn("link", "url", raw, "err", err)
+		writeError(w, http.StatusBadGateway, "link lookup failed")
+		return nil, false
+	}
+	return l, true
+}
+
+func (a *api) importLink(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		URL string `json:"url"`
+	}
+	if !readJSON(w, r, &in) {
+		return
+	}
+	if !isLink(in.URL) {
+		writeError(w, http.StatusBadRequest, "url must be a link")
+		return
+	}
+	l, ok := a.link(w, r, in.URL)
+	if !ok {
+		return
+	}
+	switch {
+	case l.Kind == "recording":
+		var rec store.SourceTrack
+		if err := json.Unmarshal(l.Recording, &rec); err != nil || rec.Validate() != nil {
+			writeError(w, http.StatusBadGateway, "link lookup returned no recording")
+			return
+		}
+		trackID, sourceID, _, err := a.Store.AddTrackFromSource(r.Context(), rec)
+		if err != nil {
+			a.serverError(w, "add track", err)
+			return
+		}
+		if cached, err := a.Store.HasMainMedia(r.Context(), trackID); err == nil && !cached {
+			if err := a.enqueueDownload(r.Context(), trackID, sourceID, rec.Provider, rec.ExternalID); err != nil {
+				a.serverError(w, "enqueue download", err)
+				return
+			}
+		}
+		a.writeTrack(w, r, trackID)
+	case l.Kind == "spotify" && l.Type == "track" && len(l.Tracks) == 1:
+		trackID, err := a.Store.AddSpotifyTrack(r.Context(), importTrack(l.Tracks[0]), store.PriorityInteractive)
+		if err != nil {
+			a.serverError(w, "add track", err)
+			return
+		}
+		a.writeTrack(w, r, trackID)
+	case l.Kind == "spotify" && (l.Type == "album" || l.Type == "playlist"):
+		tracks := make([]store.ImportTrack, len(l.Tracks))
+		for i, t := range l.Tracks {
+			tracks[i] = importTrack(t)
+		}
+		sum, err := a.Store.ImportPlaylist(r.Context(), store.PlaylistImport{
+			Provider: "spotify", ExternalID: l.ID, URL: "https://open.spotify.com/" + l.Type + "/" + l.ID,
+			Name: l.Name, Tracks: tracks,
+		})
+		if err != nil {
+			a.serverError(w, "import playlist", err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"playlist": sum, "truncated": l.Truncated})
+	default:
+		writeError(w, http.StatusBadGateway, "link lookup returned nothing to play")
+	}
+}
+
+func (a *api) writeTrack(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	view, err := a.Store.Track(r.Context(), id)
+	if err != nil {
+		a.serverError(w, "load track", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"track": view})
+}
+
+func importTrack(t media.SpotifyTrack) store.ImportTrack {
+	it := store.ImportTrack{SpotifyID: t.SpotifyID, Title: t.Title, Album: t.Album, AlbumSpotifyID: t.AlbumSpotifyID, Explicit: t.Explicit}
+	for _, a := range t.Artists {
+		artist := store.ImportArtist{Name: a.Name}
+		if a.SpotifyID != nil {
+			artist.SpotifyID = *a.SpotifyID
+		}
+		it.Artists = append(it.Artists, artist)
+	}
+	if t.ArtworkURL != nil {
+		it.ArtworkURL = *t.ArtworkURL
+	}
+	if t.DurationMs != nil {
+		it.DurationMs = *t.DurationMs
+	}
+	return it
 }
 
 func (a *api) importPlaylist(w http.ResponseWriter, r *http.Request) {

@@ -161,6 +161,7 @@ type SourceView struct {
 	Uploader   *string   `json:"uploader"`
 	DurationMs *int32    `json:"duration_ms"`
 	Score      *float32  `json:"score"`
+	Status     string    `json:"status,omitempty"`
 }
 
 type TrackView struct {
@@ -188,7 +189,7 @@ const trackViewSQL = `select t.id, t.title, al.title, t.duration_ms, t.artwork_u
 		coalesce((select array_agg(a.name order by ta.position) from track_artists ta
 			join artists a on a.id = ta.artist_id where ta.track_id = t.id), '{}'),
 		t.match_status,
-		ma.sha256, ma.duration_ms, ma.loudness_lufs, ma.gain_db, ma.waveform,
+		ma.sha256, ma.duration_ms, ma.loudness_lufs, ma.gain_db, ma.waveform, tm.track_source_id,
 		ts.id, ts.provider, ts.external_id, ts.raw_title, ts.uploader, ts.duration_ms, ts.match_score,
 		dj.status, dj.last_error,
 		art.sha256, art.mime, art.palette
@@ -209,14 +210,14 @@ func scanTrackView(row pgx.Row) (*TrackView, error) {
 		mDur, sDur                      *int32
 		loudness, gain, score           *float32
 		waveform                        []byte
-		sourceID                        uuid.NullUUID
+		sourceID, fileSourceID          uuid.NullUUID
 		provider, externalID, rawTitle  *string
 		uploader, jobStatus, jobLastErr *string
 		artSHA, artMime                 *string
 		palette                         []byte
 	)
 	if err := row.Scan(&v.ID, &v.Title, &v.Album, &v.DurationMs, &v.ArtworkURL, &v.Artists, &v.MatchStatus,
-		&sha, &mDur, &loudness, &gain, &waveform,
+		&sha, &mDur, &loudness, &gain, &waveform, &fileSourceID,
 		&sourceID, &provider, &externalID, &rawTitle, &uploader, &sDur, &score,
 		&jobStatus, &jobLastErr, &artSHA, &artMime, &palette); err != nil {
 		return nil, err
@@ -232,8 +233,9 @@ func scanTrackView(row pgx.Row) (*TrackView, error) {
 		v.Source = &SourceView{ID: sourceID.UUID, Provider: *provider, ExternalID: *externalID,
 			Title: rawTitle, Uploader: uploader, DurationMs: sDur, Score: score}
 	}
+	stale := sourceID.Valid && fileSourceID.Valid && fileSourceID.UUID != sourceID.UUID
 	switch {
-	case sha != nil:
+	case sha != nil && !stale:
 		v.Status = "cached"
 		v.Audio = &AudioView{URL: "/api/media/" + *sha + ".m4a", DurationMs: mDur, LoudnessLUFS: loudness, GainDB: gain, Waveform: waveform}
 	case jobStatus != nil && *jobStatus != "done":
@@ -241,7 +243,7 @@ func scanTrackView(row pgx.Row) (*TrackView, error) {
 	default:
 		v.Status = "missing"
 	}
-	if v.Audio == nil && v.Source != nil {
+	if v.Audio == nil && v.Source != nil && (v.Source.Provider == "ytmusic" || v.Source.Provider == "youtube") {
 		u := "/api/tracks/" + v.ID.String() + "/stream"
 		v.StreamURL = &u
 	}
