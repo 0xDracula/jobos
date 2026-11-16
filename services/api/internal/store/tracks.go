@@ -177,6 +177,7 @@ type TrackView struct {
 	Error           *string         `json:"error,omitempty"`
 	Source          *SourceView     `json:"source,omitempty"`
 	Audio           *AudioView      `json:"audio,omitempty"`
+	StreamURL       *string         `json:"stream_url,omitempty"`
 }
 
 var ErrNotFound = errors.New("not found")
@@ -239,6 +240,10 @@ func scanTrackView(row pgx.Row) (*TrackView, error) {
 		v.Status, v.Error = *jobStatus, jobLastErr
 	default:
 		v.Status = "missing"
+	}
+	if v.Audio == nil && v.Source != nil {
+		u := "/api/tracks/" + v.ID.String() + "/stream"
+		v.StreamURL = &u
 	}
 	return &v, nil
 }

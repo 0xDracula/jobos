@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -52,18 +53,24 @@ type Searcher interface {
 type Deps struct {
 	Store       Store
 	Media       Searcher
+	Resolver    Resolver
 	MediaRoot   string
 	WorkerToken string
 	DevUI       bool
 	Log         *slog.Logger
 }
 
-type api struct{ Deps }
+type api struct {
+	Deps
+	upstream *http.Client
+	mu       sync.Mutex
+	streams  map[uuid.UUID]cachedStream
+}
 
 var mediaFileRE = regexp.MustCompile(`^([0-9a-f]{64})(\.300)?\.(m4a|jpg|png|webp)$`)
 
 func New(d Deps) http.Handler {
-	a := &api{d}
+	a := &api{Deps: d, upstream: newUpstreamClient(), streams: map[uuid.UUID]cachedStream{}}
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID, middleware.Recoverer)
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) { writeJSON(w, http.StatusOK, map[string]bool{"ok": true}) })
@@ -80,6 +87,7 @@ func New(d Deps) http.Handler {
 		r.Post("/tracks", a.addTrack)
 		r.Get("/tracks/{id}", a.track)
 		r.Get("/tracks/{id}/audio", a.trackAudio)
+		r.Get("/tracks/{id}/stream", a.streamTrack)
 		r.Post("/tracks/{id}/cache", a.cacheTrack)
 		r.Put("/tracks/{id}/source", a.chooseSource)
 		r.Get("/tracks/{id}/lyrics", a.lyrics)

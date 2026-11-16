@@ -50,11 +50,13 @@ func run(log *slog.Logger) error {
 
 	st := store.New(pool)
 	st.BackgroundDownloadInterval = cfg.BackgroundDownloadInterval
+	mediaService := media.New(cfg.MediaServiceURL)
 	srv := &http.Server{
 		Addr: cfg.ListenAddr,
 		Handler: httpapi.New(httpapi.Deps{
 			Store:       st,
-			Media:       media.New(cfg.MediaServiceURL),
+			Media:       mediaService,
+			Resolver:    mediaService,
 			MediaRoot:   cfg.MediaRoot,
 			WorkerToken: cfg.WorkerToken,
 			DevUI:       cfg.DevUI,

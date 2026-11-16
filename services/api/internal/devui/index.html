@@ -365,17 +365,29 @@
   }
 
   function render(view) {
-    $("p-status").textContent = view.status;
-    $("p-err").textContent = view.error ? "Error: " + view.error : "";
     const audio = $("audio");
+    const streaming = audio.dataset.stream === view.id && !audio.paused && !audio.ended;
+    $("p-status").textContent = streaming ? "streaming" : view.status;
+    $("p-err").textContent = view.error ? "Error: " + view.error : "";
     if (view.audio) {
       peaks = view.audio.waveform || [];
       $("p-loud").textContent = "Original loudness " + Number(view.audio.loudness_lufs).toFixed(1) + " LUFS";
       $("p-gain").textContent = "Gain " + Number(view.audio.gain_db).toFixed(1) + " dB";
       $("p-dur").textContent = fmt(view.audio.duration_ms);
-      if (audio.dataset.src !== view.audio.url) {
+      if (!streaming && audio.dataset.src !== view.audio.url) {
         audio.dataset.src = view.audio.url;
+        delete audio.dataset.stream;
         audio.src = view.audio.url;
+        audio.play().catch(() => {});
+      }
+    } else if (view.stream_url) {
+      peaks = [];
+      $("p-loud").textContent = $("p-gain").textContent = $("p-dur").textContent = "";
+      $("p-status").textContent = "streaming";
+      if (audio.dataset.src !== view.stream_url) {
+        audio.dataset.src = view.stream_url;
+        audio.dataset.stream = view.id;
+        audio.src = view.stream_url;
         audio.play().catch(() => {});
       }
     } else {
@@ -383,6 +395,7 @@
       $("p-loud").textContent = $("p-gain").textContent = $("p-dur").textContent = "";
       audio.removeAttribute("src");
       delete audio.dataset.src;
+      delete audio.dataset.stream;
     }
     draw();
   }
