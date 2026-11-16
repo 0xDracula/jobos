@@ -8,7 +8,7 @@ import time
 
 import httpx
 
-from . import config, ingest, lyrics, match
+from . import config, enrich, ingest, lyrics, match
 
 log = logging.getLogger("jobbos.worker")
 
@@ -25,7 +25,16 @@ def handle_lyrics(payload: dict) -> dict:
     return lyrics.fetch_lyrics(payload)
 
 
-HANDLERS = {"download_track": handle_download, "match_track": handle_match, "fetch_lyrics": handle_lyrics}
+def handle_enrich(payload: dict) -> dict:
+    return enrich.enrich(payload)
+
+
+HANDLERS = {
+    "download_track": handle_download,
+    "match_track": handle_match,
+    "fetch_lyrics": handle_lyrics,
+    "enrich_metadata": handle_enrich,
+}
 
 
 def describe(kind: str, payload: dict, result: dict) -> str:
@@ -35,6 +44,9 @@ def describe(kind: str, payload: dict, result: dict) -> str:
     if kind == "fetch_lyrics":
         found = "synced" if result["synced_lrc"] else "plain" if result["plain"] else "instrumental" if result["instrumental"] else "none"
         return f"{result['source'] or '-'} {found} {payload['title']!r}"
+    if kind == "enrich_metadata":
+        art = result["artwork_source"] or "-"
+        return f"artwork {art}, artist image {'yes' if result['artist_image'] else '-'} {payload['title']!r}"
     return "done"
 
 
