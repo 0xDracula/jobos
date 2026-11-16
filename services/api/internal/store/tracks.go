@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -64,15 +65,15 @@ func (s *Store) AddTrackFromSource(ctx context.Context, in SourceTrack) (trackID
 
 	var albumID *uuid.UUID
 	if in.Album != nil && in.Album.Name != "" {
-		id, aerr := upsertAlbum(ctx, tx, *in.Album)
+		id, aerr := upsertAlbum(ctx, tx, "ytmusic_id", in.Album.ID, in.Album.Name, nil)
 		if aerr != nil {
 			return trackID, sourceID, false, aerr
 		}
 		albumID = &id
 	}
 	trackID = newID()
-	if _, err = tx.Exec(ctx, `insert into tracks (id, title, album_id, duration_ms, explicit, artwork_url)
-		values ($1, $2, $3, $4, $5, $6)`,
+	if _, err = tx.Exec(ctx, `insert into tracks (id, title, album_id, duration_ms, explicit, artwork_url, match_status)
+		values ($1, $2, $3, $4, $5, $6, 'chosen')`,
 		trackID, in.Title, albumID, in.DurationMs, in.Explicit, in.Thumbnail); err != nil {
 		return
 	}
@@ -80,7 +81,7 @@ func (s *Store) AddTrackFromSource(ctx context.Context, in SourceTrack) (trackID
 		if a.Name == "" {
 			continue
 		}
-		artistID, aerr := upsertArtist(ctx, tx, a)
+		artistID, aerr := upsertArtist(ctx, tx, "ytmusic_id", a.ID, a.Name)
 		if aerr != nil {
 			return trackID, sourceID, false, aerr
 		}
@@ -90,43 +91,57 @@ func (s *Store) AddTrackFromSource(ctx context.Context, in SourceTrack) (trackID
 		}
 	}
 	sourceID = newID()
-	if _, err = tx.Exec(ctx, `insert into track_sources (id, track_id, provider, external_id, raw_title, duration_ms, match_score, status)
-		values ($1, $2, $3, $4, $5, $6, 1, 'selected')`,
-		sourceID, trackID, in.Provider, in.ExternalID, in.Title, in.DurationMs); err != nil {
+	if _, err = tx.Exec(ctx, `insert into track_sources (id, track_id, provider, external_id, raw_title, uploader, duration_ms, match_score, status)
+		values ($1, $2, $3, $4, $5, $6, $7, 1, 'selected')`,
+		sourceID, trackID, in.Provider, in.ExternalID, in.Title, artistNames(in.Artists), in.DurationMs); err != nil {
 		return
 	}
 	return trackID, sourceID, true, tx.Commit(ctx)
 }
 
-func upsertArtist(ctx context.Context, tx pgx.Tx, a ArtistRef) (uuid.UUID, error) {
+func artistNames(artists []ArtistRef) *string {
+	names := make([]string, 0, len(artists))
+	for _, a := range artists {
+		if a.Name != "" {
+			names = append(names, a.Name)
+		}
+	}
+	if len(names) == 0 {
+		return nil
+	}
+	s := strings.Join(names, ", ")
+	return &s
+}
+
+func upsertArtist(ctx context.Context, tx pgx.Tx, column, externalID, name string) (uuid.UUID, error) {
 	var id uuid.UUID
-	if a.ID != "" {
-		err := tx.QueryRow(ctx, `insert into artists (id, name, ytmusic_id) values ($1, $2, $3)
-			on conflict (ytmusic_id) where ytmusic_id is not null
+	if externalID != "" {
+		err := tx.QueryRow(ctx, fmt.Sprintf(`insert into artists (id, name, %[1]s) values ($1, $2, $3)
+			on conflict (%[1]s) where %[1]s is not null
 			do update set name = excluded.name, updated_at = now()
-			returning id`, newID(), a.Name, a.ID).Scan(&id)
+			returning id`, column), newID(), name, externalID).Scan(&id)
 		return id, err
 	}
-	err := tx.QueryRow(ctx, `select id from artists where lower(name) = lower($1) order by created_at limit 1`, a.Name).Scan(&id)
+	err := tx.QueryRow(ctx, `select id from artists where lower(name) = lower($1) order by created_at limit 1`, name).Scan(&id)
 	if err == nil || !errors.Is(err, pgx.ErrNoRows) {
 		return id, err
 	}
 	id = newID()
-	_, err = tx.Exec(ctx, `insert into artists (id, name) values ($1, $2)`, id, a.Name)
+	_, err = tx.Exec(ctx, `insert into artists (id, name) values ($1, $2)`, id, name)
 	return id, err
 }
 
-func upsertAlbum(ctx context.Context, tx pgx.Tx, a AlbumRef) (uuid.UUID, error) {
+func upsertAlbum(ctx context.Context, tx pgx.Tx, column, externalID, title string, artworkURL *string) (uuid.UUID, error) {
 	var id uuid.UUID
-	if a.ID != "" {
-		err := tx.QueryRow(ctx, `insert into albums (id, title, ytmusic_id) values ($1, $2, $3)
-			on conflict (ytmusic_id) where ytmusic_id is not null
-			do update set title = excluded.title, updated_at = now()
-			returning id`, newID(), a.Name, a.ID).Scan(&id)
+	if externalID != "" {
+		err := tx.QueryRow(ctx, fmt.Sprintf(`insert into albums (id, title, %[1]s, artwork_url) values ($1, $2, $3, $4)
+			on conflict (%[1]s) where %[1]s is not null
+			do update set title = excluded.title, artwork_url = coalesce(excluded.artwork_url, albums.artwork_url), updated_at = now()
+			returning id`, column), newID(), title, externalID, artworkURL).Scan(&id)
 		return id, err
 	}
 	id = newID()
-	_, err := tx.Exec(ctx, `insert into albums (id, title) values ($1, $2)`, id, a.Name)
+	_, err := tx.Exec(ctx, `insert into albums (id, title, artwork_url) values ($1, $2, $3)`, id, title, artworkURL)
 	return id, err
 }
 
@@ -135,88 +150,114 @@ type AudioView struct {
 	DurationMs   *int32          `json:"duration_ms"`
 	LoudnessLUFS *float32        `json:"loudness_lufs"`
 	GainDB       *float32        `json:"gain_db"`
-	Waveform     json.RawMessage `json:"waveform"`
+	Waveform     json.RawMessage `json:"waveform,omitempty"`
+}
+
+type SourceView struct {
+	ID         uuid.UUID `json:"id"`
+	Provider   string    `json:"provider"`
+	ExternalID string    `json:"external_id"`
+	Title      *string   `json:"title"`
+	Uploader   *string   `json:"uploader"`
+	DurationMs *int32    `json:"duration_ms"`
+	Score      *float32  `json:"score"`
 }
 
 type TrackView struct {
-	ID         uuid.UUID  `json:"id"`
-	Title      string     `json:"title"`
-	Artists    []string   `json:"artists"`
-	Album      *string    `json:"album"`
-	DurationMs *int32     `json:"duration_ms"`
-	ArtworkURL *string    `json:"artwork_url"`
-	Status     string     `json:"status"`
-	Error      *string    `json:"error,omitempty"`
-	Audio      *AudioView `json:"audio,omitempty"`
-	sourceID   uuid.NullUUID
+	ID          uuid.UUID   `json:"id"`
+	Title       string      `json:"title"`
+	Artists     []string    `json:"artists"`
+	Album       *string     `json:"album"`
+	DurationMs  *int32      `json:"duration_ms"`
+	ArtworkURL  *string     `json:"artwork_url"`
+	MatchStatus *string     `json:"match_status"`
+	Status      string      `json:"status"`
+	Error       *string     `json:"error,omitempty"`
+	Source      *SourceView `json:"source,omitempty"`
+	Audio       *AudioView  `json:"audio,omitempty"`
 }
 
 var ErrNotFound = errors.New("not found")
 
-func (s *Store) Track(ctx context.Context, id uuid.UUID) (*TrackView, error) {
+const trackViewSQL = `select t.id, t.title, al.title, t.duration_ms, t.artwork_url,
+		coalesce((select array_agg(a.name order by ta.position) from track_artists ta
+			join artists a on a.id = ta.artist_id where ta.track_id = t.id), '{}'),
+		t.match_status,
+		ma.sha256, ma.duration_ms, ma.loudness_lufs, ma.gain_db, ma.waveform,
+		ts.id, ts.provider, ts.external_id, ts.raw_title, ts.uploader, ts.duration_ms, ts.match_score,
+		dj.status, dj.last_error
+	from tracks t
+	left join albums al on al.id = t.album_id
+	left join track_media tm on tm.track_id = t.id and tm.variant = 'main'
+	left join media_assets ma on ma.id = tm.asset_id
+	left join track_sources ts on ts.track_id = t.id and ts.status = 'selected'
+	left join lateral (select j.status, j.last_error from jobs j
+		where ts.id is not null and j.dedupe_key = 'download:' || ts.id::text
+		order by j.id desc limit 1) dj on true`
+
+func scanTrackView(row pgx.Row) (*TrackView, error) {
 	var (
-		v        TrackView
-		sha      *string
-		mDur     *int32
-		loudness *float32
-		gain     *float32
-		waveform []byte
+		v                               TrackView
+		sha                             *string
+		mDur, sDur                      *int32
+		loudness, gain, score           *float32
+		waveform                        []byte
+		sourceID                        uuid.NullUUID
+		provider, externalID, rawTitle  *string
+		uploader, jobStatus, jobLastErr *string
 	)
-	err := s.pool.QueryRow(ctx, `select t.id, t.title, al.title, t.duration_ms, t.artwork_url,
-			coalesce((select array_agg(a.name order by ta.position) from track_artists ta
-				join artists a on a.id = ta.artist_id where ta.track_id = t.id), '{}'),
-			ma.sha256, ma.duration_ms, ma.loudness_lufs, ma.gain_db, ma.waveform,
-			(select ts.id from track_sources ts where ts.track_id = t.id and ts.status = 'selected')
-		from tracks t
-		left join albums al on al.id = t.album_id
-		left join track_media tm on tm.track_id = t.id and tm.variant = 'main'
-		left join media_assets ma on ma.id = tm.asset_id
-		where t.id = $1`, id).Scan(&v.ID, &v.Title, &v.Album, &v.DurationMs, &v.ArtworkURL, &v.Artists,
-		&sha, &mDur, &loudness, &gain, &waveform, &v.sourceID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, ErrNotFound
-	}
-	if err != nil {
+	if err := row.Scan(&v.ID, &v.Title, &v.Album, &v.DurationMs, &v.ArtworkURL, &v.Artists, &v.MatchStatus,
+		&sha, &mDur, &loudness, &gain, &waveform,
+		&sourceID, &provider, &externalID, &rawTitle, &uploader, &sDur, &score,
+		&jobStatus, &jobLastErr); err != nil {
 		return nil, err
 	}
-	if sha != nil {
+	if sourceID.Valid {
+		v.Source = &SourceView{ID: sourceID.UUID, Provider: *provider, ExternalID: *externalID,
+			Title: rawTitle, Uploader: uploader, DurationMs: sDur, Score: score}
+	}
+	switch {
+	case sha != nil:
 		v.Status = "cached"
 		v.Audio = &AudioView{URL: "/api/media/" + *sha + ".m4a", DurationMs: mDur, LoudnessLUFS: loudness, GainDB: gain, Waveform: waveform}
-		return &v, nil
-	}
-	v.Status = "missing"
-	if v.sourceID.Valid {
-		var status string
-		var lastErr *string
-		err := s.pool.QueryRow(ctx, `select status, last_error from jobs where dedupe_key = $1 order by id desc limit 1`,
-			DownloadKey(v.sourceID.UUID)).Scan(&status, &lastErr)
-		if err == nil {
-			v.Status, v.Error = status, lastErr
-		} else if !errors.Is(err, pgx.ErrNoRows) {
-			return nil, err
-		}
+	case jobStatus != nil && *jobStatus != "done":
+		v.Status, v.Error = *jobStatus, jobLastErr
+	default:
+		v.Status = "missing"
 	}
 	return &v, nil
 }
 
-func (s *Store) ListTracks(ctx context.Context, limit int) ([]TrackView, error) {
-	rows, err := s.pool.Query(ctx, `select id from tracks order by created_at desc limit $1`, limit)
+func (s *Store) Track(ctx context.Context, id uuid.UUID) (*TrackView, error) {
+	v, err := scanTrackView(s.pool.QueryRow(ctx, trackViewSQL+` where t.id = $1`, id))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	return v, err
+}
+
+func (s *Store) trackViews(ctx context.Context, suffix string, args ...any) ([]TrackView, error) {
+	rows, err := s.pool.Query(ctx, trackViewSQL+" "+suffix, args...)
 	if err != nil {
 		return nil, err
 	}
-	ids, err := pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
-	if err != nil {
-		return nil, err
-	}
-	out := make([]TrackView, 0, len(ids))
-	for _, id := range ids {
-		v, err := s.Track(ctx, id)
+	defer rows.Close()
+	out := []TrackView{}
+	for rows.Next() {
+		v, err := scanTrackView(rows)
 		if err != nil {
 			return nil, err
 		}
+		if v.Audio != nil {
+			v.Audio.Waveform = nil
+		}
 		out = append(out, *v)
 	}
-	return out, nil
+	return out, rows.Err()
+}
+
+func (s *Store) ListTracks(ctx context.Context, limit int) ([]TrackView, error) {
+	return s.trackViews(ctx, `order by t.created_at desc limit $1`, limit)
 }
 
 func (s *Store) AssetBySHA(ctx context.Context, sha string) (path, mime string, err error) {

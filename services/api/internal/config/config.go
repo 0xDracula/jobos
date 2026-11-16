@@ -3,16 +3,18 @@ package config
 import (
 	"fmt"
 	"os"
+	"time"
 )
 
 type Config struct {
-	DatabaseURL     string
-	ListenAddr      string
-	MediaServiceURL string
-	MediaRoot       string
-	MigrationsDir   string
-	WorkerToken     string
-	DevUI           bool
+	DatabaseURL                string
+	ListenAddr                 string
+	MediaServiceURL            string
+	MediaRoot                  string
+	MigrationsDir              string
+	WorkerToken                string
+	DevUI                      bool
+	BackgroundDownloadInterval time.Duration
 }
 
 func Load() (Config, error) {
@@ -36,6 +38,11 @@ func Load() (Config, error) {
 			return c, fmt.Errorf("%s is not set", r.name)
 		}
 	}
+	interval, err := time.ParseDuration(getenv("BACKGROUND_DOWNLOAD_INTERVAL", "20s"))
+	if err != nil || interval < 0 {
+		return c, fmt.Errorf("BACKGROUND_DOWNLOAD_INTERVAL must be a duration such as 20s")
+	}
+	c.BackgroundDownloadInterval = interval
 	return c, nil
 }
 

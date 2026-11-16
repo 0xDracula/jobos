@@ -60,3 +60,33 @@ func TestSearchNeedsQuery(t *testing.T) {
 		t.Errorf("status %d, want 400", rec.Code)
 	}
 }
+
+func TestImportValidatesInput(t *testing.T) {
+	cases := map[string]struct{ query, body string }{
+		"no link":      {"?name=Mix", "Track URI,Track Name,Artist Name(s)\n"},
+		"album link":   {"?name=Mix&url=https://open.spotify.com/album/7yEdkXGwVhjU2OSNidRzCT", ""},
+		"no name":      {"?url=spotify:playlist:7yEdkXGwVhjU2OSNidRzCT", ""},
+		"not exported": {"?name=Mix&url=spotify:playlist:7yEdkXGwVhjU2OSNidRzCT", "Title,Artist\nWahdy,Cairokee\n"},
+		"no tracks":    {"?name=Mix&url=spotify:playlist:7yEdkXGwVhjU2OSNidRzCT", "Track URI,Track Name,Artist Name(s)\n"},
+	}
+	for name, c := range cases {
+		rec := httptest.NewRecorder()
+		testServer().ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/playlists/import"+c.query, strings.NewReader(c.body)))
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("%s: status %d, want 400", name, rec.Code)
+		}
+	}
+}
+
+func TestBadIDsAreNotFound(t *testing.T) {
+	for _, req := range []*http.Request{
+		httptest.NewRequest(http.MethodPost, "/api/tracks/not-a-uuid/cache", nil),
+		httptest.NewRequest(http.MethodGet, "/api/playlists/not-a-uuid", nil),
+	} {
+		rec := httptest.NewRecorder()
+		testServer().ServeHTTP(rec, req)
+		if rec.Code != http.StatusNotFound {
+			t.Errorf("%s %s: status %d, want 404", req.Method, req.URL.Path, rec.Code)
+		}
+	}
+}

@@ -18,6 +18,7 @@ import (
 	"github.com/google/uuid"
 
 	"jobbos/api/internal/devui"
+	"jobbos/api/internal/importer"
 	"jobbos/api/internal/store"
 )
 
@@ -27,7 +28,11 @@ type Store interface {
 	Track(ctx context.Context, id uuid.UUID) (*store.TrackView, error)
 	ListTracks(ctx context.Context, limit int) ([]store.TrackView, error)
 	AssetBySHA(ctx context.Context, sha string) (string, string, error)
-	Enqueue(ctx context.Context, queue, kind string, payload any, dedupeKey string) (int64, bool, error)
+	Enqueue(ctx context.Context, j store.JobSpec) (int64, bool, error)
+	EnqueueMatch(ctx context.Context, trackID uuid.UUID, priority int) error
+	ImportPlaylist(ctx context.Context, in store.PlaylistImport) (store.ImportSummary, error)
+	Playlists(ctx context.Context) ([]store.PlaylistSummary, error)
+	Playlist(ctx context.Context, id uuid.UUID) (*store.PlaylistView, error)
 	ClaimJob(ctx context.Context, queue, worker string, kinds []string) (*store.Job, error)
 	CompleteJob(ctx context.Context, id int64, result json.RawMessage) error
 	FailJob(ctx context.Context, id int64, message string) error
@@ -68,7 +73,11 @@ func New(d Deps) http.Handler {
 		r.Post("/tracks", a.addTrack)
 		r.Get("/tracks/{id}", a.track)
 		r.Get("/tracks/{id}/audio", a.trackAudio)
+		r.Post("/tracks/{id}/cache", a.cacheTrack)
 		r.Get("/media/{file}", a.mediaFile)
+		r.Get("/playlists", a.listPlaylists)
+		r.Post("/playlists/import", a.importPlaylist)
+		r.Get("/playlists/{id}", a.playlist)
 	})
 	r.Route("/internal", func(r chi.Router) {
 		r.Use(a.requireWorker)
@@ -119,8 +128,7 @@ func (a *api) addTrack(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !cached {
-		payload := store.DownloadPayload{TrackID: trackID, SourceID: sourceID, Provider: in.Provider, ExternalID: in.ExternalID}
-		if _, _, err := a.Store.Enqueue(r.Context(), "default", store.KindDownloadTrack, payload, store.DownloadKey(sourceID)); err != nil {
+		if err := a.enqueueDownload(r.Context(), trackID, sourceID, in.Provider, in.ExternalID); err != nil {
 			a.serverError(w, "enqueue download", err)
 			return
 		}
@@ -135,6 +143,114 @@ func (a *api) addTrack(w http.ResponseWriter, r *http.Request) {
 		status = http.StatusCreated
 	}
 	writeJSON(w, status, view)
+}
+
+func (a *api) enqueueDownload(ctx context.Context, trackID, sourceID uuid.UUID, provider, externalID string) error {
+	_, _, err := a.Store.Enqueue(ctx, store.JobSpec{
+		Kind:      store.KindDownloadTrack,
+		Payload:   store.DownloadPayload{TrackID: trackID, SourceID: sourceID, Provider: provider, ExternalID: externalID},
+		DedupeKey: store.DownloadKey(sourceID),
+		Priority:  store.PriorityInteractive,
+	})
+	return err
+}
+
+func (a *api) cacheTrack(w http.ResponseWriter, r *http.Request) {
+	view, ok := a.loadTrack(w, r)
+	if !ok {
+		return
+	}
+	if view.Status == "cached" {
+		writeJSON(w, http.StatusOK, view)
+		return
+	}
+	var err error
+	switch {
+	case view.Source != nil:
+		err = a.enqueueDownload(r.Context(), view.ID, view.Source.ID, view.Source.Provider, view.Source.ExternalID)
+	case view.MatchStatus != nil && *view.MatchStatus == "pending":
+		err = a.Store.EnqueueMatch(r.Context(), view.ID, store.PriorityInteractive)
+	default:
+		writeError(w, http.StatusConflict, "track has no recording")
+		return
+	}
+	if err != nil {
+		a.serverError(w, "enqueue", err)
+		return
+	}
+	if view, err = a.Store.Track(r.Context(), view.ID); err != nil {
+		a.serverError(w, "load track", err)
+		return
+	}
+	writeJSON(w, http.StatusAccepted, view)
+}
+
+func (a *api) importPlaylist(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	playlistID, err := importer.SpotifyPlaylistID(q.Get("url"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "url must be a Spotify playlist link")
+		return
+	}
+	name := strings.TrimSpace(q.Get("name"))
+	if name == "" || len(name) > 200 {
+		writeError(w, http.StatusBadRequest, "name is required (200 characters at most)")
+		return
+	}
+	tracks, skipped, err := importer.ParseExportify(http.MaxBytesReader(w, r.Body, 20<<20))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if len(tracks) == 0 {
+		writeError(w, http.StatusBadRequest, "the export has no tracks")
+		return
+	}
+	sum, err := a.Store.ImportPlaylist(r.Context(), store.PlaylistImport{
+		Provider:   "spotify",
+		ExternalID: playlistID,
+		URL:        "https://open.spotify.com/playlist/" + playlistID,
+		Name:       name,
+		Tracks:     tracks,
+	})
+	if err != nil {
+		a.serverError(w, "import playlist", err)
+		return
+	}
+	sum.Skipped = skipped
+	a.Log.Info("playlist imported", "playlist", sum.PlaylistID, "tracks", sum.Tracks, "added", sum.Added, "queued", sum.Queued)
+	status := http.StatusOK
+	if sum.Created {
+		status = http.StatusCreated
+	}
+	writeJSON(w, status, sum)
+}
+
+func (a *api) listPlaylists(w http.ResponseWriter, r *http.Request) {
+	playlists, err := a.Store.Playlists(r.Context())
+	if err != nil {
+		a.serverError(w, "list playlists", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"playlists": playlists})
+}
+
+func (a *api) playlist(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusNotFound, "playlist not found")
+		return
+	}
+	view, err := a.Store.Playlist(r.Context(), id)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "playlist not found")
+		return
+	}
+	if err != nil {
+		a.serverError(w, "load playlist", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, view)
 }
 
 func (a *api) listTracks(w http.ResponseWriter, r *http.Request) {

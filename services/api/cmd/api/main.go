@@ -48,10 +48,12 @@ func run(log *slog.Logger) error {
 		log.Info("migration applied", "file", name)
 	}
 
+	st := store.New(pool)
+	st.BackgroundDownloadInterval = cfg.BackgroundDownloadInterval
 	srv := &http.Server{
 		Addr: cfg.ListenAddr,
 		Handler: httpapi.New(httpapi.Deps{
-			Store:       store.New(pool),
+			Store:       st,
 			Media:       media.New(cfg.MediaServiceURL),
 			MediaRoot:   cfg.MediaRoot,
 			WorkerToken: cfg.WorkerToken,

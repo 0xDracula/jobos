@@ -11,9 +11,16 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
-const KindDownloadTrack = "download_track"
+const (
+	KindDownloadTrack = "download_track"
+	KindMatchTrack    = "match_track"
+
+	PriorityInteractive = 10
+	PriorityBackground  = 0
+)
 
 var (
 	ErrJobNotRunning = errors.New("job is not running")
@@ -49,18 +56,40 @@ func Backoff(attempt int32) time.Duration {
 	}
 }
 
-func (s *Store) Enqueue(ctx context.Context, queue, kind string, payload any, dedupeKey string) (id int64, added bool, err error) {
-	body, err := json.Marshal(payload)
+type JobSpec struct {
+	Queue     string
+	Kind      string
+	Payload   any
+	DedupeKey string
+	Priority  int
+}
+
+type querier interface {
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
+func (s *Store) Enqueue(ctx context.Context, j JobSpec) (id int64, added bool, err error) {
+	return enqueue(ctx, s.pool, j)
+}
+
+func enqueue(ctx context.Context, q querier, j JobSpec) (id int64, added bool, err error) {
+	body, err := json.Marshal(j.Payload)
 	if err != nil {
 		return 0, false, err
 	}
-	err = s.pool.QueryRow(ctx, `insert into jobs (queue, kind, payload, dedupe_key) values ($1, $2, $3, $4)
-		on conflict (dedupe_key) where dedupe_key is not null and status in ('queued', 'running') do nothing
-		returning id`, queue, kind, body, dedupeKey).Scan(&id)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return 0, false, nil
+	if j.Queue == "" {
+		j.Queue = "default"
 	}
-	return id, err == nil, err
+	var dedupe *string
+	if j.DedupeKey != "" {
+		dedupe = &j.DedupeKey
+	}
+	err = q.QueryRow(ctx, `insert into jobs (queue, kind, payload, dedupe_key, priority) values ($1, $2, $3, $4, $5)
+		on conflict (dedupe_key) where dedupe_key is not null and status in ('queued', 'running')
+		do update set priority = greatest(jobs.priority, excluded.priority)
+		returning id, xmax = 0`, j.Queue, j.Kind, body, dedupe, j.Priority).Scan(&id, &added)
+	return id, added, err
 }
 
 func (s *Store) ClaimJob(ctx context.Context, queue, worker string, kinds []string) (*Job, error) {
@@ -74,10 +103,14 @@ func (s *Store) ClaimJob(ctx context.Context, queue, worker string, kinds []stri
 		where id = (
 			select id from jobs
 			where queue = $1 and status = 'queued' and run_after <= now() and kind = any($3)
+				and not (kind = $4 and priority <= 0 and exists (
+					select 1 from jobs r where r.kind = $4 and r.priority <= 0
+						and r.locked_at > now() - make_interval(secs => $5)))
 			order by priority desc, id
 			for update skip locked
 			limit 1)
-		returning id, kind, payload, attempts`, queue, worker, kinds).Scan(&j.ID, &j.Kind, &payload, &j.Attempts)
+		returning id, kind, payload, attempts`,
+		queue, worker, kinds, KindDownloadTrack, s.BackgroundDownloadInterval.Seconds()).Scan(&j.ID, &j.Kind, &payload, &j.Attempts)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -145,10 +178,14 @@ func (s *Store) CompleteJob(ctx context.Context, id int64, result json.RawMessag
 	if err != nil {
 		return err
 	}
-	if kind == KindDownloadTrack {
-		if err := completeDownload(ctx, tx, payload, result); err != nil {
-			return err
-		}
+	switch kind {
+	case KindDownloadTrack:
+		err = completeDownload(ctx, tx, payload, result)
+	case KindMatchTrack:
+		err = completeMatch(ctx, tx, payload, result)
+	}
+	if err != nil {
+		return err
 	}
 	if _, err := tx.Exec(ctx, `update jobs set status = 'done', finished_at = now(), result = $2, last_error = null where id = $1`,
 		id, []byte(result)); err != nil {
@@ -224,6 +261,15 @@ func (s *Store) FailJob(ctx context.Context, id int64, message string) error {
 	}
 	if err != nil {
 		return err
+	}
+	if kind == KindMatchTrack && attempts >= maxAttempts {
+		var p MatchPayload
+		if json.Unmarshal(payload, &p) == nil {
+			if _, err := tx.Exec(ctx, `update tracks set match_status = 'unmatched', updated_at = now()
+				where id = $1 and match_status = 'pending'`, p.TrackID); err != nil {
+				return err
+			}
+		}
 	}
 	if kind == KindDownloadTrack {
 		var p DownloadPayload
