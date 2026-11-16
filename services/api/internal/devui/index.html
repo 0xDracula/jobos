@@ -65,6 +65,9 @@
   audio { width: 100%; }
   .meta { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-top: 8px; }
   .empty { color: var(--muted); padding: 8px 0; }
+  .versions { margin-top: 12px; }
+  .versions summary { cursor: pointer; font-weight: 700; padding: 4px 0; }
+  .versions form { margin: 8px 0 0; }
   .lyrics { position: relative; max-height: 280px; overflow-y: auto; margin-top: 12px; padding: 8px 4px 0; border-top: 1px solid var(--line); }
   .lyrics .line { padding: 3px 0; color: var(--muted); cursor: pointer; font-size: 17px; line-height: 1.5; transition: color 0.2s; }
   .lyrics .line.now { color: var(--ink); font-weight: 700; }
@@ -86,7 +89,7 @@
   <section class="card" aria-labelledby="search-h">
     <h2 id="search-h">Search</h2>
     <form id="search-form">
-      <input id="q" type="search" aria-label="Search" value="Ghir Enta Souad Massi" required>
+      <input id="q" type="search" aria-label="Search or link" placeholder="Song, artist or link" required>
       <button type="submit">Search</button>
     </form>
     <div id="results"></div>
@@ -109,6 +112,14 @@
     <div class="meta">
       <span id="p-loud"></span><span id="p-gain"></span><span id="p-dur"></span><span id="p-err"></span>
     </div>
+    <details class="versions" id="versions">
+      <summary>Versions</summary>
+      <div id="v-list"></div>
+      <form id="v-form">
+        <input id="v-url" type="url" required placeholder="https://www.youtube.com/watch?v=…" aria-label="Recording link">
+        <button type="submit">Use link</button>
+      </form>
+    </details>
     <div class="lyrics" id="lyrics" aria-label="Lyrics"></div>
   </section>
 
@@ -170,6 +181,7 @@
   let lyricOffset = 0;
   let lyricIndex = -1;
   let lyricsTimer = null;
+  const PROVIDER = { ytmusic: "YT Music", youtube: "YouTube", soundcloud: "SoundCloud", other: "Link" };
   const LYRICS_SOURCE = { lrclib: "LRCLIB", ytmusic: "YouTube Music", manual: "Manual" };
 
   async function api(path, opts) {
@@ -206,7 +218,7 @@
     const host = source.provider === "ytmusic" ? "https://music.youtube.com" : "https://www.youtube.com";
     const parts = [source.title, source.uploader, fmt(source.duration_ms)].filter(Boolean);
     const a = el("a", "sub", "Source: " + parts.join(" · "));
-    a.href = host + "/watch?v=" + encodeURIComponent(source.external_id);
+    a.href = /^https?:\/\//.test(source.external_id) ? source.external_id : host + "/watch?v=" + encodeURIComponent(source.external_id);
     a.target = "_blank";
     a.rel = "noopener noreferrer";
     a.dir = "auto";
@@ -235,23 +247,59 @@
 
   $("search-form").addEventListener("submit", async (e) => {
     e.preventDefault();
+    const q = $("q").value.trim();
     const list = $("results");
+    if (/^https?:\/\//i.test(q)) return importLink(q, list);
     list.replaceChildren(el("div", "empty", "Searching"));
+    const base = "/api/search?limit=20&q=" + encodeURIComponent(q);
+    const more = api(base + "&sources=soundcloud").catch(() => ({ results: [] }));
     try {
-      const { results } = await api("/api/search?q=" + encodeURIComponent($("q").value) + "&limit=10");
-      if (!results.length) return list.replaceChildren(el("div", "empty", "No results"));
-      list.replaceChildren(...results.map((r) => row({
-        artwork: r.thumbnail,
-        title: r.title,
-        subtitle: r.artists.map((a) => a.name).join(", ") + (r.album ? " · " + r.album.name : ""),
-        duration: r.duration_ms,
-        action: "Play",
-        onAction: () => addAndPlay(r),
-      })));
+      const { results } = await api(base + "&sources=ytmusic,youtube");
+      showResults(list, results);
+      const extra = (await more).results.filter((r) => !results.some((x) => x.external_id === r.external_id));
+      if (q === $("q").value.trim() && extra.length) showResults(list, results.concat(extra));
     } catch (err) {
       list.replaceChildren(el("div", "empty", "Search failed: " + err.message));
     }
   });
+
+  function showResults(list, results) {
+    if (!results.length) return list.replaceChildren(el("div", "empty", "No results"));
+    list.replaceChildren(...results.map((r) => row({
+      artwork: r.thumbnail,
+      title: r.title,
+      subtitle: r.artists.map((a) => a.name).join(", ") + (r.album ? " · " + r.album.name : ""),
+      duration: r.duration_ms,
+      chips: [chip(PROVIDER[r.provider] || r.provider)],
+      action: "Play",
+      onAction: () => addAndPlay(r),
+    })));
+  }
+
+  async function importLink(url, list) {
+    list.replaceChildren(el("div", "empty", "Opening link"));
+    try {
+      const res = await api("/api/links", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      if (res.track) {
+        list.replaceChildren(el("div", "empty", "Link: " + res.track.title));
+        show(res.track);
+        loadRecent();
+      } else if (res.playlist) {
+        const p = res.playlist;
+        const parts = [p.tracks + " tracks", p.added + " added", p.queued + " queued"];
+        if (res.truncated) parts.push("first 100 tracks");
+        list.replaceChildren(el("div", "empty", "Imported: " + parts.join(" · ")));
+        await loadPlaylists();
+        openPlaylist(p.playlist_id);
+      }
+    } catch (err) {
+      list.replaceChildren(el("div", "empty", err.message));
+    }
+  }
 
   async function addAndPlay(result) {
     try {
@@ -282,6 +330,8 @@
     $("p-title").textContent = view.title;
     $("p-artist").textContent = view.artists.join(", ");
     showArtwork(view);
+    $("versions").open = false;
+    $("v-list").replaceChildren();
     clearTimeout(pollTimer);
     render(view);
     if (view.status !== "cached" && view.status !== "failed") poll(view.id);
@@ -304,6 +354,71 @@
       ? "linear-gradient(135deg, color-mix(in srgb, " + tint.hex + " 28%, var(--surface)), var(--surface) 75%)"
       : "";
   }
+
+  async function loadVersions() {
+    const id = current;
+    const list = $("v-list");
+    list.replaceChildren(el("div", "empty", "Loading"));
+    try {
+      const { sources } = await api("/api/tracks/" + id + "/sources");
+      if (id !== current) return;
+      if (!sources.length) return list.replaceChildren(el("div", "empty", "No versions"));
+      list.replaceChildren(...sources.map((v) => {
+        const r = el("div", "row");
+        const info = el("div");
+        const title = sourceLink(v);
+        title.className = "title";
+        title.textContent = v.title || v.external_id;
+        const meta = [v.uploader, fmt(v.duration_ms), v.score != null ? "score " + v.score.toFixed(2) : ""].filter(Boolean).join(" · ");
+        const sub = el("div", "sub", meta);
+        sub.dir = "auto";
+        info.append(title, sub);
+        const chips = el("div", "chips");
+        chips.append(chip(PROVIDER[v.provider] || v.provider));
+        let action;
+        if (v.status === "selected") {
+          action = chip("selected", "ok");
+        } else {
+          action = el("button", "", "Use");
+          action.type = "button";
+          action.addEventListener("click", () => chooseVersion({
+            provider: v.provider, external_id: v.external_id, title: v.title || v.external_id,
+            artists: v.uploader ? [{ name: v.uploader }] : [], duration_ms: v.duration_ms,
+          }));
+        }
+        r.append(el("span"), info, el("span", "sub dur", ""), chips, action);
+        return r;
+      }));
+    } catch (err) {
+      list.replaceChildren(el("div", "empty", "Versions failed: " + err.message));
+    }
+  }
+
+  async function chooseVersion(body) {
+    try {
+      const view = await api("/api/tracks/" + current + "/source", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const audio = $("audio");
+      audio.pause();
+      delete audio.dataset.src;
+      delete audio.dataset.stream;
+      show(view);
+      $("versions").open = true;
+      loadVersions();
+    } catch (err) {
+      $("v-list").prepend(el("div", "empty", "Error: " + err.message));
+    }
+  }
+
+  $("versions").addEventListener("toggle", () => { if ($("versions").open) loadVersions(); });
+  $("v-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    chooseVersion({ url: $("v-url").value.trim() });
+    $("v-url").value = "";
+  });
 
   async function loadLyrics(id, tries = 0) {
     clearTimeout(lyricsTimer);
