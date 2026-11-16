@@ -17,6 +17,7 @@ import {
   MessageCircleHeart,
   Mic,
   NotebookPen,
+  Radio,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { memo, useMemo } from "react";
@@ -29,6 +30,7 @@ import { shareSong } from "@/lib/social";
 import { toast } from "@/lib/toast";
 import type { Track } from "@/lib/types";
 import { addToQueue, playNext, playTracks } from "@/player/controls";
+import { startRadio } from "@/player/radio";
 import { playable, selectCurrent, usePlayer, type PlayContext } from "@/player/store";
 
 import { DedicationMark } from "./Dedications";
@@ -112,6 +114,9 @@ export function TrackMenu({
             </MenuSubContent>
           </MenuSub>
         )}
+        <MenuItem icon={<Radio />} disabled={!can} onSelect={() => void startRadio({ type: "track", id: track.id, name: track.title })}>
+          Radio
+        </MenuItem>
         <MenuItem icon={<AudioLines />} onSelect={() => openVersions(track)}>
           Versions
         </MenuItem>

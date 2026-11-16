@@ -15,6 +15,7 @@ import { isPublicPath, useIsAdmin, useMe, useMembers } from "@/lib/session";
 import { startSocial, usePresence } from "@/lib/social";
 import { startGift } from "@/lib/gift";
 import { startTogetherState } from "@/lib/together";
+import { startRadioWatch } from "@/player/radio";
 import { startTogetherSync } from "@/player/together";
 import { dismiss, useToasts } from "@/lib/toast";
 import { usePalette } from "@/player/shortcuts";
@@ -215,6 +216,7 @@ function AuthGate({ children }: { children: ReactNode }) {
     );
     startTogetherState();
     startTogetherSync(me.data.id);
+    startRadioWatch();
     startGift();
   }, [me.data]);
   useEffect(() => {

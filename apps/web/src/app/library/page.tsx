@@ -1,7 +1,7 @@
 "use client";
 
 import * as Tabs from "@radix-ui/react-tabs";
-import { BookHeart, CassetteTape, Disc3, Flower2, Mic, NotebookPen, Plus, Sparkles } from "lucide-react";
+import { BookHeart, CassetteTape, Compass, Disc3, Flower2, Headphones, Mic, NotebookPen, Plus, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -130,6 +130,8 @@ function History({ which }: { which: "recent" | "top" }) {
 }
 
 const KEEPSAKES: [string, string, typeof Disc3][] = [
+  ["/discover/", "Discover", Compass],
+  ["/together/", "Listen together", Headphones],
   ["/song/", "Our song", Disc3],
   ["/notes/", "Song notes", NotebookPen],
   ["/scrapbook/", "Scrapbook", BookHeart],

@@ -173,6 +173,9 @@ type Store interface {
 	SyncedLRC(ctx context.Context, trackID uuid.UUID) (string, error)
 	ListeningNow(ctx context.Context) (map[uuid.UUID]store.NowPlaying, error)
 	PlayCounts(ctx context.Context, trackID uuid.UUID) ([]store.PlayCount, error)
+	MixCandidates(ctx context.Context, userID uuid.UUID) ([]store.MixTrack, error)
+	RelatedArtists(ctx context.Context, artistIDs []uuid.UUID) (map[uuid.UUID][]uuid.UUID, error)
+	PlaylistTrackIDs(ctx context.Context, playlistID uuid.UUID) ([]uuid.UUID, error)
 }
 
 type Searcher interface {
@@ -316,6 +319,7 @@ func New(d Deps) http.Handler {
 			})
 			a.registerWorldRoutes(r)
 			a.registerGiftRoutes(r)
+			a.registerRadioRoutes(r)
 			r.Get("/tracks/{id}/lyrics", a.lyrics)
 			r.Patch("/tracks/{id}/lyrics", a.lyricsOffset)
 			r.Post("/lyrics/backfill", a.backfillLyrics)
