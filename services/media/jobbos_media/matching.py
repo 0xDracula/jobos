@@ -54,6 +54,7 @@ class Recording:
     duration_ms: int | None = None
     isrc: str | None = None
     official: bool = False
+    album: str | None = None
 
 
 def normalize_arabic(text: str) -> str:

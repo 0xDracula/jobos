@@ -1,4 +1,11 @@
+import pytest
+
 from jobbos_media import match
+
+
+@pytest.fixture(autouse=True)
+def no_soundcloud(monkeypatch):
+    monkeypatch.setattr(match.search, "search_soundcloud", lambda query, limit: [])
 
 
 def song(external_id, title, artist, seconds, official=True, provider="ytmusic"):
@@ -82,3 +89,20 @@ def test_title_only_search_finds_artists_spelled_differently():
     result = match.match_track(payload("Ba'aa Enta Bari'e", ["Jalila"], 258), songs, searcher([]))
     assert calls == ["Ba'aa Enta Bari'e Jalila", "Ba'aa Enta Bari'e"]
     assert result["candidates"][0]["external_id"] == "galila"
+
+
+def test_soundcloud_is_the_last_source():
+    sc = song("https://api.soundcloud.com/tracks/9", "Ya Abyad Ya Eswed", "Cairokee", 240, official=False, provider="soundcloud")
+    result = match.match_track(payload("Ya Abyad Ya Eswed", ["Cairokee"], 240), searcher([]), searcher([]), searcher([sc]))
+    assert result["candidates"][0]["provider"] == "soundcloud"
+    assert result["verdict"] == "accepted"
+
+
+def test_equal_scores_go_to_the_same_album_then_the_closer_length():
+    single = {**song("single", "Wahdy", "Cairokee", 294), "album": {"name": "Wahdy", "id": None}}
+    album = {**song("album", "Wahdy", "Cairokee", 294), "album": {"name": "Supernova", "id": None}}
+    p = {**payload("Wahdy", ["Cairokee"], 294), "album": "Supernova"}
+    assert match.match_track(p, searcher([single, album]), searcher([]))["candidates"][0]["external_id"] == "album"
+    near = song("near", "Wahdy", "Cairokee", 295)
+    far = song("far", "Wahdy", "Cairokee", 296)
+    assert match.rank(match.matching.Recording("Wahdy", ["Cairokee"], 295_400), [far, near])[0]["external_id"] == "near"

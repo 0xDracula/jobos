@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, Query
 from yt_dlp import version as ytdlp_version
 
-from . import ingest, links
+from . import ingest, links, status
 from . import search as search_module
 
 app = FastAPI(title="Jobbos media service")
@@ -10,6 +10,11 @@ app = FastAPI(title="Jobbos media service")
 @app.get("/health")
 def health() -> dict:
     return {"ok": True, "yt_dlp": ytdlp_version.__version__}
+
+
+@app.get("/status")
+def source_status() -> dict:
+    return status.status()
 
 
 @app.get("/resolve")

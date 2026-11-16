@@ -84,3 +84,32 @@ def test_unsupported_pages_name_their_domain(monkeypatch):
 def test_full_width_commas_split_artists():
     sc = {"extractor_key": "Soundcloud", "id": "2", "title": "Wahdy (Remix)", "uploader": "MO，Cairokee", "webpage_url": "https://soundcloud.com/x"}
     assert [a["name"] for a in links.recording_from_info(sc, sc["webpage_url"], "soundcloud.com")["artists"]] == ["MO", "Cairokee"]
+
+
+def test_youtube_playlist_ids():
+    assert links.youtube_playlist_id("https://www.youtube.com/playlist?list=PL123") == "PL123"
+    assert links.youtube_playlist_id("https://music.youtube.com/playlist?list=OLAK5uy_x") == "OLAK5uy_x"
+    assert links.youtube_playlist_id("https://www.youtube.com/watch?v=abc&list=PL123") is None
+    assert links.youtube_playlist_id("https://soundcloud.com/a/sets/b") is None
+
+
+def test_youtube_playlist_entries(monkeypatch):
+    class Client:
+        def get_playlist(self, list_id, limit):
+            return {
+                "title": "Road trip",
+                "trackCount": 3,
+                "tracks": [
+                    {"videoId": "a1", "title": "Wahdy", "artists": [{"name": "Cairokee", "id": "UC1"}], "duration_seconds": 294,
+                     "album": {"name": "Supernova", "id": "MPRE1"}, "thumbnails": [{"url": "https://lh3.googleusercontent.com/x=w60-h60"}]},
+                    {"videoId": None, "title": "Deleted video"},
+                    {"videoId": "b2", "title": "Blocked", "isAvailable": False},
+                ],
+            }
+
+    monkeypatch.setattr(links, "ytmusic_client", lambda: Client())
+    got = links.resolve_link("https://music.youtube.com/playlist?list=PLabc")
+    assert (got["kind"], got["provider"], got["id"], got["name"], got["truncated"]) == ("playlist", "ytmusic", "PLabc", "Road trip", False)
+    [r] = got["recordings"]
+    assert (r["external_id"], r["title"], r["duration_ms"], r["album"]["name"]) == ("a1", "Wahdy", 294000, "Supernova")
+    assert r["thumbnail"].endswith("=w544-h544")

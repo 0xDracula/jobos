@@ -5,6 +5,7 @@ import os
 import signal
 import socket
 import time
+from pathlib import Path
 
 import httpx
 
@@ -33,6 +34,9 @@ class Breaker:
     def is_open(self) -> bool:
         return self.clock() < self.until
 
+    def remaining_s(self) -> int:
+        return max(0, int(self.until - self.clock()))
+
 
 def handle_download(payload: dict) -> dict:
     return ingest.ingest(payload["provider"], payload["external_id"])
@@ -50,11 +54,33 @@ def handle_enrich(payload: dict) -> dict:
     return enrich.enrich(payload)
 
 
+def upload_path(rel: str) -> Path:
+    root = (config.MEDIA_ROOT / "uploads").resolve()
+    path = (config.MEDIA_ROOT / rel).resolve()
+    if root not in path.parents:
+        raise ValueError(f"not an upload: {rel}")
+    return path
+
+
+def cover(rel: str | None) -> dict | None:
+    return enrich.store_image(upload_path(rel).read_bytes(), "artwork", with_palette=True) if rel else None
+
+
+def handle_upload(payload: dict) -> dict:
+    return {**ingest.ingest_file(upload_path(payload["path"])), "cover": cover(payload.get("cover_path"))}
+
+
+def handle_cover(payload: dict) -> dict:
+    return {"cover": cover(payload["path"])}
+
+
 HANDLERS = {
     "download_track": handle_download,
     "match_track": handle_match,
     "fetch_lyrics": handle_lyrics,
     "enrich_metadata": handle_enrich,
+    "process_upload": handle_upload,
+    "process_cover": handle_cover,
 }
 
 
@@ -90,7 +116,10 @@ def main() -> None:
         while not stopping:
             kinds = [k for k in HANDLERS if not (k == "download_track" and downloads.is_open())]
             try:
-                r = http.post("/internal/jobs/claim", json={"queue": "default", "worker": worker_id, "kinds": kinds})
+                r = http.post(
+                    "/internal/jobs/claim",
+                    json={"queue": "default", "worker": worker_id, "kinds": kinds, "downloads_paused_s": downloads.remaining_s()},
+                )
             except httpx.HTTPError as e:
                 log.warning("API unreachable: %s", e)
                 time.sleep(5)
