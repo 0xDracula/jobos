@@ -39,7 +39,7 @@ export function Cassette({ title, color, spinning, className }: { title: string;
     </g>
   );
   return (
-    <div className={cn("relative aspect-[240/150] w-full", className)}>
+    <div className={cn("relative aspect-[240/150] w-full [container-type:inline-size]", className)}>
       <svg viewBox="0 0 240 150" className="absolute inset-0 size-full drop-shadow-[0_10px_18px_rgba(30,27,58,0.25)]" aria-hidden>
         <rect x={2} y={2} width={236} height={146} rx={12} fill="#2b2b3a" />
         <rect x={16} y={12} width={208} height={84} rx={7} fill={color} />
@@ -53,7 +53,7 @@ export function Cassette({ title, color, spinning, className }: { title: string;
         ))}
       </svg>
       <div className="absolute inset-x-[11%] top-[14.5%] flex h-[16%] items-center justify-center overflow-hidden">
-        <span dir="auto" className="truncate font-hand text-[clamp(14px,5.2cqw,28px)] leading-none text-[#3b2f2a] [container-type:inline-size]">
+        <span dir="auto" className="truncate font-hand text-[clamp(12px,7cqw,30px)] leading-none text-[#3b2f2a]">
           {title}
         </span>
       </div>
