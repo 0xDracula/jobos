@@ -3,6 +3,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
 
+import { AccountSettings } from "@/components/AccountSettings";
 import { ConfirmDialog } from "@/components/dialogs";
 import { Artwork } from "@/components/media";
 import { Button, Empty, PageTitle, Segmented } from "@/components/ui";
@@ -150,6 +151,7 @@ export default function SettingsPage() {
   return (
     <>
       <PageTitle>Settings</PageTitle>
+      <AccountSettings />
       <Section title="Appearance">
         <Row label="Theme">
           <Segmented<Theme>

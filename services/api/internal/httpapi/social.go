@@ -541,7 +541,7 @@ func (a *api) sendLamp(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"lamps": lamps})
 }
 
-var notifyDefaults = map[string]bool{"messages": true, "letters": true, "mixtapes": true, "dates": true, "lamp": true, "dedications": true, "swaps": true}
+var notifyDefaults = map[string]bool{"messages": true, "letters": true, "mixtapes": true, "dates": true, "lamp": false, "dedications": false, "swaps": false}
 
 func (a *api) notify(to uuid.UUID, event, title, body, url string) {
 	if a.Push == nil {
