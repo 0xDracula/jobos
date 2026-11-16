@@ -88,7 +88,8 @@ func enqueue(ctx context.Context, q querier, j JobSpec) (id int64, added bool, e
 	}
 	err = q.QueryRow(ctx, `insert into jobs (queue, kind, payload, dedupe_key, priority) values ($1, $2, $3, $4, $5)
 		on conflict (dedupe_key) where dedupe_key is not null and status in ('queued', 'running')
-		do update set priority = greatest(jobs.priority, excluded.priority)
+		do update set priority = greatest(jobs.priority, excluded.priority),
+			run_after = case when excluded.priority > jobs.priority then least(jobs.run_after, now()) else jobs.run_after end
 		returning id, xmax = 0`, j.Queue, j.Kind, body, dedupe, j.Priority).Scan(&id, &added)
 	return id, added, err
 }
@@ -294,7 +295,7 @@ func (s *Store) FailJob(ctx context.Context, id int64, message string) error {
 			where id = $1`, id, message)
 	} else {
 		_, err = tx.Exec(ctx, `update jobs set status = 'queued', run_after = now() + make_interval(secs => $3), last_error = $2,
-			locked_by = null, locked_at = null where id = $1`, id, message, Backoff(attempts).Seconds())
+			locked_by = null where id = $1`, id, message, Backoff(attempts).Seconds())
 	}
 	if err != nil {
 		return err
