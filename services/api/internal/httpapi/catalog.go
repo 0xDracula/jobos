@@ -24,7 +24,7 @@ func (a *api) createPlaylist(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	id, err := a.Store.CreatePlaylist(r.Context(), a.CurrentUser, in.Name, in.Description)
+	id, err := a.Store.CreatePlaylist(r.Context(), uid(r), in.Name, in.Description)
 	if err != nil {
 		a.serverError(w, "create playlist", err)
 		return
@@ -60,7 +60,7 @@ func (a *api) addToPlaylist(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "track_ids must hold 1 to 5000 tracks")
 		return
 	}
-	n, err := a.Store.AddToPlaylist(r.Context(), id, a.CurrentUser, in.TrackIDs)
+	n, err := a.Store.AddToPlaylist(r.Context(), id, uid(r), in.TrackIDs)
 	if errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
@@ -163,7 +163,7 @@ func (a *api) artist(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	view, err := a.Store.Artist(r.Context(), a.CurrentUser, id)
+	view, err := a.Store.Artist(r.Context(), uid(r), id)
 	if errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "artist not found")
 		return

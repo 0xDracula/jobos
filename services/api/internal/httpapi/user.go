@@ -14,12 +14,21 @@ import (
 )
 
 func (a *api) me(w http.ResponseWriter, r *http.Request) {
-	u, err := a.Store.User(r.Context(), a.CurrentUser)
+	u, err := a.Store.User(r.Context(), uid(r))
 	if err != nil {
 		a.serverError(w, "load user", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"user": u})
+}
+
+func (a *api) members(w http.ResponseWriter, r *http.Request) {
+	users, err := a.Store.Members(r.Context())
+	if err != nil {
+		a.serverError(w, "list members", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"users": users})
 }
 
 func (a *api) registerDevice(w http.ResponseWriter, r *http.Request) {
@@ -36,7 +45,7 @@ func (a *api) registerDevice(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "name is required (100 characters at most)")
 		return
 	}
-	id, err := a.Store.RegisterDevice(r.Context(), a.CurrentUser, in.ID, in.Name, in.Platform)
+	id, err := a.Store.RegisterDevice(r.Context(), uid(r), in.ID, in.Name, in.Platform)
 	if err != nil {
 		a.serverError(w, "register device", err)
 		return
@@ -45,7 +54,7 @@ func (a *api) registerDevice(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *api) settings(w http.ResponseWriter, r *http.Request) {
-	s, err := a.Store.Settings(r.Context(), a.CurrentUser)
+	s, err := a.Store.Settings(r.Context(), uid(r))
 	if err != nil {
 		a.serverError(w, "load settings", err)
 		return
@@ -59,7 +68,7 @@ func (a *api) setSetting(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "setting value must be JSON of 16 KB at most")
 		return
 	}
-	if err := a.Store.SetSetting(r.Context(), a.CurrentUser, chi.URLParam(r, "key"), value); err != nil {
+	if err := a.Store.SetSetting(r.Context(), uid(r), chi.URLParam(r, "key"), value); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -80,7 +89,7 @@ func (a *api) likes(w http.ResponseWriter, r *http.Request) {
 	if sort == "" {
 		sort = "added"
 	}
-	tracks, err := a.Store.Likes(r.Context(), a.CurrentUser, sort)
+	tracks, err := a.Store.Likes(r.Context(), uid(r), sort)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "sort must be added, title or artist")
 		return
@@ -89,7 +98,7 @@ func (a *api) likes(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *api) likedIDs(w http.ResponseWriter, r *http.Request) {
-	ids, err := a.Store.LikedIDs(r.Context(), a.CurrentUser)
+	ids, err := a.Store.LikedIDs(r.Context(), uid(r))
 	if err != nil {
 		a.serverError(w, "liked ids", err)
 		return
@@ -104,9 +113,9 @@ func (a *api) setLike(w http.ResponseWriter, r *http.Request) {
 	}
 	var err error
 	if r.Method == http.MethodDelete {
-		err = a.Store.Unlike(r.Context(), a.CurrentUser, id)
+		err = a.Store.Unlike(r.Context(), uid(r), id)
 	} else {
-		err = a.Store.Like(r.Context(), a.CurrentUser, id)
+		err = a.Store.Like(r.Context(), uid(r), id)
 	}
 	a.noContent(w, "like", err)
 }
@@ -123,7 +132,7 @@ func (a *api) noContent(w http.ResponseWriter, what string, err error) {
 }
 
 func (a *api) hidden(w http.ResponseWriter, r *http.Request) {
-	tracks, artists, err := a.Store.Hidden(r.Context(), a.CurrentUser)
+	tracks, artists, err := a.Store.Hidden(r.Context(), uid(r))
 	if err != nil {
 		a.serverError(w, "hidden", err)
 		return
@@ -132,7 +141,7 @@ func (a *api) hidden(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *api) hiddenIDs(w http.ResponseWriter, r *http.Request) {
-	tracks, artists, err := a.Store.HiddenIDs(r.Context(), a.CurrentUser)
+	tracks, artists, err := a.Store.HiddenIDs(r.Context(), uid(r))
 	if err != nil {
 		a.serverError(w, "hidden ids", err)
 		return
@@ -148,9 +157,9 @@ func (a *api) setHidden(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Method == http.MethodDelete {
-		err = a.Store.Unhide(r.Context(), a.CurrentUser, kind, id)
+		err = a.Store.Unhide(r.Context(), uid(r), kind, id)
 	} else {
-		err = a.Store.Hide(r.Context(), a.CurrentUser, kind, id)
+		err = a.Store.Hide(r.Context(), uid(r), kind, id)
 	}
 	a.noContent(w, "hide", err)
 }
@@ -172,7 +181,7 @@ func (a *api) events(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if err := a.Store.RecordEvents(r.Context(), a.CurrentUser, in.Events); err != nil {
+	if err := a.Store.RecordEvents(r.Context(), uid(r), in.Events); err != nil {
 		a.serverError(w, "record events", err)
 		return
 	}
@@ -188,7 +197,7 @@ func intParam(r *http.Request, name string, fallback, max int) int {
 }
 
 func (a *api) recentlyPlayed(w http.ResponseWriter, r *http.Request) {
-	tracks, err := a.Store.RecentlyPlayed(r.Context(), a.CurrentUser, intParam(r, "limit", 50, 200))
+	tracks, err := a.Store.RecentlyPlayed(r.Context(), uid(r), intParam(r, "limit", 50, 200))
 	if err != nil {
 		a.serverError(w, "recently played", err)
 		return
@@ -197,7 +206,7 @@ func (a *api) recentlyPlayed(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *api) mostPlayed(w http.ResponseWriter, r *http.Request) {
-	tracks, err := a.Store.MostPlayed(r.Context(), a.CurrentUser, intParam(r, "days", 30, 3650), intParam(r, "limit", 50, 200))
+	tracks, err := a.Store.MostPlayed(r.Context(), uid(r), intParam(r, "days", 30, 3650), intParam(r, "limit", 50, 200))
 	if err != nil {
 		a.serverError(w, "most played", err)
 		return
@@ -217,11 +226,11 @@ func (a *api) savePlayback(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	a.noContent(w, "save playback", a.Store.SavePlayback(r.Context(), a.CurrentUser, in))
+	a.noContent(w, "save playback", a.Store.SavePlayback(r.Context(), uid(r), in))
 }
 
 func (a *api) playback(w http.ResponseWriter, r *http.Request) {
-	states, err := a.Store.Playback(r.Context(), a.CurrentUser)
+	states, err := a.Store.Playback(r.Context(), uid(r))
 	if err != nil {
 		a.serverError(w, "playback", err)
 		return

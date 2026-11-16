@@ -24,6 +24,7 @@ import (
 	"jobbos/api/internal/devui"
 	"jobbos/api/internal/importer"
 	"jobbos/api/internal/media"
+	"jobbos/api/internal/realtime"
 	"jobbos/api/internal/store"
 )
 
@@ -96,6 +97,48 @@ type Store interface {
 	ClaimJob(ctx context.Context, queue, worker string, kinds []string) (*store.Job, error)
 	CompleteJob(ctx context.Context, id int64, result json.RawMessage) error
 	FailJob(ctx context.Context, id int64, message string) error
+	Login(ctx context.Context, username string) (*store.User, string, error)
+	CreateSession(ctx context.Context, userID uuid.UUID, tokenHash []byte, userAgent, ip string, ttl time.Duration, max int) error
+	Session(ctx context.Context, tokenHash []byte, ttl time.Duration) (*store.User, uuid.UUID, error)
+	DeleteSession(ctx context.Context, tokenHash []byte) error
+	DeleteUserSessions(ctx context.Context, userID, keep uuid.UUID) (int64, error)
+	Accounts(ctx context.Context) ([]store.Account, error)
+	Members(ctx context.Context) ([]store.User, error)
+	CreateInvite(ctx context.Context, by uuid.UUID, displayName, username, message string, tokenHash []byte, ttl time.Duration) (*store.Invite, error)
+	Invites(ctx context.Context) ([]store.Invite, error)
+	InviteByToken(ctx context.Context, tokenHash []byte) (*store.Invite, error)
+	RevokeInvite(ctx context.Context, id uuid.UUID) error
+	RegenerateInvite(ctx context.Context, id uuid.UUID, tokenHash []byte, ttl time.Duration) (*store.Invite, error)
+	DeclineInvite(ctx context.Context, tokenHash []byte) error
+	AcceptInvite(ctx context.Context, tokenHash []byte, displayName, username, passwordHash string) (*store.User, error)
+	CreatePasswordReset(ctx context.Context, userID uuid.UUID, tokenHash []byte, ttl time.Duration) error
+	PasswordReset(ctx context.Context, tokenHash []byte) (*store.User, error)
+	UsePasswordReset(ctx context.Context, tokenHash []byte, passwordHash string) (*store.User, error)
+	Audit(ctx context.Context, actor *uuid.UUID, action, subject string, detail any)
+	TouchLastSeen(ctx context.Context, userID uuid.UUID, at time.Time) error
+	LastSeen(ctx context.Context) (map[uuid.UUID]*time.Time, error)
+	AppSetting(ctx context.Context, key string) (json.RawMessage, error)
+	SetAppSetting(ctx context.Context, key string, value json.RawMessage) error
+	UserSetting(ctx context.Context, userID uuid.UUID, key string) (json.RawMessage, error)
+	SendChat(ctx context.Context, sender uuid.UUID, in store.ChatInput) (*store.ChatMessage, bool, error)
+	ChatMessage(ctx context.Context, id uuid.UUID) (*store.ChatMessage, error)
+	ChatPage(ctx context.Context, before, after *uuid.UUID, limit int) ([]store.ChatMessage, error)
+	EditChat(ctx context.Context, sender, id uuid.UUID, body string) (*store.ChatMessage, error)
+	DeleteChat(ctx context.Context, sender, id uuid.UUID) (*store.ChatMessage, error)
+	ReactChat(ctx context.Context, userID, id uuid.UUID, emoji string) (*store.ChatMessage, error)
+	ReadChat(ctx context.Context, userID, id uuid.UUID) (time.Time, error)
+	ChatReads(ctx context.Context) ([]store.ChatRead, error)
+	UnreadCount(ctx context.Context, userID uuid.UUID) (int, error)
+	SendLamp(ctx context.Context, from, to uuid.UUID, until time.Time) (*store.Lamp, error)
+	LampOff(ctx context.Context, from, to uuid.UUID) error
+	Lamps(ctx context.Context) ([]store.Lamp, error)
+	LastSignal(ctx context.Context, from uuid.UUID, kind string) (*time.Time, error)
+	SavePushSubscription(ctx context.Context, userID uuid.UUID, endpoint, p256dh, auth, userAgent string) error
+	DeletePushSubscription(ctx context.Context, endpoint string) error
+	PushSubscriptions(ctx context.Context, userID uuid.UUID) ([]store.PushSubscription, error)
+	TouchPushSubscription(ctx context.Context, id uuid.UUID)
+	SetSwap(ctx context.Context, week time.Time, userID, trackID uuid.UUID, note string) error
+	Swaps(ctx context.Context, from, to time.Time) ([]store.Swap, error)
 }
 
 type Searcher interface {
@@ -110,7 +153,10 @@ type Deps struct {
 	MediaStatus StatusReader
 	World       WeatherSource
 	Locator     CityLocator
-	CurrentUser uuid.UUID
+	AutoUser    *store.User
+	Hub         *realtime.Hub
+	Push        *PushKeys
+	HomeTZ      *time.Location
 	WebRoot     string
 	MediaRoot   string
 	WorkerToken string
@@ -124,12 +170,16 @@ type api struct {
 	mu       sync.Mutex
 	streams  map[uuid.UUID]cachedStream
 	workers  map[string]workerSeen
+	limits   limits
+	team     memberCache
+	room     together
 }
 
 var mediaFileRE = regexp.MustCompile(`^([0-9a-f]{64})(\.300)?\.(m4a|jpg|png|webp)$`)
 
 func New(d Deps) http.Handler {
-	a := &api{Deps: d, upstream: newUpstreamClient(), streams: map[uuid.UUID]cachedStream{}, workers: map[string]workerSeen{}}
+	a := &api{Deps: d, upstream: newUpstreamClient(), streams: map[uuid.UUID]cachedStream{}, workers: map[string]workerSeen{}, limits: newLimits()}
+	a.registerRealtime()
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID, middleware.Recoverer)
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) { writeJSON(w, http.StatusOK, map[string]bool{"ok": true}) })
@@ -141,65 +191,103 @@ func New(d Deps) http.Handler {
 	}
 
 	r.Route("/api", func(r chi.Router) {
-		r.Get("/search", a.search)
-		r.Get("/tracks", a.listTracks)
-		r.Post("/tracks", a.addTrack)
-		r.Get("/tracks/{id}", a.track)
-		r.Get("/tracks/{id}/audio", a.trackAudio)
-		r.Get("/tracks/{id}/stream", a.streamTrack)
-		r.Post("/tracks/{id}/cache", a.cacheTrack)
-		r.Put("/tracks/{id}/source", a.chooseSource)
-		r.Get("/tracks/{id}/sources", a.trackSources)
-		r.Post("/links", a.importLink)
-		r.Patch("/tracks/{id}", a.updateTrack)
-		r.Post("/tracks/{id}/cover", a.setCover)
-		r.Post("/uploads", a.upload)
-		r.Post("/prefetch", a.prefetch)
-		r.Patch("/playlists/{id}", a.updatePlaylist)
-		r.Post("/playlists", a.createPlaylist)
-		r.Delete("/playlists/{id}", a.deletePlaylist)
-		r.Post("/playlists/{id}/items", a.addToPlaylist)
-		r.Put("/playlists/{id}/items", a.reorderPlaylist)
-		r.Delete("/playlists/{id}/items/{trackID}", a.removeFromPlaylist)
-		r.Post("/playlists/{id}/cover", a.setPlaylistCover)
-		r.Get("/albums/{id}", a.album)
-		r.Get("/artists/{id}", a.artist)
-		r.Get("/library/search", a.searchLibrary)
-		r.Post("/tracks/batch", a.tracksByID)
-		r.Get("/me", a.me)
-		r.Post("/devices", a.registerDevice)
-		r.Get("/settings", a.settings)
-		r.Put("/settings/{key}", a.setSetting)
-		r.Get("/likes", a.likes)
-		r.Get("/likes/ids", a.likedIDs)
-		r.Put("/likes/{trackID}", a.setLike)
-		r.Delete("/likes/{trackID}", a.setLike)
-		r.Get("/hidden", a.hidden)
-		r.Get("/hidden/ids", a.hiddenIDs)
-		r.Put("/hidden/{type}/{id}", a.setHidden)
-		r.Delete("/hidden/{type}/{id}", a.setHidden)
-		r.Post("/events", a.events)
-		r.Get("/history/recent", a.recentlyPlayed)
-		r.Get("/history/top", a.mostPlayed)
-		r.Get("/playback", a.playback)
-		r.Put("/playback", a.savePlayback)
-		r.Route("/admin", func(r chi.Router) {
-			r.Get("/status", a.adminStatus)
-			r.Post("/jobs/{id}/retry", a.retryJob)
-			r.Post("/cache/clear", a.clearCache)
-			r.Post("/playlists/sync", a.syncNow)
-			a.registerWorldAdminRoutes(r)
+		r.Post("/auth/login", a.login)
+		r.Post("/auth/logout", a.logout)
+		r.Get("/invites/{token}", a.invitePage)
+		r.Post("/invites/{token}/accept", a.acceptInvite)
+		r.Post("/invites/{token}/decline", a.declineInvite)
+		r.Get("/resets/{token}", a.resetPage)
+		r.Post("/resets/{token}", a.usePasswordReset)
+		r.Group(func(r chi.Router) {
+			r.Use(a.authenticate)
+			r.Get("/search", a.search)
+			r.Get("/tracks", a.listTracks)
+			r.Post("/tracks", a.addTrack)
+			r.Get("/tracks/{id}", a.track)
+			r.Get("/tracks/{id}/audio", a.trackAudio)
+			r.Get("/tracks/{id}/stream", a.streamTrack)
+			r.Post("/tracks/{id}/cache", a.cacheTrack)
+			r.Put("/tracks/{id}/source", a.chooseSource)
+			r.Get("/tracks/{id}/sources", a.trackSources)
+			r.Post("/links", a.importLink)
+			r.Patch("/tracks/{id}", a.updateTrack)
+			r.Post("/tracks/{id}/cover", a.setCover)
+			r.Post("/uploads", a.upload)
+			r.Post("/prefetch", a.prefetch)
+			r.Patch("/playlists/{id}", a.updatePlaylist)
+			r.Post("/playlists", a.createPlaylist)
+			r.Delete("/playlists/{id}", a.deletePlaylist)
+			r.Post("/playlists/{id}/items", a.addToPlaylist)
+			r.Put("/playlists/{id}/items", a.reorderPlaylist)
+			r.Delete("/playlists/{id}/items/{trackID}", a.removeFromPlaylist)
+			r.Post("/playlists/{id}/cover", a.setPlaylistCover)
+			r.Get("/albums/{id}", a.album)
+			r.Get("/artists/{id}", a.artist)
+			r.Get("/library/search", a.searchLibrary)
+			r.Post("/tracks/batch", a.tracksByID)
+			r.Get("/me", a.me)
+			r.Get("/members", a.members)
+			r.Get("/ws", a.websocket)
+			r.Get("/presence", a.presence)
+			r.Put("/quiet", a.setQuiet)
+			r.Get("/chat/messages", a.chatMessages)
+			r.Post("/chat/messages", a.sendChat)
+			r.Patch("/chat/messages/{id}", a.editChat)
+			r.Delete("/chat/messages/{id}", a.deleteChat)
+			r.Put("/chat/messages/{id}/reaction", a.reactChat)
+			r.Delete("/chat/messages/{id}/reaction", a.reactChat)
+			r.Post("/chat/read", a.readChat)
+			r.Post("/signals/lamp", a.sendLamp)
+			r.Get("/push/key", a.pushKey)
+			r.Post("/push/subscribe", a.subscribePush)
+			r.Delete("/push/subscribe", a.unsubscribePush)
+			r.Get("/swaps", a.swaps)
+			r.Put("/swaps/current", a.setSwap)
+			r.Get("/together", a.togetherState)
+			r.Post("/devices", a.registerDevice)
+			r.Get("/settings", a.settings)
+			r.Put("/settings/{key}", a.setSetting)
+			r.Get("/likes", a.likes)
+			r.Get("/likes/ids", a.likedIDs)
+			r.Put("/likes/{trackID}", a.setLike)
+			r.Delete("/likes/{trackID}", a.setLike)
+			r.Get("/hidden", a.hidden)
+			r.Get("/hidden/ids", a.hiddenIDs)
+			r.Put("/hidden/{type}/{id}", a.setHidden)
+			r.Delete("/hidden/{type}/{id}", a.setHidden)
+			r.Post("/events", a.events)
+			r.Get("/history/recent", a.recentlyPlayed)
+			r.Get("/history/top", a.mostPlayed)
+			r.Get("/playback", a.playback)
+			r.Put("/playback", a.savePlayback)
+			r.Route("/admin", func(r chi.Router) {
+				r.Use(a.requireAdmin)
+				r.Get("/accounts", a.adminAccounts)
+				r.Post("/accounts/{id}/reset", a.adminResetLink)
+				r.Post("/accounts/{id}/signout", a.adminSignOut)
+				r.Get("/invites", a.adminInvites)
+				r.Get("/visibility", a.adminVisibility)
+				r.Put("/visibility", a.setVisibility)
+				r.Post("/invites", a.createInvite)
+				r.Post("/invites/{id}/revoke", a.revokeInvite)
+				r.Post("/invites/{id}/regenerate", a.regenerateInvite)
+				r.Get("/status", a.adminStatus)
+				r.Post("/jobs/{id}/retry", a.retryJob)
+				r.Post("/cache/clear", a.clearCache)
+				r.Post("/playlists/sync", a.syncNow)
+				a.registerWorldAdminRoutes(r)
+			})
+			a.registerWorldRoutes(r)
+			r.Get("/tracks/{id}/lyrics", a.lyrics)
+			r.Patch("/tracks/{id}/lyrics", a.lyricsOffset)
+			r.Post("/lyrics/backfill", a.backfillLyrics)
+			r.Post("/artwork/backfill", a.backfillEnrich)
+			r.Get("/media/{file}", a.mediaFile)
+			r.Get("/playlists", a.listPlaylists)
+			r.Post("/playlists/import", a.importPlaylist)
+			r.Get("/playlists/{id}", a.playlist)
+			r.Post("/playlists/{id}/rematch", a.rematchPlaylist)
 		})
-		a.registerWorldRoutes(r)
-		r.Get("/tracks/{id}/lyrics", a.lyrics)
-		r.Patch("/tracks/{id}/lyrics", a.lyricsOffset)
-		r.Post("/lyrics/backfill", a.backfillLyrics)
-		r.Post("/artwork/backfill", a.backfillEnrich)
-		r.Get("/media/{file}", a.mediaFile)
-		r.Get("/playlists", a.listPlaylists)
-		r.Post("/playlists/import", a.importPlaylist)
-		r.Get("/playlists/{id}", a.playlist)
-		r.Post("/playlists/{id}/rematch", a.rematchPlaylist)
 	})
 	if d.WebRoot != "" {
 		r.Handle("/*", webApp(d.WebRoot))

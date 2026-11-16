@@ -16,6 +16,8 @@ func webApp(root string) http.Handler {
 		if info, err := os.Stat(full); err != nil || (info.IsDir() && !exists(filepath.Join(full, "index.html"))) {
 			if alt := full + ".html"; exists(alt) {
 				r.URL.Path = clean + ".html"
+			} else if page := linkPage(clean); page != "" && exists(filepath.Join(root, page, "index.html")) {
+				r.URL.Path = "/" + page + "/"
 			} else {
 				w.Header().Set("Cache-Control", "no-cache")
 				w.WriteHeader(http.StatusNotFound)
@@ -37,4 +39,13 @@ func webApp(root string) http.Handler {
 func exists(p string) bool {
 	_, err := os.Stat(p)
 	return err == nil
+}
+
+func linkPage(p string) string {
+	for _, page := range []string{"invite", "reset"} {
+		if strings.HasPrefix(p, "/"+page+"/") && len(p) > len(page)+2 {
+			return page
+		}
+	}
+	return ""
 }

@@ -69,7 +69,7 @@ func decodeCity(raw json.RawMessage) *cityView {
 
 func (a *api) location(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	settings, err := a.Store.Settings(ctx, a.CurrentUser)
+	settings, err := a.Store.Settings(ctx, uid(r))
 	if err != nil {
 		a.serverError(w, "load settings", err)
 		return
@@ -85,7 +85,7 @@ func (a *api) location(w http.ResponseWriter, r *http.Request) {
 			if last == nil || last.Place != place {
 				last = &cityView{Place: place, Source: "detected", UpdatedAt: time.Now().UTC()}
 				if body, err := json.Marshal(last); err == nil {
-					if err := a.Store.SetSetting(ctx, a.CurrentUser, settingDetectedCity, body); err != nil {
+					if err := a.Store.SetSetting(ctx, uid(r), settingDetectedCity, body); err != nil {
 						a.Log.Warn("save detected city", "err", err)
 					}
 				}
@@ -107,7 +107,7 @@ func (a *api) setLocation(w http.ResponseWriter, r *http.Request) {
 	}
 	c := cityView{Place: in, Source: "manual", UpdatedAt: time.Now().UTC()}
 	body, _ := json.Marshal(c)
-	if err := a.Store.SetSetting(r.Context(), a.CurrentUser, settingManualCity, body); err != nil {
+	if err := a.Store.SetSetting(r.Context(), uid(r), settingManualCity, body); err != nil {
 		a.serverError(w, "save city", err)
 		return
 	}
@@ -115,7 +115,7 @@ func (a *api) setLocation(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *api) clearLocation(w http.ResponseWriter, r *http.Request) {
-	a.noContent(w, "clear city", a.Store.DeleteSetting(r.Context(), a.CurrentUser, settingManualCity))
+	a.noContent(w, "clear city", a.Store.DeleteSetting(r.Context(), uid(r), settingManualCity))
 }
 
 func (a *api) locations(w http.ResponseWriter, r *http.Request) {
@@ -132,7 +132,7 @@ func (a *api) locations(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]entry, 0, len(users))
 	for _, u := range users {
-		out = append(out, entry{UserID: u.UserID.String(), DisplayName: u.DisplayName, Me: u.UserID == a.CurrentUser, City: decodeCity(u.City)})
+		out = append(out, entry{UserID: u.UserID.String(), DisplayName: u.DisplayName, Me: u.UserID == uid(r), City: decodeCity(u.City)})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"users": out})
 }
@@ -182,7 +182,7 @@ func (a *api) weather(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *api) roomStats(w http.ResponseWriter, r *http.Request) {
-	st, err := a.Store.RoomStats(r.Context(), a.CurrentUser)
+	st, err := a.Store.RoomStats(r.Context(), uid(r))
 	if err != nil {
 		a.serverError(w, "room stats", err)
 		return
@@ -191,7 +191,7 @@ func (a *api) roomStats(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *api) hiddenNotes(w http.ResponseWriter, r *http.Request) {
-	notes, err := a.Store.HiddenNotes(r.Context(), a.CurrentUser)
+	notes, err := a.Store.HiddenNotes(r.Context(), uid(r))
 	if err != nil {
 		a.serverError(w, "hidden notes", err)
 		return
@@ -204,7 +204,7 @@ func (a *api) findNote(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	n, err := a.Store.FindNote(r.Context(), a.CurrentUser, id)
+	n, err := a.Store.FindNote(r.Context(), uid(r), id)
 	if errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "note not found")
 		return
@@ -234,7 +234,7 @@ func (a *api) createNote(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	id, err := a.Store.CreateNote(r.Context(), a.CurrentUser, in)
+	id, err := a.Store.CreateNote(r.Context(), uid(r), in)
 	if err != nil {
 		a.serverError(w, "create note", err)
 		return

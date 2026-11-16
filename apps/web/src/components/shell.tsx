@@ -1,14 +1,18 @@
 "use client";
 
-import { Command, House, Library, Search, Settings, WifiOff } from "lucide-react";
+import { Command, House, Library, MessageCircleHeart, Search, Settings, Shield, WifiOff } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
+import { ApiError } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { soft } from "@/lib/motion";
 import { usePlaylists } from "@/lib/queries";
+import { startRealtime } from "@/lib/realtime";
+import { isPublicPath, useIsAdmin, useMe, useMembers } from "@/lib/session";
+import { startSocial, usePresence } from "@/lib/social";
 import { dismiss, useToasts } from "@/lib/toast";
 import { usePalette } from "@/player/shortcuts";
 import { usePlayer } from "@/player/store";
@@ -22,21 +26,32 @@ const NAV = [
   { href: "/", label: "Home", icon: House },
   { href: "/search/", label: "Search", icon: Search },
   { href: "/library/", label: "Library", icon: Library },
-  { href: "/settings/", label: "Settings", icon: Settings },
+  { href: "/chat/", label: "Chat", icon: MessageCircleHeart },
 ] as const;
+
+function UnreadDot({ href }: { href: string }) {
+  const unread = usePresence().data?.unread ?? 0;
+  if (href !== "/chat/" || unread === 0) return null;
+  return (
+    <span className="absolute -end-1.5 -top-1 grid min-w-[18px] place-items-center rounded-full bg-accent-strong px-1 text-[11px] font-extrabold leading-[18px] text-on-accent">
+      {unread > 99 ? "99+" : unread}
+    </span>
+  );
+}
 
 const isActive = (pathname: string, href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href.replace(/\/$/, "")));
 
 function Sidebar() {
   const pathname = usePathname();
   const playlists = usePlaylists();
+  const admin = useIsAdmin();
   return (
     <nav aria-label="Main" className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col gap-1 border-e border-line px-4 pb-28 pt-7 lg:flex">
       <Link href="/" className="mb-5 flex items-center gap-2 px-3 font-display text-[26px] font-semibold text-accent-strong">
         <span aria-hidden className="grid size-9 place-items-center rounded-full bg-accent-soft text-lg">♫</span>
         Jobbos
       </Link>
-      {NAV.map(({ href, label, icon: Icon }) => (
+      {[...NAV, { href: "/settings/", label: "Settings", icon: Settings }, ...(admin ? [{ href: "/admin/", label: "Admin", icon: Shield }] : [])].map(({ href, label, icon: Icon }) => (
         <Link
           key={href}
           href={href}
@@ -46,7 +61,10 @@ function Sidebar() {
             isActive(pathname, href) ? "bg-accent-soft/80 text-accent-strong" : "text-ink hover:bg-accent-soft/40",
           )}
         >
-          <Icon className="size-5" />
+          <span className="relative">
+            <Icon className="size-5" />
+            <UnreadDot href={href} />
+          </span>
           {label}
         </Link>
       ))}
@@ -92,7 +110,10 @@ function TabBar() {
                 aria-current={active ? "page" : undefined}
                 className={cn("flex min-h-16 flex-col items-center justify-center gap-0.5 text-xs font-bold", active ? "text-accent-strong" : "text-muted")}
               >
-                <Icon className={cn("size-6", active && "fill-accent-soft")} />
+                <span className="relative">
+                  <Icon className={cn("size-6", active && "fill-accent-soft")} />
+                  <UnreadDot href={href} />
+                </span>
                 {label}
               </Link>
             </li>
@@ -165,8 +186,50 @@ function OfflineBanner() {
   );
 }
 
+function toSignIn() {
+  const here = window.location.pathname + window.location.search;
+  window.location.assign(`/login/?next=${encodeURIComponent(here)}`);
+}
+
+function AuthGate({ children }: { children: ReactNode }) {
+  const me = useMe();
+  useEffect(() => {
+    window.addEventListener("jobbos:signed-out", toSignIn);
+    return () => window.removeEventListener("jobbos:signed-out", toSignIn);
+  }, []);
+  const signedOut = me.error instanceof ApiError && me.error.status === 401;
+  const members = useMembers();
+  const nameRef = useRef(new Map<string, string>());
+  nameRef.current = new Map((members.data ?? []).map((u) => [u.id, u.display_name]));
+  useEffect(() => {
+    if (!me.data) return;
+    startRealtime();
+    startSocial(
+      () => me.data!.id,
+      (id) => nameRef.current.get(id) ?? "Someone",
+    );
+  }, [me.data]);
+  useEffect(() => {
+    if (signedOut) toSignIn();
+  }, [signedOut]);
+  if (me.isPending || signedOut) return <div className="fixed inset-0 bg-bg" aria-busy="true" />;
+  return children;
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
-  const home = usePathname() === "/";
+  const pathname = usePathname();
+  if (isPublicPath(pathname)) {
+    return (
+      <main className="grid min-h-dvh place-items-center px-4 py-10">
+        {children}
+        <Toasts />
+      </main>
+    );
+  }
+  return <AuthGate>{appFrame(pathname === "/", children)}</AuthGate>;
+}
+
+function appFrame(home: boolean, children: ReactNode) {
   return (
     <>
       <div id="app-content">

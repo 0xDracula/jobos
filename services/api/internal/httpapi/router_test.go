@@ -2,6 +2,10 @@ package httpapi
 
 import (
 	"io"
+
+	"github.com/google/uuid"
+
+	"jobbos/api/internal/store"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -10,8 +14,10 @@ import (
 	"testing"
 )
 
+var testUser = &store.User{ID: uuid.MustParse("01900000-0000-7000-8000-000000000001"), Username: "admin", DisplayName: "Admin", Role: "admin"}
+
 func testServer() http.Handler {
-	return New(Deps{WorkerToken: "secret", MediaRoot: "/tmp/none", Log: slog.New(slog.NewTextHandler(io.Discard, nil))})
+	return New(Deps{WorkerToken: "secret", MediaRoot: "/tmp/none", Log: slog.New(slog.NewTextHandler(io.Discard, nil)), AutoUser: testUser})
 }
 
 func TestInternalRoutesNeedWorkerToken(t *testing.T) {
@@ -47,7 +53,7 @@ func TestDevPageOnlyWhenEnabled(t *testing.T) {
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("disabled: status %d, want 404", rec.Code)
 	}
-	h := New(Deps{DevUI: true, Log: slog.New(slog.NewTextHandler(io.Discard, nil))})
+	h := New(Deps{DevUI: true, Log: slog.New(slog.NewTextHandler(io.Discard, nil)), AutoUser: testUser})
 	rec = httptest.NewRecorder()
 	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/dev/", nil))
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Jobbos dev player") {
@@ -238,7 +244,7 @@ func TestWebAppServesPagesAndAssets(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	h := New(Deps{WebRoot: root, Log: slog.New(slog.NewTextHandler(io.Discard, nil))})
+	h := New(Deps{WebRoot: root, Log: slog.New(slog.NewTextHandler(io.Discard, nil)), AutoUser: testUser})
 	for path, want := range map[string]struct {
 		code        int
 		body, cache string
@@ -254,5 +260,35 @@ func TestWebAppServesPagesAndAssets(t *testing.T) {
 		if rec.Code != want.code || rec.Body.String() != want.body || rec.Header().Get("Cache-Control") != want.cache {
 			t.Errorf("%s: %d %q %q", path, rec.Code, rec.Body.String(), rec.Header().Get("Cache-Control"))
 		}
+	}
+}
+
+func TestAPINeedsSignIn(t *testing.T) {
+	h := New(Deps{Log: slog.New(slog.NewTextHandler(io.Discard, nil))})
+	for _, p := range []string{"/api/me", "/api/search?q=x", "/api/admin/invites", "/api/media/" + strings.Repeat("a", 64) + ".m4a"} {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, p, nil))
+		if rec.Code != http.StatusUnauthorized {
+			t.Errorf("%s: status %d, want 401", p, rec.Code)
+		}
+	}
+}
+
+func TestAdminRoutesNeedAdmin(t *testing.T) {
+	member := &store.User{ID: uuid.New(), Username: "partner", Role: "member"}
+	h := New(Deps{Log: slog.New(slog.NewTextHandler(io.Discard, nil)), AutoUser: member})
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/admin/invites", nil))
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("status %d, want 403", rec.Code)
+	}
+}
+
+func TestInviteLinksRejectShortTokens(t *testing.T) {
+	h := New(Deps{Log: slog.New(slog.NewTextHandler(io.Discard, nil))})
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/invites/abc", nil))
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status %d, want 404", rec.Code)
 	}
 }

@@ -115,6 +115,23 @@ export type Lyrics = {
 
 export type User = { id: string; username: string; display_name: string; role: string };
 
+export type Account = User & { last_seen_at: string | null; sessions: number; created_at: string };
+
+export type InviteStatus = "pending" | "accepted" | "declined" | "expired" | "revoked";
+
+export type Invite = {
+  id: string;
+  display_name: string;
+  username: string;
+  message: string;
+  status: InviteStatus;
+  created_at: string;
+  expires_at: string;
+  responded_at: string | null;
+};
+
+export type InviteView = { display_name: string; username: string; message: string; status: "pending" | "declined"; expires_at: string };
+
 export type PlaybackState = {
   device_id: string;
   device_name: string;

@@ -1,5 +1,5 @@
 import type {
-  Album, Artist, City, HiddenArtist, HiddenNoteView, ImportSummary, ListeningEvent, Lyrics, PlaybackState, PlayedTrack,
+  Account, Album, Artist, Invite, InviteView, City, HiddenArtist, HiddenNoteView, ImportSummary, ListeningEvent, Lyrics, PlaybackState, PlayedTrack,
   Playlist, PlaylistSummary, RoomStats, SearchResult, SourceChoice, SourceView, Track, User, UserCityEntry, Weather,
 } from "./types";
 
@@ -20,6 +20,9 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const text = await res.text();
   const body = text ? JSON.parse(text) : null;
   if (!res.ok && res.status !== 202) {
+    if (res.status === 401 && typeof window !== "undefined" && !/^\/api\/(auth|invites|resets)\//.test(path)) {
+      window.dispatchEvent(new Event("jobbos:signed-out"));
+    }
     throw new ApiError(res.status, (body && body.error) || res.statusText);
   }
   return body as T;
@@ -32,6 +35,23 @@ const json = (method: string, body?: unknown): RequestInit => ({
 
 export const api = {
   me: () => request<{ user: User }>("/api/me"),
+  members: () => request<{ users: User[] }>("/api/members"),
+  login: (username: string, password: string) => request<{ user: User }>("/api/auth/login", json("POST", { username, password })),
+  logout: () => request<null>("/api/auth/logout", { method: "POST" }),
+  invite: (token: string) => request<{ invite: InviteView }>(`/api/invites/${token}`),
+  acceptInvite: (token: string, body: { display_name: string; username: string; password: string }) =>
+    request<{ user: User }>(`/api/invites/${token}/accept`, json("POST", body)),
+  declineInvite: (token: string) => request<null>(`/api/invites/${token}/decline`, { method: "POST" }),
+  reset: (token: string) => request<{ username: string }>(`/api/resets/${token}`),
+  useReset: (token: string, password: string) => request<{ user: User }>(`/api/resets/${token}`, json("POST", { password })),
+  adminAccounts: () => request<{ accounts: Account[] }>("/api/admin/accounts"),
+  adminResetLink: (id: string) => request<{ path: string; expires_at: string }>(`/api/admin/accounts/${id}/reset`, { method: "POST" }),
+  adminSignOut: (id: string) => request<{ revoked: number }>(`/api/admin/accounts/${id}/signout`, { method: "POST" }),
+  adminInvites: () => request<{ invites: Invite[] }>("/api/admin/invites"),
+  createInvite: (body: { display_name: string; username: string; message: string }) =>
+    request<{ invite: Invite; path: string }>("/api/admin/invites", json("POST", body)),
+  revokeInvite: (id: string) => request<null>(`/api/admin/invites/${id}/revoke`, { method: "POST" }),
+  regenerateInvite: (id: string) => request<{ invite: Invite; path: string }>(`/api/admin/invites/${id}/regenerate`, { method: "POST" }),
   registerDevice: (id: string | null, name: string, platform: string) =>
     request<{ id: string }>("/api/devices", json("POST", { id, name, platform })),
 

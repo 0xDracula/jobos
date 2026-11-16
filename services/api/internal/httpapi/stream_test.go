@@ -61,7 +61,7 @@ func upstream(t *testing.T) *httptest.Server {
 
 func streamServer(view *store.TrackView, r *fakeResolver) (http.Handler, *streamStore) {
 	st := &streamStore{view: view}
-	return New(Deps{Store: st, Resolver: r, Log: slog.New(slog.NewTextHandler(io.Discard, nil))}), st
+	return New(Deps{Store: st, Resolver: r, Log: slog.New(slog.NewTextHandler(io.Discard, nil)), AutoUser: testUser}), st
 }
 
 func uncached() *store.TrackView {
