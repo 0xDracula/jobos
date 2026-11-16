@@ -68,6 +68,11 @@
   .versions { margin-top: 12px; }
   .versions summary { cursor: pointer; font-weight: 700; padding: 4px 0; }
   .versions form { margin: 8px 0 0; }
+  .kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 16px; font-size: 14px; margin-bottom: 12px; }
+  .kv dt { color: var(--muted); }
+  .kv dd { margin: 0; overflow-wrap: anywhere; }
+  h3 { font-size: 14px; margin: 16px 0 6px; }
+  textarea { font: inherit; width: 100%; min-height: 60px; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
   .lyrics { position: relative; max-height: 280px; overflow-y: auto; margin-top: 12px; padding: 8px 4px 0; border-top: 1px solid var(--line); }
   .lyrics .line { padding: 3px 0; color: var(--muted); cursor: pointer; font-size: 17px; line-height: 1.5; transition: color 0.2s; }
   .lyrics .line.now { color: var(--ink); font-weight: 700; }
@@ -112,6 +117,17 @@
     <div class="meta">
       <span id="p-loud"></span><span id="p-gain"></span><span id="p-dur"></span><span id="p-err"></span>
     </div>
+    <details class="versions" id="edit">
+      <summary>Edit</summary>
+      <form id="e-form">
+        <label class="field">Title <input id="e-title" type="text" required maxlength="500" dir="auto"></label>
+        <label class="field">Artist <input id="e-artist" type="text" maxlength="400" dir="auto"></label>
+        <label class="field">Note <input id="e-note" type="text" maxlength="2000" dir="auto"></label>
+        <label class="field">Cover <input id="e-cover" type="file" accept="image/jpeg,image/png,image/webp"></label>
+        <div class="field submit"><button type="submit">Save</button></div>
+      </form>
+      <div class="sub" id="e-result" role="status"></div>
+    </details>
     <details class="versions" id="versions">
       <summary>Versions</summary>
       <div id="v-list"></div>
@@ -140,6 +156,19 @@
     <div class="sub" id="import-result" role="status"></div>
   </section>
 
+  <section class="card" aria-labelledby="upload-h">
+    <h2 id="upload-h">Upload</h2>
+    <form id="u-form">
+      <label class="field">Audio file <input id="u-file" type="file" required accept=".mp3,.m4a,.wav,.flac,.ogg,.opus"></label>
+      <label class="field">Title <input id="u-title" type="text" maxlength="500" dir="auto"></label>
+      <label class="field">Artist <input id="u-artist" type="text" maxlength="400" dir="auto"></label>
+      <label class="field">Note <input id="u-note" type="text" maxlength="2000" dir="auto"></label>
+      <label class="field">Cover <input id="u-cover" type="file" accept="image/jpeg,image/png,image/webp"></label>
+      <div class="field submit"><button type="submit">Upload</button></div>
+    </form>
+    <div class="sub" id="u-result" role="status"></div>
+  </section>
+
   <section class="card" aria-labelledby="playlists-h">
     <h2 id="playlists-h">Playlists</h2>
     <div id="playlists"></div>
@@ -155,6 +184,11 @@
       <button type="button" data-filter="pending" aria-pressed="false">Pending</button>
     </div>
     <div id="pl-tracks"></div>
+  </section>
+
+  <section class="card" aria-labelledby="status-h">
+    <div class="head"><h2 id="status-h">Source status</h2><button type="button" id="st-refresh">Refresh</button></div>
+    <div id="status"></div>
   </section>
 
   <section class="card" aria-labelledby="recent-h">
@@ -186,7 +220,8 @@
 
   async function api(path, opts) {
     const r = await fetch(path, opts);
-    const body = r.status === 204 ? null : await r.json();
+    const text = await r.text();
+    const body = text ? JSON.parse(text) : null;
     if (!r.ok && r.status !== 202) throw new Error((body && body.error) || r.statusText);
     return body;
   }
@@ -330,6 +365,7 @@
     $("p-title").textContent = view.title;
     $("p-artist").textContent = view.artists.join(", ");
     showArtwork(view);
+    fillEdit(view);
     $("versions").open = false;
     $("v-list").replaceChildren();
     clearTimeout(pollTimer);
@@ -616,6 +652,19 @@
         const info = el("div");
         const t = el("div", "title", p.name); t.dir = "auto";
         info.append(t, countChips(p.counts), progress(p.counts));
+        if (p.source_provider === "youtube") {
+          const label = el("label", "sub");
+          const box = el("input");
+          box.type = "checkbox";
+          box.checked = p.sync_enabled;
+          box.addEventListener("change", () => api("/api/playlists/" + p.id, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sync_enabled: box.checked }),
+          }).catch(() => { box.checked = !box.checked; }));
+          label.append(box, " Sync every 6 hours");
+          info.append(label);
+        }
         const b = el("button", "", "Open");
         b.type = "button";
         b.addEventListener("click", () => openPlaylist(p.id));
@@ -655,7 +704,7 @@
     $("pl-counts").replaceChildren(countChips(p.counts), progress(p.counts));
     const tracks = p.tracks.filter((t) => playlistFilter === "all" || t.match_status === playlistFilter);
     if (!tracks.length) return $("pl-tracks").replaceChildren(el("div", "empty", "No tracks"));
-    $("pl-tracks").replaceChildren(...tracks.map((t) => row({
+    $("pl-tracks").replaceChildren(...tracks.map((t, i) => row({
       artwork: t.artwork_thumb_url || t.artwork_url,
       title: t.title,
       subtitle: t.artists.join(", ") + (t.album ? " · " + t.album : ""),
@@ -663,8 +712,18 @@
       duration: t.duration_ms,
       chips: [matchChip(t), cacheChip(t)],
       action: "Play",
-      onAction: () => play(t.id),
+      onAction: () => { play(t.id); prefetchNext(tracks, i); },
     })));
+  }
+
+  function prefetchNext(list, i) {
+    const ids = list.slice(i + 1, i + 3).map((t) => t.id);
+    if (!ids.length) return;
+    api("/api/prefetch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ track_ids: ids }),
+    }).catch(() => {});
   }
 
   document.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => {
@@ -691,8 +750,161 @@
     }
   }
 
+  $("u-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const out = $("u-result");
+    const form = new FormData();
+    form.append("file", $("u-file").files[0]);
+    for (const [key, id] of [["title", "u-title"], ["artist", "u-artist"], ["note", "u-note"]]) {
+      if ($(id).value.trim()) form.append(key, $(id).value.trim());
+    }
+    if ($("u-cover").files[0]) form.append("cover", $("u-cover").files[0]);
+    out.textContent = "Uploading";
+    try {
+      const res = await api("/api/uploads", { method: "POST", body: form });
+      out.textContent = "Uploaded: " + res.track.title;
+      $("u-form").reset();
+      show(res.track);
+      loadRecent();
+    } catch (err) {
+      out.textContent = "Upload failed: " + err.message;
+    }
+  });
+
+  function fillEdit(view) {
+    $("e-title").value = view.title || "";
+    $("e-artist").value = (view.artists || []).join(", ");
+    $("e-note").value = view.note || "";
+    $("e-cover").value = "";
+    $("e-result").textContent = "";
+    $("edit").open = false;
+  }
+
+  $("e-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const id = current;
+    const out = $("e-result");
+    try {
+      const res = await api("/api/tracks/" + id, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: $("e-title").value.trim(),
+          artists: $("e-artist").value.split(",").map((a) => a.trim()).filter(Boolean),
+          note: $("e-note").value.trim(),
+        }),
+      });
+      const cover = $("e-cover").files[0];
+      if (cover) {
+        const form = new FormData();
+        form.append("cover", cover);
+        await api("/api/tracks/" + id + "/cover", { method: "POST", body: form });
+      }
+      $("p-title").textContent = res.track.title;
+      $("p-artist").textContent = res.track.artists.join(", ");
+      out.textContent = cover ? "Saved · cover processing" : "Saved";
+      loadRecent();
+    } catch (err) {
+      out.textContent = "Save failed: " + err.message;
+    }
+  });
+
+  const fmtBytes = (n) => n >= 1e9 ? (n / 1e9).toFixed(2) + " GB" : n >= 1e6 ? (n / 1e6).toFixed(1) + " MB" : Math.round(n / 1e3) + " KB";
+  const ago = (t) => {
+    if (!t) return "never";
+    const s = (Date.now() - new Date(t).getTime()) / 1000;
+    if (s < 90) return Math.max(0, Math.round(s)) + " s ago";
+    if (s < 5400) return Math.round(s / 60) + " min ago";
+    if (s < 129600) return Math.round(s / 3600) + " h ago";
+    return Math.round(s / 86400) + " d ago";
+  };
+  const SOURCE = {
+    ytmusic: "Downloads: YouTube Music", youtube: "Downloads: YouTube", soundcloud: "Downloads: SoundCloud",
+    other: "Downloads: other sites", search: "Matching: YouTube Music search", lyrics: "Lyrics: LRCLIB, YouTube Music",
+    deezer: "Artwork: Deezer",
+  };
+
+  function kv(pairs) {
+    const dl = el("dl", "kv");
+    for (const [k, v] of pairs) dl.append(el("dt", "", k), el("dd", "", v));
+    return dl;
+  }
+
+  async function loadStatus() {
+    const box = $("status");
+    try {
+      const st = await api("/api/admin/status");
+      const m = st.media || {};
+      const yt = m.yt_dlp || {};
+      const cookies = m.cookies;
+      const tools = kv([
+        ["yt-dlp", (yt.version || "unknown") + (yt.released ? " (" + yt.released + ")" : "") + (yt.update_available ? " · update available: " + yt.latest : "")],
+        ["ytmusicapi", (m.ytmusicapi || {}).version || "unknown"],
+        ["YouTube cookies", !cookies ? "unknown" : !cookies.configured ? "not configured" : !cookies.exists ? "file missing"
+          : cookies.youtube_cookies + " cookies, updated " + ago(cookies.updated_at * 1000)],
+        ["PO token provider", (m.po_token_provider || {}).version || "not installed"],
+      ]);
+      const workers = Object.entries(st.workers || {});
+      const workerList = kv(workers.length ? workers.map(([id, w]) => [id, "last claim " + ago(w.last_claim_at)
+        + (w.downloads_paused_until && new Date(w.downloads_paused_until) > Date.now()
+          ? " · downloads paused until " + new Date(w.downloads_paused_until).toLocaleTimeString() : "")])
+        : [["None", "no claims yet"]]);
+      const sources = kv(st.store.sources.map((h) => [SOURCE[h.source] || h.source, "last success " + ago(h.last_ok_at)
+        + (h.last_error_at && (!h.last_ok_at || new Date(h.last_error_at) > new Date(h.last_ok_at))
+          ? " · last error " + ago(h.last_error_at) + ": " + (h.last_error || "").slice(0, 160) : "")]));
+      const byKind = {};
+      for (const c of st.store.jobs) (byKind[c.kind] = byKind[c.kind] || {})[c.status] = c.count;
+      const jobs = kv(Object.entries(byKind).map(([kind, c]) => [kind, ["queued", "running", "failed", "done"]
+        .filter((x) => c[x]).map((x) => c[x] + " " + x + (x === "done" ? " (24 h)" : "")).join(" · ")]));
+      const failed = el("div");
+      if (!st.store.failed.length) failed.append(el("div", "empty", "No failed jobs"));
+      for (const j of st.store.failed) {
+        const r = el("div", "row");
+        const info = el("div");
+        info.append(el("div", "title", (j.title || "Job " + j.id) + " · " + j.kind), el("div", "sub", (j.last_error || "").slice(0, 200)));
+        const b = el("button", "", "Retry");
+        b.type = "button";
+        b.addEventListener("click", async () => { await api("/api/admin/jobs/" + j.id + "/retry", { method: "POST" }); loadStatus(); });
+        r.append(el("span"), info, el("span"), el("span"), b);
+        failed.append(r);
+      }
+      const c = st.store.cache;
+      const cache = kv([
+        ["Audio", c.audio_files + " files · " + fmtBytes(c.audio_bytes)],
+        ["Pinned", c.pinned_files + " files · " + fmtBytes(c.pinned_bytes)],
+        ["Clearable", c.clearable_files + " files · " + fmtBytes(c.clearable_bytes)],
+        ["Images", c.image_files + " files · " + fmtBytes(c.image_bytes)],
+      ]);
+      const clear = el("button", "", "Clear unpinned");
+      clear.type = "button";
+      clear.disabled = !c.clearable_files;
+      clear.addEventListener("click", async () => {
+        if (clear.dataset.armed !== "1") {
+          clear.dataset.armed = "1";
+          clear.textContent = "Confirm clear";
+          setTimeout(() => { clear.dataset.armed = ""; clear.textContent = "Clear unpinned"; }, 5000);
+          return;
+        }
+        const res = await api("/api/admin/cache/clear", { method: "POST" });
+        clear.textContent = "Cleared " + res.files + " files · " + fmtBytes(res.bytes);
+        setTimeout(loadStatus, 1500);
+      });
+      const loud = el("div");
+      loud.append(el("div", "sub", st.store.loud_files.length + " files above −1 dBTP · " + st.store.unmeasured_files + " files not measured"));
+      for (const l of st.store.loud_files.slice(0, 10)) loud.append(el("div", "sub", l.title + " · " + l.true_peak_db.toFixed(1) + " dBTP"));
+      box.replaceChildren(el("h3", "", "Tools"), tools, el("h3", "", "Workers"), workerList, el("h3", "", "Sources"), sources,
+        el("h3", "", "Jobs"), jobs, el("h3", "", "Failed jobs"), failed, el("h3", "", "Cache"), cache, clear,
+        el("h3", "", "Loud files"), loud);
+    } catch (err) {
+      box.replaceChildren(el("div", "empty", "Status failed: " + err.message));
+    }
+  }
+
+  $("st-refresh").addEventListener("click", loadStatus);
+
   loadRecent();
   loadPlaylists();
+  loadStatus();
 </script>
 </body>
 </html>
