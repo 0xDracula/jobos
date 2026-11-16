@@ -92,6 +92,20 @@ func (s *Store) MostPlayed(ctx context.Context, userID uuid.UUID, days, limit in
 	return out, nil
 }
 
+func (s *Store) TracksByID(ctx context.Context, ids []uuid.UUID) ([]TrackView, error) {
+	views, err := s.viewsByID(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]TrackView, 0, len(ids))
+	for _, id := range ids {
+		if v, ok := views[id]; ok {
+			out = append(out, v)
+		}
+	}
+	return out, nil
+}
+
 func (s *Store) viewsByID(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]TrackView, error) {
 	views, err := s.trackViews(ctx, `where t.id = any($1)`, ids)
 	if err != nil {

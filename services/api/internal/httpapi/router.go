@@ -79,6 +79,7 @@ type Store interface {
 	Album(ctx context.Context, id uuid.UUID) (*store.AlbumView, error)
 	Artist(ctx context.Context, userID, id uuid.UUID) (*store.ArtistView, error)
 	SearchLibrary(ctx context.Context, q string, limit int) ([]store.TrackView, error)
+	TracksByID(ctx context.Context, ids []uuid.UUID) ([]store.TrackView, error)
 	Lyrics(ctx context.Context, trackID uuid.UUID) (*store.LyricsView, error)
 	SetLyricsOffset(ctx context.Context, trackID uuid.UUID, offsetMs int32) error
 	BackfillLyrics(ctx context.Context) (int, error)
@@ -153,6 +154,7 @@ func New(d Deps) http.Handler {
 		r.Get("/albums/{id}", a.album)
 		r.Get("/artists/{id}", a.artist)
 		r.Get("/library/search", a.searchLibrary)
+		r.Post("/tracks/batch", a.tracksByID)
 		r.Get("/me", a.me)
 		r.Post("/devices", a.registerDevice)
 		r.Get("/settings", a.settings)

@@ -175,6 +175,25 @@ func (a *api) artist(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, view)
 }
 
+func (a *api) tracksByID(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		IDs []uuid.UUID `json:"ids"`
+	}
+	if !readJSON(w, r, &in) {
+		return
+	}
+	if len(in.IDs) == 0 || len(in.IDs) > 5000 {
+		writeError(w, http.StatusBadRequest, "ids must hold 1 to 5000 tracks")
+		return
+	}
+	tracks, err := a.Store.TracksByID(r.Context(), in.IDs)
+	if err != nil {
+		a.serverError(w, "tracks by id", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"tracks": tracks})
+}
+
 func (a *api) searchLibrary(w http.ResponseWriter, r *http.Request) {
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
 	if q == "" || len(q) > 200 {
