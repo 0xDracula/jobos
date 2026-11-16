@@ -11,7 +11,7 @@
     {
       devShells = forEachSystem (pkgs: {
         default = pkgs.mkShell {
-          packages = with pkgs; [ go python312 uv ffmpeg-headless gnumake ];
+          packages = with pkgs; [ go python312 uv ffmpeg-headless gnumake nodejs_24 ];
           env = {
             UV_PYTHON = "${pkgs.python312}/bin/python3";
             UV_PYTHON_DOWNLOADS = "never";
