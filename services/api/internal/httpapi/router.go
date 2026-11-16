@@ -172,6 +172,7 @@ type Store interface {
 	SetLyrics(ctx context.Context, trackID uuid.UUID, synced, plain string, instrumental bool) error
 	SyncedLRC(ctx context.Context, trackID uuid.UUID) (string, error)
 	ListeningNow(ctx context.Context) (map[uuid.UUID]store.NowPlaying, error)
+	PlayCounts(ctx context.Context, trackID uuid.UUID) ([]store.PlayCount, error)
 }
 
 type Searcher interface {

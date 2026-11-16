@@ -63,6 +63,7 @@ export type MixtapeSummary = {
   from_user: string;
   to_user: string;
   created_at: string;
+  sent_at: string | null;
   opened_at: string | null;
   track_count: number;
 };

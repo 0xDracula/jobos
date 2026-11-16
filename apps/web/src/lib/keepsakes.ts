@@ -38,7 +38,7 @@ export type VoiceClip = {
 export type Dedication = { id: string; author_id: string; track_id: string; note: string; created_at: string; clip: VoiceClip; track?: Track | null };
 
 export type MixtapeTrack = { position: number; side: "A" | "B"; note: string; track: Track | null };
-export type Mixtape = MixtapeSummary & { sent_at: string | null; note: string; intro: VoiceClip | null; tracks: MixtapeTrack[] };
+export type Mixtape = MixtapeSummary & { note: string; intro: VoiceClip | null; tracks: MixtapeTrack[] };
 export type MixtapeInput = {
   title: string;
   color: string;
@@ -136,3 +136,12 @@ export const useRecentSearches = () =>
   useQuery({ queryKey: keepsakeKeys.recentSearches, queryFn: async () => (await keepsakeApi.recentSearches()).searches, staleTime: 60_000 });
 
 export const refreshNotes = () => void queryClient.invalidateQueries({ queryKey: keepsakeKeys.notes });
+
+export type OurSong = { track: Track | null; story: string; plays: { user_id: string; plays: number }[] };
+
+export const ourSongKey = ["our-song"] as const;
+
+export const useOurSong = () => useQuery({ queryKey: ourSongKey, queryFn: () => request<OurSong>("/api/our-song"), staleTime: 5 * 60_000 });
+
+export const setOurSong = (trackId: string | null, story: string) =>
+  request<OurSong>("/api/admin/our-song", json("PUT", { track_id: trackId, story }));

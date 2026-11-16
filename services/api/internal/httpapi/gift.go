@@ -25,6 +25,7 @@ func (a *api) registerGiftRoutes(r chi.Router) {
 	r.Put("/favorites", a.setFavorites)
 	r.Get("/stars", a.stars)
 	r.Get("/room/config", a.roomConfig)
+	r.Get("/our-song", a.ourSong)
 
 	r.Get("/tracks/{id}/notes", a.trackNotes)
 	r.Post("/tracks/{id}/notes", a.createSongNote)
@@ -62,6 +63,7 @@ func (a *api) registerGiftAdminRoutes(r chi.Router) {
 	r.Put("/room", a.setAdminRoom)
 	r.Get("/holidays", a.adminHolidays)
 	r.Put("/holidays", a.setHolidays)
+	r.Put("/our-song", a.setOurSong)
 }
 
 func urlID(w http.ResponseWriter, r *http.Request, what string) (uuid.UUID, bool) {
@@ -630,7 +632,7 @@ func (a *api) createDedication(w http.ResponseWriter, r *http.Request) {
 	}
 	me := currentUser(r)
 	for _, u := range a.others(r.Context(), me.ID) {
-		a.notify(u.ID, "dedications", me.DisplayName, "Dedication", "/library/dedications/")
+		a.notify(u.ID, "dedications", me.DisplayName, "Dedication", "/dedications/")
 	}
 	a.giftChanged(r.Context(), "dedications", "stars")
 	writeJSON(w, http.StatusCreated, d)
@@ -774,7 +776,7 @@ func (a *api) sendMixtape(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	me := currentUser(r)
-	a.notify(m.ToUser, "mixtapes", me.DisplayName, "Mixtape: "+m.Title, "/")
+	a.notify(m.ToUser, "mixtapes", me.DisplayName, "Mixtape: "+m.Title, "/mixtapes/?id="+m.ID.String())
 	a.giftChanged(r.Context(), "mixtapes")
 	writeJSON(w, http.StatusOK, m)
 }
@@ -827,4 +829,50 @@ func (a *api) deleteRecentSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+type OurSong struct {
+	TrackID *uuid.UUID `json:"track_id"`
+	Story   string     `json:"story"`
+}
+
+func (a *api) ourSong(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var cfg OurSong
+	a.setting(ctx, "our_song", &cfg)
+	out := map[string]any{"track": nil, "story": cfg.Story, "plays": []store.PlayCount{}}
+	if cfg.TrackID != nil {
+		tracks, err := a.Store.TracksByID(ctx, []uuid.UUID{*cfg.TrackID})
+		if err != nil {
+			a.serverError(w, "our song", err)
+			return
+		}
+		if len(tracks) > 0 {
+			out["track"] = tracks[0]
+		}
+		plays, err := a.Store.PlayCounts(ctx, *cfg.TrackID)
+		if err != nil {
+			a.serverError(w, "play counts", err)
+			return
+		}
+		out["plays"] = plays
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func (a *api) setOurSong(w http.ResponseWriter, r *http.Request) {
+	var in OurSong
+	if !readJSON(w, r, &in) {
+		return
+	}
+	if utf8.RuneCountInString(in.Story) > 20000 {
+		writeError(w, http.StatusBadRequest, "story of 20000 characters at most")
+		return
+	}
+	raw, _ := json.Marshal(in)
+	if err := a.Store.SetAppSetting(r.Context(), "our_song", raw); err != nil {
+		a.serverError(w, "save our song", err)
+		return
+	}
+	a.ourSong(w, r)
 }

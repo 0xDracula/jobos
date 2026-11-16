@@ -5,10 +5,13 @@ import { Pencil, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { adminApi, adminKeys, type AdminNote, type NoteInput } from "@/lib/admin";
+import { api } from "@/lib/api";
 import type { Holiday } from "@/lib/gift";
+import { ourSongKey, setOurSong, useOurSong } from "@/lib/keepsakes";
 import { queryClient, usePlaylists } from "@/lib/queries";
 import { useMembers } from "@/lib/session";
 import { toast } from "@/lib/toast";
+import type { Track } from "@/lib/types";
 
 import { ConfirmDialog, Dialog } from "../dialogs";
 import { Button, Chip, Empty, Field, IconButton, inputClass } from "../ui";
@@ -354,6 +357,7 @@ function RoomSettingsAdmin() {
 export function Content() {
   return (
     <>
+      <OurSongAdmin />
       <HiddenNotes />
       <Holidays />
     </>
@@ -362,4 +366,60 @@ export function Content() {
 
 export function RoomAdmin() {
   return <RoomSettingsAdmin />;
+}
+
+function OurSongAdmin() {
+  const q = useOurSong();
+  const [search, setSearch] = useState("");
+  const [picked, setPicked] = useState<Track | null>(null);
+  const [story, setStory] = useState("");
+  useEffect(() => {
+    if (!q.data) return;
+    setPicked(q.data.track);
+    setStory(q.data.story);
+  }, [q.data]);
+  const results = useQuery({
+    queryKey: ["library-search", search.trim()],
+    queryFn: async () => (await api.searchLibrary(search.trim())).tracks,
+    enabled: search.trim().length > 1,
+  });
+  const save = async () => {
+    try {
+      const r = await setOurSong(picked?.id ?? null, story);
+      queryClient.setQueryData(ourSongKey, r);
+      toast("Our song saved");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Not saved");
+    }
+  };
+  return (
+    <Panel title="Our song">
+      <div className="grid gap-3 p-1">
+        {picked ? (
+          <Line label={<span dir="auto">{picked.title}</span>} sub={<span dir="auto">{picked.artists.join(", ")}</span>}>
+            <Button size="sm" variant="ghost" onClick={() => setPicked(null)}>
+              Change
+            </Button>
+          </Line>
+        ) : (
+          <>
+            <input aria-label="Song" placeholder="Song" dir="auto" className={inputClass} value={search} onChange={(e) => setSearch(e.target.value)} />
+            {results.data?.slice(0, 8).map((t) => (
+              <Line key={t.id} label={<span dir="auto">{t.title}</span>} sub={<span dir="auto">{t.artists.join(", ")}</span>}>
+                <Button size="sm" onClick={() => setPicked(t)}>
+                  Choose
+                </Button>
+              </Line>
+            ))}
+          </>
+        )}
+        <Field label="Story">
+          <textarea dir="auto" rows={8} className={`${inputClass} py-3 font-hand text-lg`} value={story} onChange={(e) => setStory(e.target.value)} />
+        </Field>
+        <Button variant="primary" onClick={() => void save()}>
+          Save our song
+        </Button>
+      </div>
+    </Panel>
+  );
 }
