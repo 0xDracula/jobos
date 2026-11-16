@@ -8,7 +8,7 @@ import time
 
 import httpx
 
-from . import config, ingest, match
+from . import config, ingest, lyrics, match
 
 log = logging.getLogger("jobbos.worker")
 
@@ -21,13 +21,20 @@ def handle_match(payload: dict) -> dict:
     return match.match_track(payload)
 
 
-HANDLERS = {"download_track": handle_download, "match_track": handle_match}
+def handle_lyrics(payload: dict) -> dict:
+    return lyrics.fetch_lyrics(payload)
+
+
+HANDLERS = {"download_track": handle_download, "match_track": handle_match, "fetch_lyrics": handle_lyrics}
 
 
 def describe(kind: str, payload: dict, result: dict) -> str:
     if kind == "match_track":
         best = (result.get("candidates") or [{}])[0]
         return f"{result['verdict']} {best.get('score', 0):.2f} {payload['title']!r} -> {best.get('title')!r}"
+    if kind == "fetch_lyrics":
+        found = "synced" if result["synced_lrc"] else "plain" if result["plain"] else "instrumental" if result["instrumental"] else "none"
+        return f"{result['source'] or '-'} {found} {payload['title']!r}"
     return "done"
 
 
