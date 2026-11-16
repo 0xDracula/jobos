@@ -37,6 +37,13 @@ export type MotionPref = "system" | "reduced" | "full";
 export type Prefs = {
   theme: Theme;
   motion: MotionPref;
+  beatIntensity: number;
+  seasons: boolean;
+  uiSounds: boolean;
+  sleepPlaylist: string | null;
+  sleepMinutes: number;
+  weekendPlaylist: string | null;
+  ambient: Record<string, number>;
   volume: number;
   muted: boolean;
   crossfade: number;
@@ -49,6 +56,13 @@ export type Prefs = {
 export const DEFAULT_PREFS: Prefs = {
   theme: "auto",
   motion: "system",
+  beatIntensity: 0.6,
+  seasons: true,
+  uiSounds: false,
+  sleepPlaylist: null,
+  sleepMinutes: 30,
+  weekendPlaylist: null,
+  ambient: {},
   volume: 1,
   muted: false,
   crossfade: 0,

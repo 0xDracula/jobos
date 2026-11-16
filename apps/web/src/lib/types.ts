@@ -17,6 +17,8 @@ export type AudioView = {
   loudness_lufs: number | null;
   gain_db: number | null;
   waveform?: number[];
+  tempo_bpm?: number;
+  beats?: number[];
 };
 
 export type Track = {
@@ -157,4 +159,41 @@ export type ListeningEvent = {
   position_ms: number | null;
   context: Record<string, unknown> | null;
   at: string;
+};
+
+export type City = {
+  name: string;
+  region?: string;
+  country: string;
+  lat: number;
+  lon: number;
+  timezone?: string;
+  source?: "manual" | "detected";
+  updated_at?: string;
+};
+
+export type Weather = {
+  condition: "clear" | "clouds" | "fog" | "drizzle" | "rain" | "snow" | "thunderstorm";
+  code: number;
+  temperature_c: number;
+  cloud_cover: number;
+  precipitation_mm: number;
+  wind_kmh: number;
+  is_day: boolean;
+  timezone: string;
+  utc_offset_s: number;
+  fetched_at: string;
+};
+
+export type UserCityEntry = { user_id: string; display_name: string; me: boolean; city: City | null };
+
+export type RoomStats = { listening_seconds: number; liked_songs: number; active_days: number; since: string | null };
+
+export type HiddenNoteView = {
+  id: string;
+  spot: "moon" | "drawer" | "shooting_star" | "pet_bed" | "frame";
+  found: boolean;
+  found_at?: string;
+  title?: string;
+  body?: string;
 };

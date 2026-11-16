@@ -20,6 +20,15 @@ const baloo = Baloo_Bhaijaan_2({ subsets: ["arabic"], variable: "--font-baloo", 
 const caveat = Caveat({ subsets: ["latin"], variable: "--font-caveat", display: "swap", preload: false });
 const ruqaa = Aref_Ruqaa({ subsets: ["arabic"], weight: ["400", "700"], variable: "--font-ruqaa", display: "swap", preload: false });
 
+const SPLASH: [number, number, number][] = [
+  [375, 667, 2],
+  [390, 844, 3],
+  [393, 852, 3],
+  [414, 896, 2],
+  [428, 926, 3],
+  [430, 932, 3],
+];
+
 export const metadata: Metadata = {
   title: "Jobbos",
   description: "Private music player",
@@ -28,7 +37,15 @@ export const metadata: Metadata = {
     icon: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
     apple: "/icons/apple-touch-icon.png",
   },
-  appleWebApp: { capable: true, title: "Jobbos", statusBarStyle: "default" },
+  appleWebApp: {
+    capable: true,
+    title: "Jobbos",
+    statusBarStyle: "default",
+    startupImage: SPLASH.map(([w, h, r]) => ({
+      url: `/splash/splash-${w * r}x${h * r}.png`,
+      media: `(device-width: ${w}px) and (device-height: ${h}px) and (-webkit-device-pixel-ratio: ${r}) and (orientation: portrait)`,
+    })),
+  },
 };
 
 export const viewport: Viewport = {

@@ -14,6 +14,7 @@ import { refreshUsage, removeAllDownloads, useOffline } from "@/lib/offline";
 import { usePrefs, type MotionPref, type Theme } from "@/lib/prefs";
 import { keys, useHide } from "@/lib/queries";
 import { SHORTCUTS } from "@/player/shortcuts";
+import { LocationSettings, RoomPrefs } from "@/room/ui/RoomSettings";
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -175,6 +176,8 @@ export default function SettingsPage() {
           />
         </Row>
       </Section>
+      <LocationSettings />
+      <RoomPrefs />
       <App />
       <Downloads />
       <Hidden />

@@ -24,7 +24,7 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="day"]) {
     --bg: #1e1b3a;
-    --surface: rgba(255, 255, 255, 0.08);
+    --surface: rgba(41, 37, 74, 0.78);
     --surface-solid: #29254a;
     --glass-border: rgba(255, 255, 255, 0.12);
     --text: #f5eef8;
@@ -42,7 +42,7 @@
 
 :root[data-theme="night"] {
   --bg: #1e1b3a;
-  --surface: rgba(255, 255, 255, 0.08);
+  --surface: rgba(41, 37, 74, 0.78);
   --surface-solid: #29254a;
   --glass-border: rgba(255, 255, 255, 0.12);
   --text: #f5eef8;

@@ -166,16 +166,21 @@ function OfflineBanner() {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const home = usePathname() === "/";
   return (
     <>
       <div id="app-content">
         <Sidebar />
-        <main className="lg:ps-64">
-          <div className="mx-auto max-w-5xl px-4 pb-[calc(10.5rem+env(safe-area-inset-bottom))] pt-[max(env(safe-area-inset-top),24px)] lg:px-10 lg:pb-36 lg:pt-10">
-            <OfflineBanner />
-            {children}
-          </div>
-        </main>
+        {home ? (
+          <main className="fixed inset-x-0 top-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] lg:bottom-0 lg:left-64">{children}</main>
+        ) : (
+          <main className="lg:ps-64">
+            <div className="mx-auto max-w-5xl px-4 pb-[calc(10.5rem+env(safe-area-inset-bottom))] pt-[max(env(safe-area-inset-top),24px)] lg:px-10 lg:pb-36 lg:pt-10">
+              <OfflineBanner />
+              {children}
+            </div>
+          </main>
+        )}
         <TabBar />
       </div>
       <PlayerDock />

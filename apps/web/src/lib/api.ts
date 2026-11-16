@@ -1,6 +1,6 @@
 import type {
-  Album, Artist, HiddenArtist, ImportSummary, ListeningEvent, Lyrics, PlaybackState, PlayedTrack, Playlist,
-  PlaylistSummary, SearchResult, SourceChoice, SourceView, Track, User,
+  Album, Artist, City, HiddenArtist, HiddenNoteView, ImportSummary, ListeningEvent, Lyrics, PlaybackState, PlayedTrack,
+  Playlist, PlaylistSummary, RoomStats, SearchResult, SourceChoice, SourceView, Track, User, UserCityEntry, Weather,
 } from "./types";
 
 export class ApiError extends Error {
@@ -86,5 +86,15 @@ export const api = {
   savePlayback: (state: Omit<PlaybackState, "device_name" | "updated_at">) => request<null>("/api/playback", json("PUT", state)),
 
   settings: () => request<{ settings: Record<string, unknown> }>("/api/settings"),
+
+  location: () => request<{ city: City | null; detection: boolean }>("/api/location"),
+  setLocation: (city: City) => request<{ city: City }>("/api/location", json("PUT", city)),
+  clearLocation: () => request<null>("/api/location", { method: "DELETE" }),
+  locations: () => request<{ users: UserCityEntry[] }>("/api/locations"),
+  cities: (q: string) => request<{ places: City[] }>(`/api/cities?q=${encodeURIComponent(q)}`),
+  weather: (lat: number, lon: number) => request<Weather>(`/api/weather?lat=${lat.toFixed(4)}&lon=${lon.toFixed(4)}`),
+  roomStats: () => request<RoomStats>("/api/room/stats"),
+  hiddenNotes: () => request<{ notes: HiddenNoteView[] }>("/api/notes/hidden"),
+  findNote: (id: string) => request<HiddenNoteView>(`/api/notes/hidden/${id}/find`, { method: "POST" }),
   setSetting: (key: string, value: unknown) => request<null>(`/api/settings/${key}`, json("PUT", value)),
 };
