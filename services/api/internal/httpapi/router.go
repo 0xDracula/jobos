@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -38,6 +39,7 @@ type Store interface {
 	Lyrics(ctx context.Context, trackID uuid.UUID) (*store.LyricsView, error)
 	SetLyricsOffset(ctx context.Context, trackID uuid.UUID, offsetMs int32) error
 	BackfillLyrics(ctx context.Context) (int, error)
+	BackfillEnrich(ctx context.Context) (int, error)
 	ClaimJob(ctx context.Context, queue, worker string, kinds []string) (*store.Job, error)
 	CompleteJob(ctx context.Context, id int64, result json.RawMessage) error
 	FailJob(ctx context.Context, id int64, message string) error
@@ -58,7 +60,7 @@ type Deps struct {
 
 type api struct{ Deps }
 
-var mediaFileRE = regexp.MustCompile(`^([0-9a-f]{64})\.m4a$`)
+var mediaFileRE = regexp.MustCompile(`^([0-9a-f]{64})(\.300)?\.(m4a|jpg|png|webp)$`)
 
 func New(d Deps) http.Handler {
 	a := &api{d}
@@ -83,6 +85,7 @@ func New(d Deps) http.Handler {
 		r.Get("/tracks/{id}/lyrics", a.lyrics)
 		r.Patch("/tracks/{id}/lyrics", a.lyricsOffset)
 		r.Post("/lyrics/backfill", a.backfillLyrics)
+		r.Post("/artwork/backfill", a.backfillEnrich)
 		r.Get("/media/{file}", a.mediaFile)
 		r.Get("/playlists", a.listPlaylists)
 		r.Post("/playlists/import", a.importPlaylist)
@@ -287,6 +290,15 @@ func (a *api) backfillLyrics(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusAccepted, map[string]int{"queued": n})
 }
 
+func (a *api) backfillEnrich(w http.ResponseWriter, r *http.Request) {
+	n, err := a.Store.BackfillEnrich(r.Context())
+	if err != nil {
+		a.serverError(w, "backfill artwork", err)
+		return
+	}
+	writeJSON(w, http.StatusAccepted, map[string]int{"queued": n})
+}
+
 func (a *api) importPlaylist(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	playlistID, err := importer.SpotifyPlaylistID(q.Get("url"))
@@ -435,7 +447,11 @@ func (a *api) mediaFile(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	sha := m[1]
+	sha, thumb, ext := m[1], m[2] != "", m[3]
+	if thumb && ext != "jpg" {
+		http.NotFound(w, r)
+		return
+	}
 	rel, mime, err := a.Store.AssetBySHA(r.Context(), sha)
 	if errors.Is(err, store.ErrNotFound) {
 		http.NotFound(w, r)
@@ -443,6 +459,14 @@ func (a *api) mediaFile(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		a.serverError(w, "load asset", err)
+		return
+	}
+	etag := sha
+	switch {
+	case thumb && strings.HasPrefix(mime, "image/"):
+		rel, mime, etag = strings.TrimSuffix(rel, path.Ext(rel))+".300.jpg", "image/jpeg", sha+".300"
+	case thumb || store.MediaExt[mime] != ext:
+		http.NotFound(w, r)
 		return
 	}
 	root, _ := filepath.Abs(a.MediaRoot)
@@ -464,8 +488,8 @@ func (a *api) mediaFile(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", mime)
 	w.Header().Set("Cache-Control", "private, max-age=31536000, immutable")
-	w.Header().Set("ETag", `"`+sha+`"`)
-	http.ServeContent(w, r, sha+".m4a", info.ModTime(), f)
+	w.Header().Set("ETag", `"`+etag+`"`)
+	http.ServeContent(w, r, etag+"."+ext, info.ModTime(), f)
 }
 
 func (a *api) requireWorker(next http.Handler) http.Handler {

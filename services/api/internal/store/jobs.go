@@ -134,6 +134,9 @@ type AssetResult struct {
 	TruePeakDB   *float64        `json:"true_peak_db"`
 	GainDB       *float64        `json:"gain_db"`
 	Waveform     json.RawMessage `json:"waveform"`
+	Width        *int32          `json:"width"`
+	Height       *int32          `json:"height"`
+	Palette      json.RawMessage `json:"palette"`
 }
 
 type DownloadResult struct {
@@ -188,6 +191,8 @@ func (s *Store) CompleteJob(ctx context.Context, id int64, result json.RawMessag
 		err = completeMatch(ctx, tx, payload, result)
 	case KindFetchLyrics:
 		err = completeLyrics(ctx, tx, payload, result)
+	case KindEnrichMetadata:
+		err = completeEnrich(ctx, tx, payload, result)
 	}
 	if err != nil {
 		return err
@@ -212,18 +217,8 @@ func completeDownload(ctx context.Context, tx pgx.Tx, payload, result []byte, pr
 	if err := a.Validate(); err != nil {
 		return err
 	}
-	var waveform []byte
-	if len(a.Waveform) > 0 {
-		waveform = a.Waveform
-	}
-	var assetID uuid.UUID
-	if err := tx.QueryRow(ctx, `insert into media_assets
-			(id, sha256, kind, path, mime, bytes, duration_ms, bitrate, loudness_lufs, true_peak_db, gain_db, waveform)
-		values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-		on conflict (sha256) do update set path = excluded.path
-		returning id`,
-		newID(), a.SHA256, a.Kind, a.Path, a.Mime, a.Bytes, a.DurationMs, a.Bitrate,
-		a.LoudnessLUFS, a.TruePeakDB, a.GainDB, waveform).Scan(&assetID); err != nil {
+	assetID, err := insertAsset(ctx, tx, a)
+	if err != nil {
 		return err
 	}
 	linked, err := tx.Exec(ctx, `insert into track_media (track_id, variant, track_source_id, asset_id)
@@ -234,6 +229,9 @@ func completeDownload(ctx context.Context, tx pgx.Tx, payload, result []byte, pr
 		return err
 	}
 	if linked.RowsAffected() == 1 {
+		if _, err := enqueueEnrich(ctx, tx, p.TrackID, priority); err != nil {
+			return err
+		}
 		var looked bool
 		if err := tx.QueryRow(ctx, `select exists (select 1 from lyrics where track_id = $1)`, p.TrackID).Scan(&looked); err != nil {
 			return err
@@ -251,6 +249,27 @@ func completeDownload(ctx context.Context, tx pgx.Tx, payload, result []byte, pr
 	_, err = tx.Exec(ctx, `insert into source_status (provider, last_ok_at, updated_at) values ($1, now(), now())
 		on conflict (provider) do update set last_ok_at = now(), updated_at = now()`, p.Provider)
 	return err
+}
+
+func insertAsset(ctx context.Context, tx pgx.Tx, a AssetResult) (uuid.UUID, error) {
+	jsonOrNil := func(raw json.RawMessage) []byte {
+		if len(raw) == 0 || string(raw) == "null" {
+			return nil
+		}
+		return raw
+	}
+	var id uuid.UUID
+	err := tx.QueryRow(ctx, `insert into media_assets
+			(id, sha256, kind, path, mime, bytes, duration_ms, bitrate, loudness_lufs, true_peak_db, gain_db, waveform,
+			 width, height, palette)
+		values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+		on conflict (sha256) do update set path = excluded.path,
+			width = coalesce(excluded.width, media_assets.width), height = coalesce(excluded.height, media_assets.height),
+			palette = coalesce(excluded.palette, media_assets.palette)
+		returning id`,
+		newID(), a.SHA256, a.Kind, a.Path, a.Mime, a.Bytes, a.DurationMs, a.Bitrate,
+		a.LoudnessLUFS, a.TruePeakDB, a.GainDB, jsonOrNil(a.Waveform), a.Width, a.Height, jsonOrNil(a.Palette)).Scan(&id)
+	return id, err
 }
 
 func (s *Store) FailJob(ctx context.Context, id int64, message string) error {

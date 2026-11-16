@@ -164,20 +164,24 @@ type SourceView struct {
 }
 
 type TrackView struct {
-	ID          uuid.UUID   `json:"id"`
-	Title       string      `json:"title"`
-	Artists     []string    `json:"artists"`
-	Album       *string     `json:"album"`
-	DurationMs  *int32      `json:"duration_ms"`
-	ArtworkURL  *string     `json:"artwork_url"`
-	MatchStatus *string     `json:"match_status"`
-	Status      string      `json:"status"`
-	Error       *string     `json:"error,omitempty"`
-	Source      *SourceView `json:"source,omitempty"`
-	Audio       *AudioView  `json:"audio,omitempty"`
+	ID              uuid.UUID       `json:"id"`
+	Title           string          `json:"title"`
+	Artists         []string        `json:"artists"`
+	Album           *string         `json:"album"`
+	DurationMs      *int32          `json:"duration_ms"`
+	ArtworkURL      *string         `json:"artwork_url"`
+	ArtworkThumbURL *string         `json:"artwork_thumb_url"`
+	Palette         json.RawMessage `json:"palette,omitempty"`
+	MatchStatus     *string         `json:"match_status"`
+	Status          string          `json:"status"`
+	Error           *string         `json:"error,omitempty"`
+	Source          *SourceView     `json:"source,omitempty"`
+	Audio           *AudioView      `json:"audio,omitempty"`
 }
 
 var ErrNotFound = errors.New("not found")
+
+var MediaExt = map[string]string{"audio/mp4": "m4a", "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
 
 const trackViewSQL = `select t.id, t.title, al.title, t.duration_ms, t.artwork_url,
 		coalesce((select array_agg(a.name order by ta.position) from track_artists ta
@@ -185,9 +189,11 @@ const trackViewSQL = `select t.id, t.title, al.title, t.duration_ms, t.artwork_u
 		t.match_status,
 		ma.sha256, ma.duration_ms, ma.loudness_lufs, ma.gain_db, ma.waveform,
 		ts.id, ts.provider, ts.external_id, ts.raw_title, ts.uploader, ts.duration_ms, ts.match_score,
-		dj.status, dj.last_error
+		dj.status, dj.last_error,
+		art.sha256, art.mime, art.palette
 	from tracks t
 	left join albums al on al.id = t.album_id
+	left join media_assets art on art.id = coalesce(t.artwork_asset_id, al.artwork_asset_id)
 	left join track_media tm on tm.track_id = t.id and tm.variant = 'main'
 	left join media_assets ma on ma.id = tm.asset_id
 	left join track_sources ts on ts.track_id = t.id and ts.status = 'selected'
@@ -205,12 +211,21 @@ func scanTrackView(row pgx.Row) (*TrackView, error) {
 		sourceID                        uuid.NullUUID
 		provider, externalID, rawTitle  *string
 		uploader, jobStatus, jobLastErr *string
+		artSHA, artMime                 *string
+		palette                         []byte
 	)
 	if err := row.Scan(&v.ID, &v.Title, &v.Album, &v.DurationMs, &v.ArtworkURL, &v.Artists, &v.MatchStatus,
 		&sha, &mDur, &loudness, &gain, &waveform,
 		&sourceID, &provider, &externalID, &rawTitle, &uploader, &sDur, &score,
-		&jobStatus, &jobLastErr); err != nil {
+		&jobStatus, &jobLastErr, &artSHA, &artMime, &palette); err != nil {
 		return nil, err
+	}
+	if artSHA != nil && artMime != nil {
+		full := "/api/media/" + *artSHA + "." + MediaExt[*artMime]
+		thumb := "/api/media/" + *artSHA + ".300.jpg"
+		v.ArtworkURL, v.ArtworkThumbURL, v.Palette = &full, &thumb, palette
+	} else {
+		v.ArtworkThumbURL = v.ArtworkURL
 	}
 	if sourceID.Valid {
 		v.Source = &SourceView{ID: sourceID.UUID, Provider: *provider, ExternalID: *externalID,

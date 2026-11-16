@@ -30,7 +30,8 @@ func TestInternalRoutesNeedWorkerToken(t *testing.T) {
 
 func TestMediaFileRejectsBadNames(t *testing.T) {
 	h := testServer()
-	for _, name := range []string{"abc.m4a", strings.Repeat("a", 64) + ".mp3", "..%2F..%2Fetc%2Fpasswd"} {
+	for _, name := range []string{"abc.m4a", strings.Repeat("a", 64) + ".mp3", strings.Repeat("a", 64) + ".300.png",
+		strings.Repeat("a", 64) + ".300.m4a", "..%2F..%2Fetc%2Fpasswd"} {
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/media/"+name, nil))
 		if rec.Code != http.StatusNotFound {
