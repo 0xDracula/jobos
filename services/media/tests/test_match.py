@@ -68,3 +68,17 @@ def test_unmatched_without_candidates():
 def test_query_drops_credits_and_edition_notes():
     assert match.query_for("Song (feat. Someone) - Remastered 2011", ["A", "B", "C"]) == "Song A B"
     assert match.query_for("Song - Live", ["A"]) == "Song - Live A"
+
+
+def test_title_only_search_finds_artists_spelled_differently():
+    calls = []
+
+    def songs(query, limit):
+        calls.append(query)
+        if query == "Ba'aa Enta Bari'e":
+            return [song("galila", "Baa Anta Bariy", "Galila", 266)]
+        return [song("other", "Something Else", "Someone", 200)]
+
+    result = match.match_track(payload("Ba'aa Enta Bari'e", ["Jalila"], 258), songs, searcher([]))
+    assert calls == ["Ba'aa Enta Bari'e Jalila", "Ba'aa Enta Bari'e"]
+    assert result["candidates"][0]["external_id"] == "galila"

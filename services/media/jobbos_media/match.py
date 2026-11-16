@@ -24,9 +24,11 @@ def is_official(candidate: dict, artists: list[str]) -> bool:
     if candidate.get("official"):
         return True
     for a in candidate.get("artists") or []:
-        name = a["name"]
-        if name.endswith(" - Topic") or any(matching.similarity(name, artist) >= 0.9 for artist in artists):
+        if a["name"].endswith(" - Topic"):
             return True
+        for part in matching.segments(a["name"]):
+            if any(matching.similarity(part, artist) >= 0.9 for artist in artists):
+                return True
     return False
 
 
@@ -55,6 +57,11 @@ def match_track(payload: dict, songs: Search = search.search_songs, videos: Sear
     if not ranked or ranked[0]["score"] < matching.ACCEPT_AT:
         for c in videos(query, 10):
             found.setdefault(c["external_id"], {**c, "official": is_official(c, artists)})
+        ranked = rank(source, list(found.values()))
+    title_only = query_for(title, [])
+    if (not ranked or ranked[0]["score"] < matching.ACCEPT_AT) and title_only != query:
+        for c in songs(title_only, 10):
+            found.setdefault(c["external_id"], c)
         ranked = rank(source, list(found.values()))
     top = ranked[:MAX_CANDIDATES]
     verdict = matching.classify(top[0]["score"]) if top else "unmatched"

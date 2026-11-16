@@ -9,6 +9,9 @@ from rapidfuzz import fuzz
 
 ACCEPT_AT = 0.75
 REVIEW_AT = 0.55
+LENGTH_PENALTY = 0.25
+WEAK_PENALTY = 0.20
+SKELETON_MIN = 0.70
 
 ARABIC_RE = re.compile(r"[؀-ۿݐ-ݿﭐ-﷿ﹰ-﻿]")
 _DIACRITICS_RE = re.compile(r"[ً-ْٰـ]")
@@ -23,6 +26,7 @@ _PUNCT_RE = re.compile(r"[^\w\s]")
 _ARABIZI = {"2": "", "3": "", "5": "kh", "6": "t", "7": "h", "8": "gh", "9": "s"}
 _ARABIZI_RE = re.compile(r"(?<=[a-z])[235-9]|[235-9](?=[a-z])")
 _AR_ARTICLE_RE = re.compile(r"(?<!\S)ال(?=\S{2,})")
+_SEPARATOR_RE = re.compile(r"\s+[-–—]\s+|\s*\|\s*|\s+/\s+|\s*\.{2,}\s*|\s*:\s*")
 
 _SEGMENT_MARKERS = {
     "live": r"\blive\b",
@@ -78,13 +82,17 @@ def skeleton(text: str) -> str:
     s = normalize(text)
     if ARABIC_RE.search(s):
         s = _AR_ARTICLE_RE.sub("", s)
-    words = latinize(s).split()
-    if len(words) > 1 and words[0] in ("el", "al"):
-        words = words[1:]
-    s = "".join(words)
-    s = s.replace("c", "k").replace("q", "k")
-    s = re.sub(r"[^a-z]", "", s)
-    s = re.sub(r"[aeiouyw]", "", s)
+    words = []
+    for w in latinize(s).split():
+        w = re.sub(r"[^a-z]", "", w)
+        if not w or w in ("el", "al"):
+            continue
+        w = w.replace("dh", "z").replace("th", "z").replace("ch", "sh")
+        w = w.replace("c", "k").replace("q", "k").replace("g", "j").replace("v", "f").replace("p", "b")
+        if len(w) > 1 and w.endswith("h"):
+            w = w[:-1]
+        words.append(w)
+    s = re.sub(r"[aeiouyw]", "", "".join(words))
     return re.sub(r"(.)\1+", r"\1", s)
 
 
@@ -95,9 +103,38 @@ def similarity(a: str, b: str) -> float:
     direct = (fuzz.token_set_ratio(na, nb) + fuzz.token_sort_ratio(na, nb)) / 200
     if bool(ARABIC_RE.search(na)) != bool(ARABIC_RE.search(nb)):
         sa, sb = skeleton(na), skeleton(nb)
-        if sa and sb:
+        if sa and sb and fuzz.ratio(sa, sb) / 100 >= SKELETON_MIN:
             direct = max(direct, fuzz.ratio(sa, sb) / 100)
     return direct
+
+
+def segments(text: str) -> list[str]:
+    parts = [p.strip() for p in _SEPARATOR_RE.split(text)]
+    return [text] + [p for p in parts if p and p != text]
+
+
+def title_similarity(source: str, candidate: str) -> float:
+    sources = {source, source.split(" - ")[0]}
+    return max(similarity(s, c) for s in sources for c in segments(candidate))
+
+
+def artist_similarity(source: list[str], candidate: list[str], candidate_title: str) -> float:
+    if not source:
+        return 0.5
+    pool = [p for name in candidate for p in segments(name)] + segments(candidate_title)[1:]
+    names = source + ([" ".join(source)] if len(source) > 1 else [])
+    best = similarity(" ".join(source), " ".join(candidate)) if candidate else 0.5
+    for n in names:
+        for p in pool:
+            best = max(best, similarity(n, p))
+    return best
+
+
+def length_mismatch(a_ms: int | None, b_ms: int | None) -> bool:
+    if a_ms is None or b_ms is None:
+        return False
+    diff = abs(a_ms - b_ms)
+    return diff > 30_000 and diff > 0.25 * a_ms
 
 
 def markers(title: str) -> set[str]:
@@ -121,8 +158,8 @@ def duration_score(a_ms: int | None, b_ms: int | None) -> float:
 
 
 def score(source: Recording, candidate: Recording) -> float:
-    title = similarity(source.title, candidate.title)
-    artist = similarity(" ".join(source.artists), " ".join(candidate.artists)) if source.artists and candidate.artists else 0.5
+    title = title_similarity(source.title, candidate.title)
+    artist = artist_similarity(source.artists, candidate.artists, candidate.title)
     isrc = 1.0 if source.isrc and candidate.isrc and source.isrc.upper() == candidate.isrc.upper() else 0.0
     total = (
         0.35 * title
@@ -132,6 +169,9 @@ def score(source: Recording, candidate: Recording) -> float:
         + 0.10 * isrc
     )
     total -= 0.5 * len(markers(source.title) ^ markers(candidate.title))
+    if length_mismatch(source.duration_ms, candidate.duration_ms):
+        total -= LENGTH_PENALTY
+    total -= WEAK_PENALTY * ((title < 0.5) + (artist < 0.5))
     return round(total, 4)
 
 

@@ -80,3 +80,58 @@ def test_large_artwork_url():
     url = "https://lh3.googleusercontent.com/abc=w120-h120-l90-rj"
     assert large_artwork(url) == "https://lh3.googleusercontent.com/abc=w544-h544-l90-rj"
     assert large_artwork(None) is None
+
+
+def test_spelling_variants_share_a_skeleton():
+    for latin, arabic in [("Jalila", "جليلة"), ("Galela", "جليلة"), ("Thekra", "ذكرى"), ("Kan El Hanin", "كان الحنين"), ("Hegazy Metkal", "حجازى متقال")]:
+        assert skeleton(latin) == skeleton(arabic), (latin, arabic, skeleton(latin), skeleton(arabic))
+
+
+def test_bilingual_upload_titles_and_artists_match():
+    source = Recording("Allemtini", ["Jalila"], 224_000)
+    candidate = Recording("Allemtini - علمتينى", ["Galela - جليلة"], 224_000, official=True)
+    assert classify(score(source, candidate)) == "accepted"
+
+
+def test_artist_prefix_in_upload_title_counts_as_artist():
+    source = Recording("Ajelk Shooq", ["Thekra"], 377_000)
+    candidate = Recording("اجيلك شوق - ذكرى", ["على وتر القلب"], 377_000)
+    assert classify(score(source, candidate)) == "accepted"
+    source = Recording("Taxi", ["Mashrou' Leila"], 165_000)
+    upload = Recording("Mashrou' Leila - Taxi", ["ARTIFACT MUSIC"], 166_000)
+    other_cut = Recording("Taxi", ["Mashrou' Leila"], 128_000, official=True)
+    assert score(source, upload) > score(source, other_cut)
+
+
+def test_clip_of_a_song_loses_to_the_full_video():
+    source = Recording("Lil Watan", ["Mashrou' Leila"], 216_000)
+    clip = Recording("Lil Watan", ["Mashrou' Leila"], 53_000, official=True)
+    video = Recording(
+        "Mashrou' Leila - Lil Watan ( Official Music Video ) | مشروع ليلى - للوطن", ["Mashrou' Leila"], 227_000, official=True
+    )
+    assert score(source, video) > score(source, clip)
+    assert classify(score(source, video)) == "accepted"
+    assert classify(score(source, clip)) != "accepted"
+
+
+def test_other_songs_by_the_artist_stay_unaccepted():
+    source = Recording("Let Go", ["Ghalia Benali"], 251_000)
+    assert classify(score(source, Recording("Daa Aank", ["Ghalia BenAli"], 251_000, official=True))) != "accepted"
+    source = Recording("Men Andena", ["Ronza"], 195_000)
+    assert classify(score(source, Recording("Men Andena", ["Randa"], 177_000, official=True))) != "accepted"
+
+
+def test_same_length_song_with_another_title_is_not_accepted():
+    source = Recording("Away Tab'an", ["Jalila"], 252_000)
+    other = Recording("3lmteny - علمتنى", ["Galela - جليلة"], 253_000, official=True)
+    assert classify(score(source, other)) != "accepted"
+
+
+def test_same_title_by_another_artist_is_unmatched():
+    source = Recording("Let Go", ["Ghalia Benali"], 251_000)
+    other = Recording("Let Go (feat. Veronika Redd)", ["Ark Patrol"], 249_000, official=True)
+    assert classify(score(source, other)) == "unmatched"
+
+
+def test_v_and_p_read_as_arabic_f_and_b():
+    assert skeleton("Vatareen") == skeleton("فتارين")
