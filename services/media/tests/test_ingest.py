@@ -76,3 +76,14 @@ def test_stream_info():
         "expires_at": 1795000000,
     }
     assert stream_info({"url": "https://x.googlevideo.com/v", "ext": "webm"})["mime"] == "audio/webm"
+
+
+def test_encoded_file_is_measured_within_the_peak_limit(tone, tmp_path):
+    from jobbos_media import config
+
+    measured = ingest.measure_loudness(tone)
+    out, level = ingest.encode_within_peak(tone, tmp_path, measured)
+    assert out.exists()
+    assert abs(level["lufs"] - config.TARGET_LUFS) < 1.0
+    assert level["true_peak_db"] <= config.TARGET_TRUE_PEAK
+    assert ingest.measure_output(out) == level

@@ -14,7 +14,8 @@ import yt_dlp
 
 from . import config
 
-_LOUDNORM = f"loudnorm=I={config.TARGET_LUFS}:TP={config.TARGET_TRUE_PEAK}:LRA=11"
+_LOUDNORM = f"loudnorm=I={config.TARGET_LUFS}:TP={config.ENCODE_TRUE_PEAK}:LRA=11"
+_SUMMARY_RE = re.compile(r"Summary:.*?\bI:\s+(-?(?:[\d.]+|inf)) LUFS.*?Peak:\s+(-?(?:[\d.]+|inf)) dBFS", re.S)
 
 
 def source_url(provider: str, external_id: str) -> str:
@@ -93,16 +94,42 @@ def measure_loudness(path: Path) -> dict:
     return {k: float(data[k]) for k in ("input_i", "input_tp", "input_lra", "input_thresh", "target_offset")}
 
 
-def encode(src: Path, dst: Path, measured: dict) -> None:
+def encode(src: Path, dst: Path, measured: dict, cut_db: float = 0.0) -> None:
     af = (
         f"{_LOUDNORM}:measured_I={measured['input_i']}:measured_TP={measured['input_tp']}"
         f":measured_LRA={measured['input_lra']}:measured_thresh={measured['input_thresh']}"
         f":offset={measured['target_offset']}:linear=true"
     )
+    if cut_db:
+        af += f",volume=-{cut_db}dB"
     _ffmpeg(
         "-y", "-i", str(src), "-vn", "-af", af, "-ar", "44100",
         "-c:a", "aac", "-b:a", str(config.AAC_BITRATE), "-movflags", "+faststart", str(dst),
     )
+
+
+def measure_output(path: Path) -> dict:
+    proc = _ffmpeg("-i", str(path), "-af", "ebur128=peak=true", "-f", "null", "-")
+    m = _SUMMARY_RE.search(proc.stderr.decode(errors="replace"))
+    if not m:
+        raise RuntimeError("output measurement failed")
+    floor = lambda v: max(float(v), -120.0)
+    return {"lufs": floor(m.group(1)), "true_peak_db": floor(m.group(2))}
+
+
+def encode_within_peak(src: Path, workdir: Path, measured: dict) -> tuple[Path, dict]:
+    out = workdir / "out.m4a"
+    encode(src, out, measured)
+    level = measure_output(out)
+    for cut in config.EXTRA_ATTENUATION_DB:
+        if level["true_peak_db"] <= config.TARGET_TRUE_PEAK:
+            break
+        alt = workdir / f"out-{cut:g}.m4a"
+        encode(src, alt, measured, cut)
+        alt_level = measure_output(alt)
+        if alt_level["true_peak_db"] < level["true_peak_db"]:
+            out, level = alt, alt_level
+    return out, level
 
 
 def duration_ms(path: Path) -> int:
@@ -145,13 +172,21 @@ def ingest(provider: str, external_id: str) -> dict:
     with tempfile.TemporaryDirectory(prefix="jobbos-") as tmp:
         workdir = Path(tmp)
         src, meta = download(source_url(provider, external_id), workdir)
-        measured = measure_loudness(src)
-        out = workdir / "out.m4a"
-        encode(src, out, measured)
-        length = duration_ms(out)
-        peaks = waveform(out)
-        stored = store(out)
-    asset = {
+        return {"asset": process(src, workdir), "source": meta}
+
+
+def ingest_file(path: Path) -> dict:
+    with tempfile.TemporaryDirectory(prefix="jobbos-") as tmp:
+        return {"asset": process(path, Path(tmp))}
+
+
+def process(src: Path, workdir: Path) -> dict:
+    measured = measure_loudness(src)
+    out, level = encode_within_peak(src, workdir, measured)
+    length = duration_ms(out)
+    peaks = waveform(out)
+    stored = store(out)
+    return {
         **stored,
         "kind": "audio",
         "mime": "audio/mp4",
@@ -159,7 +194,8 @@ def ingest(provider: str, external_id: str) -> dict:
         "bitrate": config.AAC_BITRATE,
         "loudness_lufs": measured["input_i"],
         "true_peak_db": measured["input_tp"],
-        "gain_db": round(config.TARGET_LUFS - measured["input_i"], 2),
+        "gain_db": round(level["lufs"] - measured["input_i"], 2),
+        "output_lufs": level["lufs"],
+        "output_true_peak_db": level["true_peak_db"],
         "waveform": peaks,
     }
-    return {"asset": asset, "source": meta}
