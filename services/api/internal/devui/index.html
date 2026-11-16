@@ -54,6 +54,13 @@
   .tabs button { background: var(--soft); color: var(--ink); padding: 4px 12px; font-size: 13px; }
   .tabs button[aria-pressed=true] { background: var(--accent-strong); color: var(--on-accent); }
   .head { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: baseline; margin-bottom: 12px; }
+  .phead { display: flex; gap: 16px; align-items: center; margin-bottom: 12px; }
+  .phead .head { margin-bottom: 8px; }
+  .art { width: 96px; height: 96px; flex: none; border-radius: 12px; object-fit: cover; background: var(--soft); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15); }
+  .swatches { display: flex; gap: 6px; }
+  .swatches span { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--line); }
+  #player { transition: background 0.4s; }
+  @media (prefers-reduced-motion: reduce) { #player { transition: none; } }
   canvas { width: 100%; height: 64px; display: block; cursor: pointer; margin-bottom: 8px; }
   audio { width: 100%; }
   .meta { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-top: 8px; }
@@ -86,10 +93,16 @@
   </section>
 
   <section class="card" id="player" hidden aria-labelledby="p-title">
-    <div class="head">
-      <span class="title" id="p-title" dir="auto"></span>
-      <span class="sub" id="p-artist" dir="auto"></span>
-      <span class="chip" id="p-status"></span>
+    <div class="phead">
+      <img class="art" id="p-art" alt="" hidden>
+      <div>
+        <div class="head">
+          <span class="title" id="p-title" dir="auto"></span>
+          <span class="sub" id="p-artist" dir="auto"></span>
+          <span class="chip" id="p-status"></span>
+        </div>
+        <div class="swatches" id="p-palette" aria-hidden="true"></div>
+      </div>
     </div>
     <canvas id="wave" width="1600" height="128" aria-label="Waveform"></canvas>
     <audio id="audio" controls preload="metadata"></audio>
@@ -268,10 +281,28 @@
     $("player").hidden = false;
     $("p-title").textContent = view.title;
     $("p-artist").textContent = view.artists.join(", ");
+    showArtwork(view);
     clearTimeout(pollTimer);
     render(view);
     if (view.status !== "cached" && view.status !== "failed") poll(view.id);
     loadLyrics(view.id);
+  }
+
+  function showArtwork(view) {
+    const art = $("p-art");
+    art.hidden = !view.artwork_url;
+    if (view.artwork_url) art.src = view.artwork_url;
+    const colors = view.palette || [];
+    $("p-palette").replaceChildren(...colors.map((c) => {
+      const dot = el("span");
+      dot.style.background = c.hex;
+      dot.title = c.hex + " · " + Math.round(c.weight * 100) + "%";
+      return dot;
+    }));
+    const tint = colors.find((c) => Math.hypot(c.lab[1], c.lab[2]) >= 15) || colors[0];
+    $("player").style.background = tint
+      ? "linear-gradient(135deg, color-mix(in srgb, " + tint.hex + " 28%, var(--surface)), var(--surface) 75%)"
+      : "";
   }
 
   async function loadLyrics(id, tries = 0) {
@@ -497,7 +528,7 @@
     const tracks = p.tracks.filter((t) => playlistFilter === "all" || t.match_status === playlistFilter);
     if (!tracks.length) return $("pl-tracks").replaceChildren(el("div", "empty", "No tracks"));
     $("pl-tracks").replaceChildren(...tracks.map((t) => row({
-      artwork: t.artwork_url,
+      artwork: t.artwork_thumb_url || t.artwork_url,
       title: t.title,
       subtitle: t.artists.join(", ") + (t.album ? " · " + t.album : ""),
       detail: t.source && (t.match_status === "review" || t.match_status === "unmatched") ? sourceLink(t.source) : null,
@@ -519,7 +550,7 @@
       const { tracks } = await api("/api/tracks?limit=20");
       if (!tracks.length) return $("recent").replaceChildren(el("div", "empty", "No tracks yet"));
       $("recent").replaceChildren(...tracks.map((t) => row({
-        artwork: t.artwork_url,
+        artwork: t.artwork_thumb_url || t.artwork_url,
         title: t.title,
         subtitle: t.artists.join(", ") + (t.album ? " · " + t.album : ""),
         duration: t.duration_ms,
