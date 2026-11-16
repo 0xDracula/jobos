@@ -133,7 +133,7 @@ func (s *Store) ImportPlaylist(ctx context.Context, in PlaylistImport) (ImportSu
 		if created {
 			sum.NewTracks++
 			_, added, err := enqueue(ctx, tx, JobSpec{Kind: KindMatchTrack, Payload: matchPayload(trackID, t),
-				DedupeKey: MatchKey(trackID), Priority: PriorityBackground})
+				DedupeKey: MatchKey(trackID), Priority: PriorityMatch})
 			if err != nil {
 				return sum, err
 			}
@@ -211,6 +211,33 @@ func nonEmpty(s string) *string {
 	return &s
 }
 
+var RematchStatuses = map[string]bool{"pending": true, "matched": true, "review": true, "unmatched": true}
+
+func (s *Store) RematchPlaylist(ctx context.Context, playlistID uuid.UUID, statuses []string) (int, error) {
+	rows, err := s.pool.Query(ctx, `select t.id from playlist_items pi join tracks t on t.id = pi.track_id
+		where pi.playlist_id = $1 and t.match_status = any($2) and t.match_status <> 'chosen'
+		order by pi.position`, playlistID, statuses)
+	if err != nil {
+		return 0, err
+	}
+	ids, err := pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
+	if err != nil {
+		return 0, err
+	}
+	for i, id := range ids {
+		if err := s.EnqueueMatch(ctx, id, PriorityMatch); err != nil {
+			return i, err
+		}
+	}
+	return len(ids), nil
+}
+
+func dropQueuedDownloads(ctx context.Context, tx pgx.Tx, trackID, keep uuid.UUID) error {
+	_, err := tx.Exec(ctx, `delete from jobs where kind = $1 and status = 'queued'
+		and payload->>'track_id' = $2 and payload->>'source_id' <> $3`, KindDownloadTrack, trackID.String(), keep.String())
+	return err
+}
+
 func (s *Store) EnqueueMatch(ctx context.Context, trackID uuid.UUID, priority int) error {
 	p := MatchPayload{TrackID: trackID}
 	var duration *int32
@@ -285,6 +312,16 @@ func completeMatch(ctx context.Context, tx pgx.Tx, payload, result []byte) error
 		return nil
 	}
 	if r.Verdict == "unmatched" {
+		if _, err := tx.Exec(ctx, `update track_sources set status = 'candidate', updated_at = now()
+			where track_id = $1 and status = 'selected'`, p.TrackID); err != nil {
+			return err
+		}
+		if err := dropQueuedDownloads(ctx, tx, p.TrackID, uuid.Nil); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `delete from track_media where track_id = $1 and variant = 'main'`, p.TrackID); err != nil {
+			return err
+		}
 		_, err := tx.Exec(ctx, `update tracks set match_status = 'unmatched', updated_at = now() where id = $1`, p.TrackID)
 		return err
 	}
@@ -297,13 +334,16 @@ func completeMatch(ctx context.Context, tx pgx.Tx, payload, result []byte) error
 	if _, err := tx.Exec(ctx, `update track_sources set status = 'selected', updated_at = now() where id = $1`, bestID); err != nil {
 		return err
 	}
+	if err := dropQueuedDownloads(ctx, tx, p.TrackID, bestID); err != nil {
+		return err
+	}
 	if _, err := tx.Exec(ctx, `update tracks set match_status = $2, artwork_url = coalesce(artwork_url, $3), updated_at = now()
 		where id = $1`, p.TrackID, matchStatusFor[r.Verdict], best.Thumbnail); err != nil {
 		return err
 	}
 	var cached bool
-	if err := tx.QueryRow(ctx, `select exists (select 1 from track_media where track_id = $1 and variant = 'main')`,
-		p.TrackID).Scan(&cached); err != nil || cached {
+	if err := tx.QueryRow(ctx, `select exists (select 1 from track_media
+		where track_id = $1 and variant = 'main' and track_source_id = $2)`, p.TrackID, bestID).Scan(&cached); err != nil || cached {
 		return err
 	}
 	_, _, err = enqueue(ctx, tx, JobSpec{Kind: KindDownloadTrack,

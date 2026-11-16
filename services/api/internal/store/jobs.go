@@ -19,6 +19,7 @@ const (
 	KindMatchTrack    = "match_track"
 
 	PriorityInteractive = 10
+	PriorityMatch       = 1
 	PriorityBackground  = 0
 )
 
@@ -221,7 +222,8 @@ func completeDownload(ctx context.Context, tx pgx.Tx, payload, result []byte) er
 		a.LoudnessLUFS, a.TruePeakDB, a.GainDB, waveform).Scan(&assetID); err != nil {
 		return err
 	}
-	if _, err := tx.Exec(ctx, `insert into track_media (track_id, variant, track_source_id, asset_id) values ($1, 'main', $2, $3)
+	if _, err := tx.Exec(ctx, `insert into track_media (track_id, variant, track_source_id, asset_id)
+		select $1, 'main', $2, $3 where exists (select 1 from track_sources where id = $2 and status = 'selected')
 		on conflict (track_id, variant) do update set track_source_id = excluded.track_source_id, asset_id = excluded.asset_id`,
 		p.TrackID, p.SourceID, assetID); err != nil {
 		return err

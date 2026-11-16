@@ -33,6 +33,7 @@ type Store interface {
 	ImportPlaylist(ctx context.Context, in store.PlaylistImport) (store.ImportSummary, error)
 	Playlists(ctx context.Context) ([]store.PlaylistSummary, error)
 	Playlist(ctx context.Context, id uuid.UUID) (*store.PlaylistView, error)
+	RematchPlaylist(ctx context.Context, playlistID uuid.UUID, statuses []string) (int, error)
 	ClaimJob(ctx context.Context, queue, worker string, kinds []string) (*store.Job, error)
 	CompleteJob(ctx context.Context, id int64, result json.RawMessage) error
 	FailJob(ctx context.Context, id int64, message string) error
@@ -78,6 +79,7 @@ func New(d Deps) http.Handler {
 		r.Get("/playlists", a.listPlaylists)
 		r.Post("/playlists/import", a.importPlaylist)
 		r.Get("/playlists/{id}", a.playlist)
+		r.Post("/playlists/{id}/rematch", a.rematchPlaylist)
 	})
 	r.Route("/internal", func(r chi.Router) {
 		r.Use(a.requireWorker)
@@ -251,6 +253,30 @@ func (a *api) playlist(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, view)
+}
+
+func (a *api) rematchPlaylist(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusNotFound, "playlist not found")
+		return
+	}
+	statuses := strings.Split(r.URL.Query().Get("status"), ",")
+	if r.URL.Query().Get("status") == "" {
+		statuses = []string{"review", "unmatched"}
+	}
+	for _, s := range statuses {
+		if !store.RematchStatuses[s] {
+			writeError(w, http.StatusBadRequest, "status must be a list of pending, matched, review and unmatched")
+			return
+		}
+	}
+	n, err := a.Store.RematchPlaylist(r.Context(), id, statuses)
+	if err != nil {
+		a.serverError(w, "rematch playlist", err)
+		return
+	}
+	writeJSON(w, http.StatusAccepted, map[string]int{"queued": n})
 }
 
 func (a *api) listTracks(w http.ResponseWriter, r *http.Request) {

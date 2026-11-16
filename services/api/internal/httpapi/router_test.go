@@ -90,3 +90,12 @@ func TestBadIDsAreNotFound(t *testing.T) {
 		}
 	}
 }
+
+func TestRematchRejectsChosenStatus(t *testing.T) {
+	rec := httptest.NewRecorder()
+	testServer().ServeHTTP(rec, httptest.NewRequest(http.MethodPost,
+		"/api/playlists/01a1e546-b14e-73a9-826b-81452848e479/rematch?status=review,chosen", nil))
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status %d, want 400", rec.Code)
+	}
+}
