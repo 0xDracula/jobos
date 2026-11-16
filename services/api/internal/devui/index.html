@@ -58,6 +58,12 @@
   audio { width: 100%; }
   .meta { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-top: 8px; }
   .empty { color: var(--muted); padding: 8px 0; }
+  .lyrics { position: relative; max-height: 280px; overflow-y: auto; margin-top: 12px; padding: 8px 4px 0; border-top: 1px solid var(--line); }
+  .lyrics .line { padding: 3px 0; color: var(--muted); cursor: pointer; font-size: 17px; line-height: 1.5; transition: color 0.2s; }
+  .lyrics .line.now { color: var(--ink); font-weight: 700; }
+  .lyrics .plain { white-space: pre-wrap; }
+  .lyrics > .sub { padding: 8px 0; }
+  @media (prefers-reduced-motion: reduce) { .lyrics .line { transition: none; } }
   @media (max-width: 560px) {
     .row { grid-template-columns: 48px minmax(0, 1fr) auto; }
     .row .dur { display: none; }
@@ -90,6 +96,7 @@
     <div class="meta">
       <span id="p-loud"></span><span id="p-gain"></span><span id="p-dur"></span><span id="p-err"></span>
     </div>
+    <div class="lyrics" id="lyrics" aria-label="Lyrics"></div>
   </section>
 
   <section class="card" aria-labelledby="import-h">
@@ -146,6 +153,11 @@
   let playlistFilter = "all";
   let playlistTimer = null;
   let lastPlaylist = null;
+  let lyricLines = [];
+  let lyricOffset = 0;
+  let lyricIndex = -1;
+  let lyricsTimer = null;
+  const LYRICS_SOURCE = { lrclib: "LRCLIB", ytmusic: "YouTube Music", manual: "Manual" };
 
   async function api(path, opts) {
     const r = await fetch(path, opts);
@@ -259,6 +271,66 @@
     clearTimeout(pollTimer);
     render(view);
     if (view.status !== "cached" && view.status !== "failed") poll(view.id);
+    loadLyrics(view.id);
+  }
+
+  async function loadLyrics(id, tries = 0) {
+    clearTimeout(lyricsTimer);
+    const box = $("lyrics");
+    if (tries === 0) {
+      lyricLines = [];
+      lyricIndex = -1;
+      box.replaceChildren();
+    }
+    try {
+      const r = await fetch("/api/tracks/" + id + "/lyrics");
+      if (id !== current) return;
+      if (r.status === 404) {
+        box.replaceChildren(el("div", "empty", "Lyrics pending"));
+        if (tries < 60) lyricsTimer = setTimeout(() => loadLyrics(id, tries + 1), 3000);
+        return;
+      }
+      const v = await r.json();
+      if (!r.ok) throw new Error(v.error || r.statusText);
+      lyricOffset = v.offset_ms || 0;
+      const source = el("div", "sub", "Source: " + (LYRICS_SOURCE[v.source] || "none"));
+      if (v.status === "synced") {
+        lyricLines = v.lines;
+        lyricIndex = -1;
+        box.replaceChildren(...v.lines.map((l) => {
+          const line = el("div", "line", l.text || "♪");
+          line.dir = "auto";
+          line.addEventListener("click", () => { $("audio").currentTime = Math.max(0, (l.time_ms + lyricOffset) / 1000); });
+          return line;
+        }), source);
+        syncLyrics();
+      } else if (v.status === "plain") {
+        const text = el("div", "plain", v.plain);
+        text.dir = "auto";
+        box.replaceChildren(text, source);
+      } else {
+        box.replaceChildren(el("div", "empty", v.status === "instrumental" ? "Instrumental" : "No lyrics"));
+      }
+    } catch (err) {
+      box.replaceChildren(el("div", "empty", "Lyrics failed: " + err.message));
+    }
+  }
+
+  function syncLyrics() {
+    if (!lyricLines.length) return;
+    const t = $("audio").currentTime * 1000 - lyricOffset;
+    let i = -1;
+    while (i + 1 < lyricLines.length && lyricLines[i + 1].time_ms <= t) i++;
+    if (i === lyricIndex) return;
+    const box = $("lyrics");
+    const rows = box.querySelectorAll(".line");
+    if (rows[lyricIndex]) rows[lyricIndex].classList.remove("now");
+    lyricIndex = i;
+    const row = rows[i];
+    if (!row) return;
+    row.classList.add("now");
+    const smooth = !matchMedia("(prefers-reduced-motion: reduce)").matches;
+    box.scrollTo({ top: row.offsetTop - box.clientHeight / 2 + row.clientHeight / 2, behavior: smooth ? "smooth" : "auto" });
   }
 
   function render(view) {
@@ -316,6 +388,8 @@
   }
 
   $("audio").addEventListener("timeupdate", draw);
+  $("audio").addEventListener("timeupdate", syncLyrics);
+  $("audio").addEventListener("seeked", syncLyrics);
   $("audio").addEventListener("seeked", draw);
   $("wave").addEventListener("click", (e) => {
     const audio = $("audio");
