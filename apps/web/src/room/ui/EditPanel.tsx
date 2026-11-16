@@ -53,13 +53,16 @@ export function EditPanel({ saved, unlocked }: { saved: RoomLayout; unlocked: Se
   const selected = useRoom((s) => s.selected);
   const available = DECORATIONS.filter((d) => !d.unlock || unlocked.has(d.unlock));
   const deco = available.find((d) => d.id === selected) ?? null;
-  const change = (patch: Partial<RoomLayout>) => useRoom.setState({ draft: { ...draft, ...patch } });
-  const changeItem = (id: string, f: (c: RoomLayout["items"][string]) => RoomLayout["items"][string]) =>
-    change({ items: { ...draft.items, [id]: f(draft.items[id] ?? {}) } });
+  const current = () => useRoom.getState().draft ?? saved;
+  const change = (patch: Partial<RoomLayout>) => useRoom.setState({ draft: { ...current(), ...patch } });
+  const changeItem = (id: string, f: (c: RoomLayout["items"][string]) => RoomLayout["items"][string]) => {
+    const d = current();
+    change({ items: { ...d.items, [id]: f(d.items[id] ?? {}) } });
+  };
 
   const move = (away: number, right: number) => {
     if (!deco) return;
-    const p = placementOf(deco, draft.items[deco.id]);
+    const p = placementOf(deco, current().items[deco.id]);
     const [x, y] = clampToZone(deco.zone, p.x + right * STEP, p.y - away * STEP);
     changeItem(deco.id, (c) => ({ ...c, x, y }));
   };
@@ -139,9 +142,9 @@ export function EditPanel({ saved, unlocked }: { saved: RoomLayout; unlocked: Se
       )}
 
       <div className="grid gap-2">
-        <Styles label="Walls" styles={WALL_STYLES} value={draft.look.wall} onPick={(wall) => change({ look: { ...draft.look, wall } })} />
-        <Styles label="Floor" styles={FLOOR_STYLES} value={draft.look.floor} onPick={(floor) => change({ look: { ...draft.look, floor } })} />
-        <Swatches label="Accent" colors={ACCENT_COLORS} value={draft.look.accent} onPick={(accent) => change({ look: { ...draft.look, accent } })} />
+        <Styles label="Walls" styles={WALL_STYLES} value={draft.look.wall} onPick={(wall) => change({ look: { ...current().look, wall } })} />
+        <Styles label="Floor" styles={FLOOR_STYLES} value={draft.look.floor} onPick={(floor) => change({ look: { ...current().look, floor } })} />
+        <Swatches label="Accent" colors={ACCENT_COLORS} value={draft.look.accent} onPick={(accent) => change({ look: { ...current().look, accent } })} />
       </div>
     </section>
   );
