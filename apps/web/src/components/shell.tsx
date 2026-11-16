@@ -13,6 +13,7 @@ import { usePlaylists } from "@/lib/queries";
 import { startRealtime } from "@/lib/realtime";
 import { isPublicPath, useIsAdmin, useMe, useMembers } from "@/lib/session";
 import { startSocial, usePresence } from "@/lib/social";
+import { startGift } from "@/lib/gift";
 import { startTogetherState } from "@/lib/together";
 import { dismiss, useToasts } from "@/lib/toast";
 import { usePalette } from "@/player/shortcuts";
@@ -210,6 +211,7 @@ function AuthGate({ children }: { children: ReactNode }) {
       (id) => nameRef.current.get(id) ?? "Someone",
     );
     startTogetherState();
+    startGift();
   }, [me.data]);
   useEffect(() => {
     if (signedOut) toSignIn();

@@ -35,7 +35,14 @@ export type ChatMessage = {
 
 export type ChatRead = { user_id: string; message_id: string | null; read_at: string };
 
-export type Person = { id: string; display_name: string; online: boolean | null; last_seen: string | null; quiet: boolean };
+export type Person = {
+  id: string;
+  display_name: string;
+  online: boolean | null;
+  last_seen: string | null;
+  quiet: boolean;
+  listening?: boolean | null;
+};
 export type Lamp = { from: string; to: string; on_until: string; sent_at: string };
 export type Presence = { people: Person[]; lamps: Lamp[]; unread: number };
 

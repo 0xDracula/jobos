@@ -12,10 +12,11 @@ import (
 )
 
 type User struct {
-	ID          uuid.UUID `json:"id"`
-	Username    string    `json:"username"`
-	DisplayName string    `json:"display_name"`
-	Role        string    `json:"role"`
+	ID          uuid.UUID       `json:"id"`
+	Username    string          `json:"username"`
+	DisplayName string          `json:"display_name"`
+	Role        string          `json:"role"`
+	Avatar      json.RawMessage `json:"avatar,omitempty"`
 }
 
 func (s *Store) EnsureAdmin(ctx context.Context, username, displayName string) (*User, error) {

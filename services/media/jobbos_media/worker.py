@@ -78,6 +78,10 @@ def handle_upload(payload: dict) -> dict:
     return {**ingest.ingest_file(upload_path(payload["path"])), "cover": cover(payload.get("cover_path"))}
 
 
+def handle_clip(payload: dict) -> dict:
+    return ingest.ingest_file(upload_path(payload["path"]))
+
+
 def handle_cover(payload: dict) -> dict:
     return {"cover": cover(payload["path"])}
 
@@ -94,6 +98,7 @@ HANDLERS = {
     "enrich_metadata": handle_enrich,
     "process_upload": handle_upload,
     "process_cover": handle_cover,
+    "process_clip": handle_clip,
 }
 
 

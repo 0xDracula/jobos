@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"jobbos/api/internal/realtime"
 	"jobbos/api/internal/store"
 )
 
@@ -226,7 +227,30 @@ func (a *api) savePlayback(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	a.noContent(w, "save playback", a.Store.SavePlayback(r.Context(), uid(r), in))
+	if err := a.Store.SavePlayback(r.Context(), uid(r), in); err != nil {
+		a.serverError(w, "save playback", err)
+		return
+	}
+	a.announcePlaying(r, in.Playing)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (a *api) announcePlaying(r *http.Request, playing bool) {
+	me := currentUser(r)
+	if prev, ok := a.playing.Swap(me.ID, playing); ok && prev.(bool) == playing {
+		return
+	}
+	if a.Hub == nil {
+		return
+	}
+	modes := a.visibility(r.Context())
+	e := realtime.NewEvent("presence.update", map[string]any{"user_id": me.ID, "listening": playing})
+	for _, u := range a.others(r.Context(), me.ID) {
+		u := u
+		if canSee(modes, &u, me, "listening_status") {
+			a.Hub.Send(u.ID, e)
+		}
+	}
 }
 
 func (a *api) playback(w http.ResponseWriter, r *http.Request) {

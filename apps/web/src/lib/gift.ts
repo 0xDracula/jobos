@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { json, request } from "./api";
 import { queryClient } from "./queries";
+import { on } from "./realtime";
 import type { CardTrack } from "./social";
 
 export type StarKind = "card" | "dedication" | "mixtape" | "swap" | "note";
@@ -93,3 +94,26 @@ export const useMixtapes = () =>
   useQuery({ queryKey: giftKeys.mixtapes, queryFn: async () => (await giftApi.mixtapes()).mixtapes, staleTime: 60_000 });
 
 export const refreshStars = () => void queryClient.invalidateQueries({ queryKey: giftKeys.stars });
+
+let wired = false;
+
+export function startGift() {
+  if (wired) return;
+  wired = true;
+  const keyOf: Record<string, readonly unknown[]> = {
+    stars: giftKeys.stars,
+    mixtapes: giftKeys.mixtapes,
+    notes: ["song-notes"],
+    scrapbook: ["scrapbook"],
+    dedications: ["dedications"],
+  };
+  on<{ lists: string[] }>("gift.update", (e) => {
+    for (const l of e.data?.lists ?? []) {
+      const key = keyOf[l];
+      if (key) void queryClient.invalidateQueries({ queryKey: key });
+    }
+  });
+  on("favorites.update", () => void queryClient.invalidateQueries({ queryKey: giftKeys.favorites }));
+  on("members.update", () => void queryClient.invalidateQueries({ queryKey: ["members"] }));
+  on("room.config", () => void queryClient.invalidateQueries({ queryKey: giftKeys.roomConfig }));
+}

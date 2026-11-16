@@ -159,6 +159,12 @@ func (a *api) presence(w http.ResponseWriter, r *http.Request) {
 		Online      *bool      `json:"online"`
 		LastSeen    *time.Time `json:"last_seen"`
 		Quiet       bool       `json:"quiet"`
+		Listening   *bool      `json:"listening"`
+	}
+	now, err := a.Store.ListeningNow(ctx)
+	if err != nil {
+		a.serverError(w, "listening", err)
+		return
 	}
 	var people []person
 	for _, u := range a.memberList(ctx) {
@@ -168,6 +174,11 @@ func (a *api) presence(w http.ResponseWriter, r *http.Request) {
 			on := a.Hub != nil && a.Hub.Online(u.ID)
 			p.Online = &on
 			p.LastSeen = lastSeen[u.ID]
+		}
+		if canSee(modes, me, &u, "listening_status") {
+			_, playing := now[u.ID]
+			playing = playing && a.Hub != nil && a.Hub.Online(u.ID)
+			p.Listening = &playing
 		}
 		p.Quiet = a.quiet(ctx, u.ID)
 		people = append(people, p)

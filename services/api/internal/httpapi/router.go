@@ -139,6 +139,38 @@ type Store interface {
 	TouchPushSubscription(ctx context.Context, id uuid.UUID)
 	SetSwap(ctx context.Context, week time.Time, userID, trackID uuid.UUID, note string) error
 	Swaps(ctx context.Context, from, to time.Time) ([]store.Swap, error)
+	SetAvatar(ctx context.Context, userID uuid.UUID, look json.RawMessage) error
+	FavoriteLists(ctx context.Context) ([]store.FavoriteList, error)
+	SetFavorites(ctx context.Context, userID uuid.UUID, items map[string][]string) (store.FavoriteList, error)
+	Stars(ctx context.Context, revealedBefore time.Time) ([]store.Star, error)
+	SongNotes(ctx context.Context, trackID *uuid.UUID) ([]store.SongNote, error)
+	CreateSongNote(ctx context.Context, authorID, trackID uuid.UUID, in store.SongNoteInput) (store.SongNote, error)
+	UpdateSongNote(ctx context.Context, id, authorID uuid.UUID, body string) (store.SongNote, error)
+	DeleteSongNote(ctx context.Context, id, authorID uuid.UUID) error
+	Clippings(ctx context.Context) ([]store.Clipping, error)
+	AddClipping(ctx context.Context, userID, trackID uuid.UUID, lines []store.CardLine) (store.Clipping, error)
+	DeleteClipping(ctx context.Context, id, userID uuid.UUID) error
+	CreateVoiceClip(ctx context.Context, authorID uuid.UUID, path string) (store.VoiceClip, error)
+	VoiceClip(ctx context.Context, id uuid.UUID) (store.VoiceClip, error)
+	CreateDedication(ctx context.Context, authorID, trackID, clipID uuid.UUID, note string) (store.Dedication, error)
+	Dedications(ctx context.Context, trackID *uuid.UUID) ([]store.Dedication, error)
+	DedicatedTrackIDs(ctx context.Context) ([]uuid.UUID, error)
+	DeleteDedication(ctx context.Context, id, authorID uuid.UUID) error
+	Mixtapes(ctx context.Context, userID uuid.UUID) ([]store.MixtapeSummary, error)
+	Mixtape(ctx context.Context, id, userID uuid.UUID) (store.Mixtape, error)
+	SaveMixtape(ctx context.Context, id *uuid.UUID, fromUser, toUser uuid.UUID, in store.MixtapeInput) (uuid.UUID, error)
+	SendMixtape(ctx context.Context, id, fromUser uuid.UUID) (store.MixtapeSummary, error)
+	OpenMixtape(ctx context.Context, id, toUser uuid.UUID) error
+	DeleteMixtape(ctx context.Context, id, fromUser uuid.UUID) error
+	RecentSearches(ctx context.Context, userID uuid.UUID) ([]string, error)
+	AddRecentSearch(ctx context.Context, userID uuid.UUID, q string) error
+	DeleteRecentSearch(ctx context.Context, userID uuid.UUID, q string) error
+	ReviewList(ctx context.Context, list string, playlistID *uuid.UUID, limit int) ([]store.ReviewItem, error)
+	ReviewCounts(ctx context.Context, playlistID *uuid.UUID) (store.ReviewCounts, error)
+	SetMatchCheck(ctx context.Context, trackID, userID uuid.UUID, verdict string) error
+	SetLyrics(ctx context.Context, trackID uuid.UUID, synced, plain string, instrumental bool) error
+	SyncedLRC(ctx context.Context, trackID uuid.UUID) (string, error)
+	ListeningNow(ctx context.Context) (map[uuid.UUID]store.NowPlaying, error)
 }
 
 type Searcher interface {
@@ -173,6 +205,7 @@ type api struct {
 	limits   limits
 	team     memberCache
 	room     together
+	playing  sync.Map
 }
 
 var mediaFileRE = regexp.MustCompile(`^([0-9a-f]{64})(\.300)?\.(m4a|jpg|png|webp)$`)
@@ -276,8 +309,11 @@ func New(d Deps) http.Handler {
 				r.Post("/cache/clear", a.clearCache)
 				r.Post("/playlists/sync", a.syncNow)
 				a.registerWorldAdminRoutes(r)
+				a.registerGiftAdminRoutes(r)
+				a.registerReviewRoutes(r)
 			})
 			a.registerWorldRoutes(r)
+			a.registerGiftRoutes(r)
 			r.Get("/tracks/{id}/lyrics", a.lyrics)
 			r.Patch("/tracks/{id}/lyrics", a.lyricsOffset)
 			r.Post("/lyrics/backfill", a.backfillLyrics)

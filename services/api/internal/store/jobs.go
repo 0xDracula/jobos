@@ -207,6 +207,8 @@ func (s *Store) CompleteJob(ctx context.Context, id int64, result json.RawMessag
 		err = completeCover(ctx, tx, payload, result)
 	case KindAnalyzeAudio:
 		err = completeAnalysis(ctx, tx, payload, result)
+	case KindProcessClip:
+		err = completeClip(ctx, tx, payload, result)
 	}
 	if err != nil {
 		return err
@@ -353,6 +355,11 @@ func (s *Store) FailJob(ctx context.Context, id int64, message string) error {
 				where id = $1 and match_status = 'pending'`, p.TrackID); err != nil {
 				return err
 			}
+		}
+	}
+	if kind == KindProcessClip && attempts >= maxAttempts {
+		if err := failClip(ctx, tx, payload); err != nil {
+			return err
 		}
 	}
 	if key := sourceKey(kind, payload); key != "" {

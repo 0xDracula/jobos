@@ -112,7 +112,7 @@ func (s *Store) Accounts(ctx context.Context) ([]Account, error) {
 }
 
 func (s *Store) Members(ctx context.Context) ([]User, error) {
-	rows, err := s.pool.Query(ctx, `select id, username, display_name, role from users order by created_at`)
+	rows, err := s.pool.Query(ctx, `select id, username, display_name, role, avatar from users order by created_at`)
 	if err != nil {
 		return nil, err
 	}
@@ -120,8 +120,12 @@ func (s *Store) Members(ctx context.Context) ([]User, error) {
 	var out []User
 	for rows.Next() {
 		var u User
-		if err := rows.Scan(&u.ID, &u.Username, &u.DisplayName, &u.Role); err != nil {
+		var avatar []byte
+		if err := rows.Scan(&u.ID, &u.Username, &u.DisplayName, &u.Role, &avatar); err != nil {
 			return nil, err
+		}
+		if len(avatar) > 0 {
+			u.Avatar = avatar
 		}
 		out = append(out, u)
 	}
