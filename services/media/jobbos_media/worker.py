@@ -9,7 +9,7 @@ from pathlib import Path
 
 import httpx
 
-from . import config, enrich, ingest, lyrics, match
+from . import analysis, config, enrich, ingest, lyrics, match
 
 log = logging.getLogger("jobbos.worker")
 
@@ -62,6 +62,14 @@ def upload_path(rel: str) -> Path:
     return path
 
 
+def media_path(rel: str) -> Path:
+    root = (config.MEDIA_ROOT / "audio").resolve()
+    path = (config.MEDIA_ROOT / rel).resolve()
+    if root not in path.parents:
+        raise ValueError(f"not a stored audio file: {rel}")
+    return path
+
+
 def cover(rel: str | None) -> dict | None:
     return enrich.store_image(upload_path(rel).read_bytes(), "artwork", with_palette=True) if rel else None
 
@@ -74,8 +82,13 @@ def handle_cover(payload: dict) -> dict:
     return {"cover": cover(payload["path"])}
 
 
+def handle_analyze(payload: dict) -> dict:
+    return analysis.analyze(media_path(payload["path"]))
+
+
 HANDLERS = {
     "download_track": handle_download,
+    "analyze_audio": handle_analyze,
     "match_track": handle_match,
     "fetch_lyrics": handle_lyrics,
     "enrich_metadata": handle_enrich,

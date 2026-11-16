@@ -12,7 +12,7 @@ from urllib.parse import parse_qs, urlparse
 
 import yt_dlp
 
-from . import config
+from . import analysis, config
 
 _LOUDNORM = f"loudnorm=I={config.TARGET_LUFS}:TP={config.ENCODE_TRUE_PEAK}:LRA=11"
 _SUMMARY_RE = re.compile(r"Summary:.*?\bI:\s+(-?(?:[\d.]+|inf)) LUFS.*?Peak:\s+(-?(?:[\d.]+|inf)) dBFS", re.S)
@@ -185,6 +185,7 @@ def process(src: Path, workdir: Path) -> dict:
     out, level = encode_within_peak(src, workdir, measured)
     length = duration_ms(out)
     peaks = waveform(out)
+    beats = analysis.safe_analyze(out)
     stored = store(out)
     return {
         **stored,
@@ -198,4 +199,6 @@ def process(src: Path, workdir: Path) -> dict:
         "output_lufs": level["lufs"],
         "output_true_peak_db": level["true_peak_db"],
         "waveform": peaks,
+        "tempo_bpm": beats["tempo_bpm"],
+        "beats": beats["beats"],
     }
