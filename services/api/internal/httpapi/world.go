@@ -242,6 +242,31 @@ func (a *api) createNote(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, map[string]any{"id": id})
 }
 
+func (a *api) updateNote(w http.ResponseWriter, r *http.Request) {
+	id, ok := trackParam(w, r, "id")
+	if !ok {
+		return
+	}
+	var in store.NoteInput
+	if !readJSON(w, r, &in) {
+		return
+	}
+	if err := in.Validate(); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if in.AfterNoteID != nil && *in.AfterNoteID == id {
+		writeError(w, http.StatusBadRequest, "a note can't follow itself")
+		return
+	}
+	err := a.Store.UpdateNote(r.Context(), id, in)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "note not found")
+		return
+	}
+	a.noContent(w, "update note", err)
+}
+
 func (a *api) deleteNote(w http.ResponseWriter, r *http.Request) {
 	id, ok := trackParam(w, r, "id")
 	if !ok {
@@ -280,5 +305,6 @@ func (a *api) registerWorldRoutes(r chi.Router) {
 func (a *api) registerWorldAdminRoutes(r chi.Router) {
 	r.Get("/notes", a.adminNotes)
 	r.Post("/notes", a.createNote)
+	r.Put("/notes/{id}", a.updateNote)
 	r.Delete("/notes/{id}", a.deleteNote)
 }

@@ -91,6 +91,7 @@ type Store interface {
 	CreateNote(ctx context.Context, authorID uuid.UUID, in store.NoteInput) (uuid.UUID, error)
 	AdminNotes(ctx context.Context) ([]store.AdminNote, error)
 	DeleteNote(ctx context.Context, id uuid.UUID) error
+	UpdateNote(ctx context.Context, id uuid.UUID, in store.NoteInput) error
 	UserCities(ctx context.Context) ([]store.UserCity, error)
 	DeleteSetting(ctx context.Context, userID uuid.UUID, key string) error
 	BackfillAnalysis(ctx context.Context) (int, error)
