@@ -8,7 +8,7 @@ import time
 
 import httpx
 
-from . import config, ingest
+from . import config, ingest, match
 
 log = logging.getLogger("jobbos.worker")
 
@@ -17,7 +17,18 @@ def handle_download(payload: dict) -> dict:
     return ingest.ingest(payload["provider"], payload["external_id"])
 
 
-HANDLERS = {"download_track": handle_download}
+def handle_match(payload: dict) -> dict:
+    return match.match_track(payload)
+
+
+HANDLERS = {"download_track": handle_download, "match_track": handle_match}
+
+
+def describe(kind: str, payload: dict, result: dict) -> str:
+    if kind == "match_track":
+        best = (result.get("candidates") or [{}])[0]
+        return f"{result['verdict']} {best.get('score', 0):.2f} {payload['title']!r} -> {best.get('title')!r}"
+    return "done"
 
 
 def main() -> None:
@@ -52,7 +63,7 @@ def main() -> None:
                 handler = HANDLERS[job["kind"]]
                 result = handler(job["payload"])
                 http.post(f"/internal/jobs/{job['id']}/complete", json={"result": result}).raise_for_status()
-                log.info("job %s done", job["id"])
+                log.info("job %s %s", job["id"], describe(job["kind"], job["payload"], result))
             except Exception as e:
                 log.exception("job %s failed", job["id"])
                 http.post(f"/internal/jobs/{job['id']}/fail", json={"error": str(e)[:2000]})

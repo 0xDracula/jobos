@@ -43,3 +43,29 @@ def search_songs(query: str, limit: int = 20) -> list[dict]:
             }
         )
     return out[:limit]
+
+
+def search_videos(query: str, limit: int = 10) -> list[dict]:
+    results = _client().search(query, filter="videos", limit=limit)
+    out: list[dict] = []
+    for r in results:
+        video_id = r.get("videoId")
+        if not video_id:
+            continue
+        thumbnails = r.get("thumbnails") or []
+        out.append(
+            {
+                "provider": "youtube",
+                "external_id": video_id,
+                "title": r.get("title") or "",
+                "artists": [
+                    {"name": a["name"], "id": a.get("id")} for a in (r.get("artists") or []) if a.get("name")
+                ],
+                "album": None,
+                "duration_ms": int(r["duration_seconds"]) * 1000 if r.get("duration_seconds") else None,
+                "explicit": False,
+                "thumbnail": thumbnails[-1]["url"] if thumbnails else None,
+                "official": False,
+            }
+        )
+    return out[:limit]
