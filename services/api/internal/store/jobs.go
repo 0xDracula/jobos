@@ -172,7 +172,9 @@ func (s *Store) CompleteJob(ctx context.Context, id int64, result json.RawMessag
 	defer tx.Rollback(ctx)
 	var kind string
 	var payload []byte
-	err = tx.QueryRow(ctx, `select kind, payload from jobs where id = $1 and status = 'running' for update`, id).Scan(&kind, &payload)
+	var priority int
+	err = tx.QueryRow(ctx, `select kind, payload, priority from jobs where id = $1 and status = 'running' for update`, id).
+		Scan(&kind, &payload, &priority)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrJobNotRunning
 	}
@@ -181,9 +183,11 @@ func (s *Store) CompleteJob(ctx context.Context, id int64, result json.RawMessag
 	}
 	switch kind {
 	case KindDownloadTrack:
-		err = completeDownload(ctx, tx, payload, result)
+		err = completeDownload(ctx, tx, payload, result, priority)
 	case KindMatchTrack:
 		err = completeMatch(ctx, tx, payload, result)
+	case KindFetchLyrics:
+		err = completeLyrics(ctx, tx, payload, result)
 	}
 	if err != nil {
 		return err
@@ -195,7 +199,7 @@ func (s *Store) CompleteJob(ctx context.Context, id int64, result json.RawMessag
 	return tx.Commit(ctx)
 }
 
-func completeDownload(ctx context.Context, tx pgx.Tx, payload, result []byte) error {
+func completeDownload(ctx context.Context, tx pgx.Tx, payload, result []byte, priority int) error {
 	var p DownloadPayload
 	if err := json.Unmarshal(payload, &p); err != nil {
 		return err
@@ -222,17 +226,29 @@ func completeDownload(ctx context.Context, tx pgx.Tx, payload, result []byte) er
 		a.LoudnessLUFS, a.TruePeakDB, a.GainDB, waveform).Scan(&assetID); err != nil {
 		return err
 	}
-	if _, err := tx.Exec(ctx, `insert into track_media (track_id, variant, track_source_id, asset_id)
+	linked, err := tx.Exec(ctx, `insert into track_media (track_id, variant, track_source_id, asset_id)
 		select $1, 'main', $2, $3 where exists (select 1 from track_sources where id = $2 and status = 'selected')
 		on conflict (track_id, variant) do update set track_source_id = excluded.track_source_id, asset_id = excluded.asset_id`,
-		p.TrackID, p.SourceID, assetID); err != nil {
+		p.TrackID, p.SourceID, assetID)
+	if err != nil {
 		return err
+	}
+	if linked.RowsAffected() == 1 {
+		var looked bool
+		if err := tx.QueryRow(ctx, `select exists (select 1 from lyrics where track_id = $1)`, p.TrackID).Scan(&looked); err != nil {
+			return err
+		}
+		if !looked {
+			if _, err := enqueueLyrics(ctx, tx, p.TrackID, priority); err != nil {
+				return err
+			}
+		}
 	}
 	if _, err := tx.Exec(ctx, `update track_sources set uploader = coalesce($2, uploader), raw_title = coalesce($3, raw_title),
 		updated_at = now() where id = $1`, p.SourceID, r.Source.Uploader, r.Source.Title); err != nil {
 		return err
 	}
-	_, err := tx.Exec(ctx, `insert into source_status (provider, last_ok_at, updated_at) values ($1, now(), now())
+	_, err = tx.Exec(ctx, `insert into source_status (provider, last_ok_at, updated_at) values ($1, now(), now())
 		on conflict (provider) do update set last_ok_at = now(), updated_at = now()`, p.Provider)
 	return err
 }

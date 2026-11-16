@@ -117,3 +117,23 @@ func TestChooseSourceValidatesInput(t *testing.T) {
 		}
 	}
 }
+
+func TestLyricsValidatesInput(t *testing.T) {
+	const track = "/api/tracks/01a1e546-b14e-73a9-826b-81452848e479/lyrics"
+	cases := []struct {
+		method, path, body string
+		want               int
+	}{
+		{http.MethodGet, "/api/tracks/nope/lyrics", "", http.StatusNotFound},
+		{http.MethodPatch, "/api/tracks/nope/lyrics", `{"offset_ms":0}`, http.StatusNotFound},
+		{http.MethodPatch, track, `{}`, http.StatusBadRequest},
+		{http.MethodPatch, track, `{"offset_ms":900000}`, http.StatusBadRequest},
+	}
+	for _, c := range cases {
+		rec := httptest.NewRecorder()
+		testServer().ServeHTTP(rec, httptest.NewRequest(c.method, c.path, strings.NewReader(c.body)))
+		if rec.Code != c.want {
+			t.Errorf("%s %s %s: status %d, want %d", c.method, c.path, c.body, rec.Code, c.want)
+		}
+	}
+}

@@ -35,6 +35,9 @@ type Store interface {
 	Playlist(ctx context.Context, id uuid.UUID) (*store.PlaylistView, error)
 	RematchPlaylist(ctx context.Context, playlistID uuid.UUID, statuses []string) (int, error)
 	ChooseSource(ctx context.Context, trackID uuid.UUID, in store.SourceTrack) (uuid.UUID, bool, error)
+	Lyrics(ctx context.Context, trackID uuid.UUID) (*store.LyricsView, error)
+	SetLyricsOffset(ctx context.Context, trackID uuid.UUID, offsetMs int32) error
+	BackfillLyrics(ctx context.Context) (int, error)
 	ClaimJob(ctx context.Context, queue, worker string, kinds []string) (*store.Job, error)
 	CompleteJob(ctx context.Context, id int64, result json.RawMessage) error
 	FailJob(ctx context.Context, id int64, message string) error
@@ -77,6 +80,9 @@ func New(d Deps) http.Handler {
 		r.Get("/tracks/{id}/audio", a.trackAudio)
 		r.Post("/tracks/{id}/cache", a.cacheTrack)
 		r.Put("/tracks/{id}/source", a.chooseSource)
+		r.Get("/tracks/{id}/lyrics", a.lyrics)
+		r.Patch("/tracks/{id}/lyrics", a.lyricsOffset)
+		r.Post("/lyrics/backfill", a.backfillLyrics)
 		r.Get("/media/{file}", a.mediaFile)
 		r.Get("/playlists", a.listPlaylists)
 		r.Post("/playlists/import", a.importPlaylist)
@@ -224,6 +230,61 @@ func (a *api) chooseSource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, view)
+}
+
+func (a *api) lyrics(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusNotFound, "track not found")
+		return
+	}
+	view, err := a.Store.Lyrics(r.Context(), id)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "lyrics not looked up yet")
+		return
+	}
+	if err != nil {
+		a.serverError(w, "load lyrics", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, view)
+}
+
+func (a *api) lyricsOffset(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusNotFound, "track not found")
+		return
+	}
+	var in struct {
+		OffsetMs *int32 `json:"offset_ms"`
+	}
+	if !readJSON(w, r, &in) {
+		return
+	}
+	if in.OffsetMs == nil || *in.OffsetMs > store.MaxLyricsOffsetMs || *in.OffsetMs < -store.MaxLyricsOffsetMs {
+		writeError(w, http.StatusBadRequest, "offset_ms is required (ten minutes at most either way)")
+		return
+	}
+	err = a.Store.SetLyricsOffset(r.Context(), id, *in.OffsetMs)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "lyrics not looked up yet")
+		return
+	}
+	if err != nil {
+		a.serverError(w, "set lyrics offset", err)
+		return
+	}
+	a.lyrics(w, r)
+}
+
+func (a *api) backfillLyrics(w http.ResponseWriter, r *http.Request) {
+	n, err := a.Store.BackfillLyrics(r.Context())
+	if err != nil {
+		a.serverError(w, "backfill lyrics", err)
+		return
+	}
+	writeJSON(w, http.StatusAccepted, map[string]int{"queued": n})
 }
 
 func (a *api) importPlaylist(w http.ResponseWriter, r *http.Request) {
