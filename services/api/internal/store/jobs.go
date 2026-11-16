@@ -17,8 +17,11 @@ import (
 const (
 	KindDownloadTrack = "download_track"
 	KindMatchTrack    = "match_track"
+	KindProcessUpload = "process_upload"
+	KindProcessCover  = "process_cover"
 
 	PriorityInteractive = 10
+	PriorityPrefetch    = 5
 	PriorityMatch       = 1
 	PriorityBackground  = 0
 )
@@ -124,20 +127,22 @@ func (s *Store) ClaimJob(ctx context.Context, queue, worker string, kinds []stri
 }
 
 type AssetResult struct {
-	SHA256       string          `json:"sha256"`
-	Path         string          `json:"path"`
-	Kind         string          `json:"kind"`
-	Mime         string          `json:"mime"`
-	Bytes        int64           `json:"bytes"`
-	DurationMs   *int32          `json:"duration_ms"`
-	Bitrate      *int32          `json:"bitrate"`
-	LoudnessLUFS *float64        `json:"loudness_lufs"`
-	TruePeakDB   *float64        `json:"true_peak_db"`
-	GainDB       *float64        `json:"gain_db"`
-	Waveform     json.RawMessage `json:"waveform"`
-	Width        *int32          `json:"width"`
-	Height       *int32          `json:"height"`
-	Palette      json.RawMessage `json:"palette"`
+	SHA256           string          `json:"sha256"`
+	Path             string          `json:"path"`
+	Kind             string          `json:"kind"`
+	Mime             string          `json:"mime"`
+	Bytes            int64           `json:"bytes"`
+	DurationMs       *int32          `json:"duration_ms"`
+	Bitrate          *int32          `json:"bitrate"`
+	LoudnessLUFS     *float64        `json:"loudness_lufs"`
+	TruePeakDB       *float64        `json:"true_peak_db"`
+	GainDB           *float64        `json:"gain_db"`
+	Waveform         json.RawMessage `json:"waveform"`
+	Width            *int32          `json:"width"`
+	Height           *int32          `json:"height"`
+	Palette          json.RawMessage `json:"palette"`
+	OutputLUFS       *float64        `json:"output_lufs"`
+	OutputTruePeakDB *float64        `json:"output_true_peak_db"`
 }
 
 type DownloadResult struct {
@@ -194,9 +199,18 @@ func (s *Store) CompleteJob(ctx context.Context, id int64, result json.RawMessag
 		err = completeLyrics(ctx, tx, payload, result)
 	case KindEnrichMetadata:
 		err = completeEnrich(ctx, tx, payload, result)
+	case KindProcessUpload:
+		err = completeUpload(ctx, tx, payload, result, priority)
+	case KindProcessCover:
+		err = completeCover(ctx, tx, payload, result)
 	}
 	if err != nil {
 		return err
+	}
+	if key := sourceKey(kind, payload); key != "" {
+		if err := recordSource(ctx, tx, key, ""); err != nil {
+			return err
+		}
 	}
 	if _, err := tx.Exec(ctx, `update jobs set status = 'done', finished_at = now(), result = $2, last_error = null where id = $1`,
 		id, []byte(result)); err != nil {
@@ -247,8 +261,34 @@ func completeDownload(ctx context.Context, tx pgx.Tx, payload, result []byte, pr
 		updated_at = now() where id = $1`, p.SourceID, r.Source.Uploader, r.Source.Title); err != nil {
 		return err
 	}
-	_, err = tx.Exec(ctx, `insert into source_status (provider, last_ok_at, updated_at) values ($1, now(), now())
-		on conflict (provider) do update set last_ok_at = now(), updated_at = now()`, p.Provider)
+	return nil
+}
+
+func sourceKey(kind string, payload []byte) string {
+	switch kind {
+	case KindDownloadTrack:
+		var p DownloadPayload
+		if json.Unmarshal(payload, &p) == nil {
+			return p.Provider
+		}
+	case KindMatchTrack:
+		return "search"
+	case KindFetchLyrics:
+		return "lyrics"
+	case KindEnrichMetadata:
+		return "deezer"
+	}
+	return ""
+}
+
+func recordSource(ctx context.Context, tx pgx.Tx, key, message string) error {
+	if message == "" {
+		_, err := tx.Exec(ctx, `insert into source_status (provider, last_ok_at, updated_at) values ($1, now(), now())
+			on conflict (provider) do update set last_ok_at = now(), updated_at = now()`, key)
+		return err
+	}
+	_, err := tx.Exec(ctx, `insert into source_status (provider, last_error_at, last_error, updated_at) values ($1, now(), $2, now())
+		on conflict (provider) do update set last_error_at = now(), last_error = excluded.last_error, updated_at = now()`, key, message)
 	return err
 }
 
@@ -262,14 +302,15 @@ func insertAsset(ctx context.Context, tx pgx.Tx, a AssetResult) (uuid.UUID, erro
 	var id uuid.UUID
 	err := tx.QueryRow(ctx, `insert into media_assets
 			(id, sha256, kind, path, mime, bytes, duration_ms, bitrate, loudness_lufs, true_peak_db, gain_db, waveform,
-			 width, height, palette)
-		values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+			 width, height, palette, output_lufs, output_true_peak_db)
+		values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
 		on conflict (sha256) do update set path = excluded.path,
 			width = coalesce(excluded.width, media_assets.width), height = coalesce(excluded.height, media_assets.height),
 			palette = coalesce(excluded.palette, media_assets.palette)
 		returning id`,
 		newID(), a.SHA256, a.Kind, a.Path, a.Mime, a.Bytes, a.DurationMs, a.Bitrate,
-		a.LoudnessLUFS, a.TruePeakDB, a.GainDB, jsonOrNil(a.Waveform), a.Width, a.Height, jsonOrNil(a.Palette)).Scan(&id)
+		a.LoudnessLUFS, a.TruePeakDB, a.GainDB, jsonOrNil(a.Waveform), a.Width, a.Height, jsonOrNil(a.Palette),
+		a.OutputLUFS, a.OutputTruePeakDB).Scan(&id)
 	return id, err
 }
 
@@ -309,14 +350,9 @@ func (s *Store) FailJob(ctx context.Context, id int64, message string) error {
 			}
 		}
 	}
-	if kind == KindDownloadTrack {
-		var p DownloadPayload
-		if json.Unmarshal(payload, &p) == nil && p.Provider != "" {
-			if _, err := tx.Exec(ctx, `insert into source_status (provider, last_error_at, last_error, updated_at) values ($1, now(), $2, now())
-				on conflict (provider) do update set last_error_at = now(), last_error = excluded.last_error, updated_at = now()`,
-				p.Provider, message); err != nil {
-				return err
-			}
+	if key := sourceKey(kind, payload); key != "" {
+		if err := recordSource(ctx, tx, key, message); err != nil {
+			return err
 		}
 	}
 	return tx.Commit(ctx)

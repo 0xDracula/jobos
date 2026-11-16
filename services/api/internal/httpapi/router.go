@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -41,6 +42,16 @@ type Store interface {
 	ChooseSource(ctx context.Context, trackID uuid.UUID, in store.SourceTrack) (uuid.UUID, bool, error)
 	AddSpotifyTrack(ctx context.Context, t store.ImportTrack, priority int) (uuid.UUID, error)
 	TrackSources(ctx context.Context, trackID uuid.UUID) ([]store.SourceView, error)
+	ImportRecordings(ctx context.Context, in store.RecordingsImport) (store.ImportSummary, error)
+	SetPlaylistSync(ctx context.Context, id uuid.UUID, enabled bool) error
+	PlaylistsToSync(ctx context.Context, every time.Duration) ([]store.SyncTarget, error)
+	Prefetch(ctx context.Context, ids []uuid.UUID) (int, error)
+	CreateUpload(ctx context.Context, in store.UploadInput) (uuid.UUID, error)
+	EnqueueCover(ctx context.Context, trackID uuid.UUID, path string) error
+	UpdateTrack(ctx context.Context, id uuid.UUID, e store.TrackEdit) error
+	AdminStatus(ctx context.Context) (*store.AdminStatus, error)
+	RetryJob(ctx context.Context, id int64) error
+	ClearUnpinned(ctx context.Context) ([]store.ClearedFile, error)
 	Lyrics(ctx context.Context, trackID uuid.UUID) (*store.LyricsView, error)
 	SetLyricsOffset(ctx context.Context, trackID uuid.UUID, offsetMs int32) error
 	BackfillLyrics(ctx context.Context) (int, error)
@@ -59,6 +70,7 @@ type Deps struct {
 	Media       Searcher
 	Resolver    Resolver
 	Links       Linker
+	MediaStatus StatusReader
 	MediaRoot   string
 	WorkerToken string
 	DevUI       bool
@@ -70,12 +82,13 @@ type api struct {
 	upstream *http.Client
 	mu       sync.Mutex
 	streams  map[uuid.UUID]cachedStream
+	workers  map[string]workerSeen
 }
 
 var mediaFileRE = regexp.MustCompile(`^([0-9a-f]{64})(\.300)?\.(m4a|jpg|png|webp)$`)
 
 func New(d Deps) http.Handler {
-	a := &api{Deps: d, upstream: newUpstreamClient(), streams: map[uuid.UUID]cachedStream{}}
+	a := &api{Deps: d, upstream: newUpstreamClient(), streams: map[uuid.UUID]cachedStream{}, workers: map[string]workerSeen{}}
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID, middleware.Recoverer)
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) { writeJSON(w, http.StatusOK, map[string]bool{"ok": true}) })
@@ -97,6 +110,17 @@ func New(d Deps) http.Handler {
 		r.Put("/tracks/{id}/source", a.chooseSource)
 		r.Get("/tracks/{id}/sources", a.trackSources)
 		r.Post("/links", a.importLink)
+		r.Patch("/tracks/{id}", a.updateTrack)
+		r.Post("/tracks/{id}/cover", a.setCover)
+		r.Post("/uploads", a.upload)
+		r.Post("/prefetch", a.prefetch)
+		r.Patch("/playlists/{id}", a.updatePlaylist)
+		r.Route("/admin", func(r chi.Router) {
+			r.Get("/status", a.adminStatus)
+			r.Post("/jobs/{id}/retry", a.retryJob)
+			r.Post("/cache/clear", a.clearCache)
+			r.Post("/playlists/sync", a.syncNow)
+		})
 		r.Get("/tracks/{id}/lyrics", a.lyrics)
 		r.Patch("/tracks/{id}/lyrics", a.lyricsOffset)
 		r.Post("/lyrics/backfill", a.backfillLyrics)
@@ -421,6 +445,18 @@ func (a *api) importLink(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		a.writeTrack(w, r, trackID)
+	case l.Kind == "playlist":
+		var recs []store.SourceTrack
+		if err := json.Unmarshal(l.Recordings, &recs); err != nil {
+			writeError(w, http.StatusBadGateway, "link lookup returned no playlist")
+			return
+		}
+		sum, err := a.Store.ImportRecordings(r.Context(), recordingsImport(l, in.URL, recs))
+		if err != nil {
+			a.serverError(w, "import playlist", err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"playlist": sum, "truncated": l.Truncated})
 	case l.Kind == "spotify" && l.Type == "track" && len(l.Tracks) == 1:
 		trackID, err := a.Store.AddSpotifyTrack(r.Context(), importTrack(l.Tracks[0]), store.PriorityInteractive)
 		if err != nil {
@@ -680,13 +716,15 @@ func (a *api) requireWorker(next http.Handler) http.Handler {
 
 func (a *api) claimJob(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		Queue  string   `json:"queue"`
-		Worker string   `json:"worker"`
-		Kinds  []string `json:"kinds"`
+		Queue            string   `json:"queue"`
+		Worker           string   `json:"worker"`
+		Kinds            []string `json:"kinds"`
+		DownloadsPausedS int      `json:"downloads_paused_s"`
 	}
 	if !readJSON(w, r, &in) {
 		return
 	}
+	a.seeWorker(in.Worker, in.DownloadsPausedS)
 	if in.Queue == "" {
 		in.Queue = "default"
 	}

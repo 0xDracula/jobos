@@ -52,9 +52,17 @@ func (s *Store) AddTrackFromSource(ctx context.Context, in SourceTrack) (trackID
 		return
 	}
 	defer tx.Rollback(ctx)
+	if trackID, sourceID, created, err = addTrackFromSourceTx(ctx, tx, in); err != nil {
+		return
+	}
+	return trackID, sourceID, created, tx.Commit(ctx)
+}
 
+func addTrackFromSourceTx(ctx context.Context, tx pgx.Tx, in SourceTrack) (trackID, sourceID uuid.UUID, created bool, err error) {
 	err = tx.QueryRow(ctx, `select track_id, id from track_sources
-		where provider = $1 and external_id = $2 and status = 'selected' limit 1`,
+		where external_id = $2 and status = 'selected'
+			and (provider = $1 or (provider in ('ytmusic', 'youtube') and $1 in ('ytmusic', 'youtube')))
+		order by created_at limit 1`,
 		in.Provider, in.ExternalID).Scan(&trackID, &sourceID)
 	if err == nil {
 		return trackID, sourceID, false, nil
@@ -96,7 +104,7 @@ func (s *Store) AddTrackFromSource(ctx context.Context, in SourceTrack) (trackID
 		sourceID, trackID, in.Provider, in.ExternalID, in.Title, artistNames(in.Artists), in.DurationMs); err != nil {
 		return
 	}
-	return trackID, sourceID, true, tx.Commit(ctx)
+	return trackID, sourceID, true, nil
 }
 
 func artistNames(artists []ArtistRef) *string {
@@ -174,6 +182,7 @@ type TrackView struct {
 	ArtworkThumbURL *string         `json:"artwork_thumb_url"`
 	Palette         json.RawMessage `json:"palette,omitempty"`
 	MatchStatus     *string         `json:"match_status"`
+	Note            *string         `json:"note,omitempty"`
 	Status          string          `json:"status"`
 	Error           *string         `json:"error,omitempty"`
 	Source          *SourceView     `json:"source,omitempty"`
@@ -188,7 +197,7 @@ var MediaExt = map[string]string{"audio/mp4": "m4a", "image/jpeg": "jpg", "image
 const trackViewSQL = `select t.id, t.title, al.title, t.duration_ms, t.artwork_url,
 		coalesce((select array_agg(a.name order by ta.position) from track_artists ta
 			join artists a on a.id = ta.artist_id where ta.track_id = t.id), '{}'),
-		t.match_status,
+		t.match_status, t.note,
 		ma.sha256, ma.duration_ms, ma.loudness_lufs, ma.gain_db, ma.waveform, tm.track_source_id,
 		ts.id, ts.provider, ts.external_id, ts.raw_title, ts.uploader, ts.duration_ms, ts.match_score,
 		dj.status, dj.last_error,
@@ -200,7 +209,7 @@ const trackViewSQL = `select t.id, t.title, al.title, t.duration_ms, t.artwork_u
 	left join media_assets ma on ma.id = tm.asset_id
 	left join track_sources ts on ts.track_id = t.id and ts.status = 'selected'
 	left join lateral (select j.status, j.last_error from jobs j
-		where ts.id is not null and j.dedupe_key = 'download:' || ts.id::text
+		where ts.id is not null and j.dedupe_key in ('download:' || ts.id::text, 'upload:' || ts.id::text)
 		order by j.id desc limit 1) dj on true`
 
 func scanTrackView(row pgx.Row) (*TrackView, error) {
@@ -216,7 +225,7 @@ func scanTrackView(row pgx.Row) (*TrackView, error) {
 		artSHA, artMime                 *string
 		palette                         []byte
 	)
-	if err := row.Scan(&v.ID, &v.Title, &v.Album, &v.DurationMs, &v.ArtworkURL, &v.Artists, &v.MatchStatus,
+	if err := row.Scan(&v.ID, &v.Title, &v.Album, &v.DurationMs, &v.ArtworkURL, &v.Artists, &v.MatchStatus, &v.Note,
 		&sha, &mDur, &loudness, &gain, &waveform, &fileSourceID,
 		&sourceID, &provider, &externalID, &rawTitle, &uploader, &sDur, &score,
 		&jobStatus, &jobLastErr, &artSHA, &artMime, &palette); err != nil {

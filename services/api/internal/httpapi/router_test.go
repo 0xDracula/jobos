@@ -166,3 +166,31 @@ func TestSearchRejectsUnknownSources(t *testing.T) {
 		t.Errorf("status %d, want 400", rec.Code)
 	}
 }
+
+func TestPhaseOneEndpointsValidateInput(t *testing.T) {
+	const track = "/api/tracks/01a1e546-b14e-73a9-826b-81452848e479"
+	cases := []struct {
+		method, path, contentType, body string
+		want                            int
+	}{
+		{http.MethodPost, "/api/uploads", "application/json", `{}`, http.StatusBadRequest},
+		{http.MethodPost, "/api/uploads", "multipart/form-data; boundary=x",
+			"--x\r\nContent-Disposition: form-data; name=\"file\"; filename=\"song.exe\"\r\n\r\nMZ\r\n--x--\r\n", http.StatusBadRequest},
+		{http.MethodPost, "/api/prefetch", "application/json", `{"track_ids":[]}`, http.StatusBadRequest},
+		{http.MethodPatch, "/api/playlists/01a1e546-b14e-73a9-826b-81452848e479", "application/json", `{}`, http.StatusBadRequest},
+		{http.MethodPatch, track, "application/json", `{"title":"  "}`, http.StatusBadRequest},
+		{http.MethodPost, track + "/cover", "application/json", `{}`, http.StatusBadRequest},
+		{http.MethodPost, "/api/admin/jobs/abc/retry", "", "", http.StatusNotFound},
+	}
+	for _, c := range cases {
+		req := httptest.NewRequest(c.method, c.path, strings.NewReader(c.body))
+		if c.contentType != "" {
+			req.Header.Set("Content-Type", c.contentType)
+		}
+		rec := httptest.NewRecorder()
+		testServer().ServeHTTP(rec, req)
+		if rec.Code != c.want {
+			t.Errorf("%s %s: status %d, want %d (%s)", c.method, c.path, rec.Code, c.want, rec.Body.String())
+		}
+	}
+}

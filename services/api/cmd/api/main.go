@@ -51,20 +51,34 @@ func run(log *slog.Logger) error {
 	st := store.New(pool)
 	st.BackgroundDownloadInterval = cfg.BackgroundDownloadInterval
 	mediaService := media.New(cfg.MediaServiceURL)
+	deps := httpapi.Deps{
+		Store:       st,
+		Media:       mediaService,
+		Resolver:    mediaService,
+		Links:       mediaService,
+		MediaStatus: mediaService,
+		MediaRoot:   cfg.MediaRoot,
+		WorkerToken: cfg.WorkerToken,
+		DevUI:       cfg.DevUI,
+		Log:         log,
+	}
 	srv := &http.Server{
-		Addr: cfg.ListenAddr,
-		Handler: httpapi.New(httpapi.Deps{
-			Store:       st,
-			Media:       mediaService,
-			Resolver:    mediaService,
-			Links:       mediaService,
-			MediaRoot:   cfg.MediaRoot,
-			WorkerToken: cfg.WorkerToken,
-			DevUI:       cfg.DevUI,
-			Log:         log,
-		}),
+		Addr:              cfg.ListenAddr,
+		Handler:           httpapi.New(deps),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
+	go func() {
+		tick := time.NewTicker(30 * time.Minute)
+		defer tick.Stop()
+		for {
+			httpapi.SyncPlaylists(ctx, deps, 6*time.Hour)
+			select {
+			case <-ctx.Done():
+				return
+			case <-tick.C:
+			}
+		}
+	}()
 	go func() {
 		<-ctx.Done()
 		shutdown, cancel := context.WithTimeout(context.Background(), 10*time.Second)

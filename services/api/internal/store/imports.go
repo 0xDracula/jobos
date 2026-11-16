@@ -100,28 +100,11 @@ func (s *Store) ImportPlaylist(ctx context.Context, in PlaylistImport) (ImportSu
 	}
 	defer tx.Rollback(ctx)
 
-	if err := tx.QueryRow(ctx, `insert into playlists (id, name, kind, source_provider, source_external_id, source_url)
-		values ($1, $2, 'imported', $3, $4, $5)
-		on conflict (source_provider, source_external_id) where source_external_id is not null
-		do update set name = excluded.name, source_url = excluded.source_url, updated_at = now()
-		returning id, xmax = 0`, newID(), in.Name, in.Provider, in.ExternalID, in.URL).Scan(&sum.PlaylistID, &sum.Created); err != nil {
+	if sum.PlaylistID, sum.Created, err = upsertImportedPlaylist(ctx, tx, in.Provider, in.ExternalID, in.URL, in.Name); err != nil {
 		return sum, err
 	}
-	rows, err := tx.Query(ctx, `select track_id from playlist_items where playlist_id = $1`, sum.PlaylistID)
+	items, err := newItemAppender(ctx, tx, sum.PlaylistID)
 	if err != nil {
-		return sum, err
-	}
-	existing, err := pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
-	if err != nil {
-		return sum, err
-	}
-	present := make(map[uuid.UUID]bool, len(existing))
-	for _, id := range existing {
-		present[id] = true
-	}
-	var next int
-	if err := tx.QueryRow(ctx, `select coalesce(max(position) + 1, 0) from playlist_items where playlist_id = $1`,
-		sum.PlaylistID).Scan(&next); err != nil {
 		return sum, err
 	}
 
@@ -141,22 +124,63 @@ func (s *Store) ImportPlaylist(ctx context.Context, in PlaylistImport) (ImportSu
 				sum.Queued++
 			}
 		}
-		if present[trackID] {
-			continue
-		}
-		present[trackID] = true
-		addedAt := t.AddedAt
-		if addedAt.IsZero() {
-			addedAt = time.Now()
-		}
-		if _, err := tx.Exec(ctx, `insert into playlist_items (playlist_id, position, track_id, added_at) values ($1, $2, $3, $4)`,
-			sum.PlaylistID, next, trackID, addedAt); err != nil {
+		added, err := items.add(ctx, tx, trackID, t.AddedAt)
+		if err != nil {
 			return sum, err
 		}
-		next++
-		sum.Added++
+		if added {
+			sum.Added++
+		}
 	}
 	return sum, tx.Commit(ctx)
+}
+
+func upsertImportedPlaylist(ctx context.Context, tx pgx.Tx, provider, externalID, url, name string) (id uuid.UUID, created bool, err error) {
+	err = tx.QueryRow(ctx, `insert into playlists (id, name, kind, source_provider, source_external_id, source_url)
+		values ($1, $2, 'imported', $3, $4, $5)
+		on conflict (source_provider, source_external_id) where source_external_id is not null
+		do update set name = excluded.name, source_url = excluded.source_url, updated_at = now()
+		returning id, xmax = 0`, newID(), name, provider, externalID, url).Scan(&id, &created)
+	return
+}
+
+type itemAppender struct {
+	playlistID uuid.UUID
+	present    map[uuid.UUID]bool
+	next       int
+}
+
+func newItemAppender(ctx context.Context, tx pgx.Tx, playlistID uuid.UUID) (*itemAppender, error) {
+	rows, err := tx.Query(ctx, `select track_id from playlist_items where playlist_id = $1`, playlistID)
+	if err != nil {
+		return nil, err
+	}
+	existing, err := pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
+	if err != nil {
+		return nil, err
+	}
+	a := &itemAppender{playlistID: playlistID, present: make(map[uuid.UUID]bool, len(existing))}
+	for _, id := range existing {
+		a.present[id] = true
+	}
+	err = tx.QueryRow(ctx, `select coalesce(max(position) + 1, 0) from playlist_items where playlist_id = $1`, playlistID).Scan(&a.next)
+	return a, err
+}
+
+func (a *itemAppender) add(ctx context.Context, tx pgx.Tx, trackID uuid.UUID, addedAt time.Time) (bool, error) {
+	if a.present[trackID] {
+		return false, nil
+	}
+	if addedAt.IsZero() {
+		addedAt = time.Now()
+	}
+	if _, err := tx.Exec(ctx, `insert into playlist_items (playlist_id, position, track_id, added_at) values ($1, $2, $3, $4)`,
+		a.playlistID, a.next, trackID, addedAt); err != nil {
+		return false, err
+	}
+	a.present[trackID] = true
+	a.next++
+	return true, nil
 }
 
 func importTrack(ctx context.Context, tx pgx.Tx, t ImportTrack) (uuid.UUID, bool, error) {

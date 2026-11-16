@@ -103,13 +103,15 @@ type SpotifyTrack struct {
 }
 
 type Link struct {
-	Kind      string          `json:"kind"`
-	Type      string          `json:"type"`
-	ID        string          `json:"id"`
-	Name      string          `json:"name"`
-	Tracks    []SpotifyTrack  `json:"tracks"`
-	Truncated bool            `json:"truncated"`
-	Recording json.RawMessage `json:"recording"`
+	Kind       string          `json:"kind"`
+	Provider   string          `json:"provider"`
+	Type       string          `json:"type"`
+	ID         string          `json:"id"`
+	Name       string          `json:"name"`
+	Tracks     []SpotifyTrack  `json:"tracks"`
+	Truncated  bool            `json:"truncated"`
+	Recording  json.RawMessage `json:"recording"`
+	Recordings json.RawMessage `json:"recordings"`
 }
 
 func (c *Client) Link(ctx context.Context, link string) (*Link, error) {
@@ -129,4 +131,8 @@ func (c *Client) Link(ctx context.Context, link string) (*Link, error) {
 	}
 	var l Link
 	return &l, json.Unmarshal(body, &l)
+}
+
+func (c *Client) Status(ctx context.Context) (json.RawMessage, error) {
+	return c.get(ctx, c.base+"/status")
 }

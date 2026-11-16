@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -18,11 +19,14 @@ type PlaylistCounts struct {
 }
 
 type PlaylistSummary struct {
-	ID        uuid.UUID      `json:"id"`
-	Name      string         `json:"name"`
-	Kind      string         `json:"kind"`
-	SourceURL *string        `json:"source_url"`
-	Counts    PlaylistCounts `json:"counts"`
+	ID          uuid.UUID      `json:"id"`
+	Name        string         `json:"name"`
+	Kind        string         `json:"kind"`
+	SourceURL   *string        `json:"source_url"`
+	Provider    *string        `json:"source_provider"`
+	SyncEnabled bool           `json:"sync_enabled"`
+	SyncedAt    *time.Time     `json:"synced_at"`
+	Counts      PlaylistCounts `json:"counts"`
 }
 
 type PlaylistView struct {
@@ -30,7 +34,7 @@ type PlaylistView struct {
 	Tracks []TrackView `json:"tracks"`
 }
 
-const playlistSummarySQL = `select p.id, p.name, p.kind, p.source_url,
+const playlistSummarySQL = `select p.id, p.name, p.kind, p.source_url, p.source_provider, p.sync_enabled, p.synced_at,
 		count(t.id),
 		count(t.id) filter (where t.match_status = 'pending'),
 		count(t.id) filter (where t.match_status in ('matched', 'chosen')),
@@ -45,7 +49,7 @@ const playlistSummarySQL = `select p.id, p.name, p.kind, p.source_url,
 func scanPlaylistSummary(row pgx.Row) (PlaylistSummary, error) {
 	var p PlaylistSummary
 	c := &p.Counts
-	err := row.Scan(&p.ID, &p.Name, &p.Kind, &p.SourceURL, &c.Total, &c.Pending, &c.Matched, &c.Review, &c.Unmatched, &c.Cached)
+	err := row.Scan(&p.ID, &p.Name, &p.Kind, &p.SourceURL, &p.Provider, &p.SyncEnabled, &p.SyncedAt, &c.Total, &c.Pending, &c.Matched, &c.Review, &c.Unmatched, &c.Cached)
 	return p, err
 }
 
