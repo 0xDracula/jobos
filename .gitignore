@@ -1,0 +1,15 @@
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+/services/api/bin/
+/apps/web/.next/
+/apps/web/out/
+
+/.data/
+.env
+.env.local
+
+/result
+.direnv/
