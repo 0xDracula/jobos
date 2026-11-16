@@ -161,6 +161,14 @@ type AudioView struct {
 	Waveform     json.RawMessage `json:"waveform,omitempty"`
 	TempoBPM     *float32        `json:"tempo_bpm,omitempty"`
 	Beats        json.RawMessage `json:"beats,omitempty"`
+	*AudioAnalysis
+}
+
+type AudioAnalysis struct {
+	Energy       *float32 `json:"energy"`
+	Valence      *float32 `json:"valence"`
+	Danceability *float32 `json:"danceability"`
+	Key          *string  `json:"key"`
 }
 
 type SourceView struct {
@@ -273,7 +281,7 @@ func (s *Store) Track(ctx context.Context, id uuid.UUID) (*TrackView, error) {
 	if err != nil {
 		return nil, err
 	}
-	return v, s.trackBeats(ctx, v)
+	return v, s.trackAnalysis(ctx, v)
 }
 
 func (s *Store) trackViews(ctx context.Context, suffix string, args ...any) ([]TrackView, error) {

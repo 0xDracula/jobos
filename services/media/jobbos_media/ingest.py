@@ -185,7 +185,7 @@ def process(src: Path, workdir: Path) -> dict:
     out, level = encode_within_peak(src, workdir, measured)
     length = duration_ms(out)
     peaks = waveform(out)
-    beats = analysis.safe_analyze(out)
+    features = analysis.safe_analyze(out, measured["input_i"])
     stored = store(out)
     return {
         **stored,
@@ -199,6 +199,5 @@ def process(src: Path, workdir: Path) -> dict:
         "output_lufs": level["lufs"],
         "output_true_peak_db": level["true_peak_db"],
         "waveform": peaks,
-        "tempo_bpm": beats["tempo_bpm"],
-        "beats": beats["beats"],
+        **features,
     }

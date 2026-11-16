@@ -83,7 +83,7 @@ def handle_cover(payload: dict) -> dict:
 
 
 def handle_analyze(payload: dict) -> dict:
-    return analysis.analyze(media_path(payload["path"]))
+    return analysis.analyze(media_path(payload["path"]), payload.get("source_lufs"))
 
 
 HANDLERS = {
@@ -107,6 +107,8 @@ def describe(kind: str, payload: dict, result: dict) -> str:
     if kind == "enrich_metadata":
         art = result["artwork_source"] or "-"
         return f"artwork {art}, artist image {'yes' if result['artist_image'] else '-'} {payload['title']!r}"
+    if kind == "analyze_audio":
+        return f"{result['tempo_bpm']} BPM, {result['musical_key']}, energy {result['energy']} {payload['path']}"
     return "done"
 
 
