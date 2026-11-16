@@ -39,9 +39,11 @@ function ClippingCard({ c, mine, name, onDelete }: { c: Clipping; mine: boolean;
         <p className="text-xs font-bold opacity-50">{name}</p>
       </button>
       {mine && (
-        <IconButton label="Remove clipping" size="sm" className="absolute end-1 top-3 text-[#3b2f2a]/60" onClick={onDelete}>
-          <Trash2 />
-        </IconButton>
+        <span className="absolute end-1 top-3">
+          <IconButton label="Remove clipping" size="sm" className="text-[#3b2f2a]/60" onClick={onDelete}>
+            <Trash2 />
+          </IconButton>
+        </span>
       )}
     </li>
   );
