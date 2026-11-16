@@ -9,6 +9,7 @@
     --bg: #FFF7F0; --surface: #FFFFFF; --ink: #3B2F3F; --muted: #7A6A7E;
     --accent: #E88FA3; --accent-strong: #A8445E; --soft: #F7C6D0; --on-accent: #FFFFFF;
     --line: rgba(59, 47, 63, 0.14);
+    --ok-bg: #D6F0DC; --ok-ink: #1F5A2E; --warn-bg: #FBE7B5; --warn-ink: #6B4A00; --bad-bg: #F9D0CC; --bad-ink: #7A1F16;
     color-scheme: light;
   }
   @media (prefers-color-scheme: dark) {
@@ -16,6 +17,7 @@
       --bg: #1E1B3A; --surface: #262249; --ink: #F5EEF8; --muted: #B9AEC6;
       --accent: #F2A7B8; --accent-strong: #F2A7B8; --soft: #3A3160; --on-accent: #1E1B3A;
       --line: rgba(245, 238, 248, 0.14);
+      --ok-bg: #234A31; --ok-ink: #C8F0D2; --warn-bg: #4F4019; --warn-ink: #FBE7B5; --bad-bg: #5A2A2A; --bad-ink: #F9D0CC;
       color-scheme: dark;
     }
   }
@@ -24,23 +26,44 @@
   main { max-width: 900px; margin: 0 auto; padding: 24px 16px 64px; display: grid; gap: 20px; }
   h1 { font-size: 22px; margin: 0; }
   h2 { font-size: 16px; margin: 0 0 8px; }
-  .card { background: var(--surface); border-radius: 16px; padding: 16px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06); }
-  form { display: flex; gap: 8px; margin-bottom: 8px; }
-  input[type=search] { flex: 1; min-width: 0; font: inherit; padding: 10px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+  a { color: inherit; }
+  .card { background: var(--surface); border-radius: 16px; padding: 16px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06); min-width: 0; }
+  form { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+  input[type=search], input[type=url], input[type=text] { flex: 1; min-width: 0; font: inherit; padding: 10px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+  input[type=file] { font: inherit; max-width: 100%; }
+  .field { display: grid; gap: 4px; flex: 1 1 240px; min-width: 0; font-size: 13px; color: var(--muted); }
   button { font: inherit; font-weight: 700; border: 0; border-radius: 999px; padding: 8px 16px; background: var(--accent-strong); color: var(--on-accent); cursor: pointer; }
-  button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
   .row { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto auto auto; gap: 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
-  .row:last-child { border-bottom: 0; }
+  .row:last-child, .prow:last-child { border-bottom: 0; }
   .row img { width: 48px; height: 48px; border-radius: 8px; object-fit: cover; background: var(--soft); }
+  .prow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
   .title { font-weight: 700; overflow-wrap: anywhere; }
   .sub { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+  a.sub { display: block; width: fit-content; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
   .chip { font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 999px; background: var(--soft); white-space: nowrap; }
+  .chip.ok { background: var(--ok-bg); color: var(--ok-ink); }
+  .chip.warn { background: var(--warn-bg); color: var(--warn-ink); }
+  .chip.bad { background: var(--bad-bg); color: var(--bad-ink); }
+  .prow .chips, #pl-counts .chips { justify-content: flex-start; margin: 4px 0 6px; }
+  .field.submit { flex: 0 0 auto; align-self: flex-end; }
+  .bar { height: 6px; border-radius: 999px; background: var(--soft); overflow: hidden; }
+  .bar span { display: block; height: 100%; background: var(--accent-strong); }
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 12px 0 4px; }
+  .tabs button { background: var(--soft); color: var(--ink); padding: 4px 12px; font-size: 13px; }
+  .tabs button[aria-pressed=true] { background: var(--accent-strong); color: var(--on-accent); }
   .head { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: baseline; margin-bottom: 12px; }
   canvas { width: 100%; height: 64px; display: block; cursor: pointer; margin-bottom: 8px; }
   audio { width: 100%; }
   .meta { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-top: 8px; }
   .empty { color: var(--muted); padding: 8px 0; }
-  @media (max-width: 560px) { .row { grid-template-columns: 48px minmax(0, 1fr) auto; } .row .sub.dur, .row .chip { display: none; } }
+  @media (max-width: 560px) {
+    .row { grid-template-columns: 48px minmax(0, 1fr) auto; }
+    .row .dur { display: none; }
+    .row .chips { grid-column: 2; grid-row: 2; justify-content: flex-start; }
+    .row button { grid-column: 3; grid-row: 1 / span 2; }
+  }
 </style>
 </head>
 <body>
@@ -69,6 +92,40 @@
     </div>
   </section>
 
+  <section class="card" aria-labelledby="import-h">
+    <h2 id="import-h">Import</h2>
+    <form id="import-form">
+      <label class="field">Spotify playlist link
+        <input id="import-url" type="url" required placeholder="https://open.spotify.com/playlist/…">
+      </label>
+      <label class="field">Name
+        <input id="import-name" type="text" required maxlength="200" dir="auto">
+      </label>
+      <label class="field">Exportify CSV
+        <input id="import-file" type="file" accept=".csv,text/csv" required>
+      </label>
+      <div class="field submit"><button type="submit">Import</button></div>
+    </form>
+    <div class="sub" id="import-result" role="status"></div>
+  </section>
+
+  <section class="card" aria-labelledby="playlists-h">
+    <h2 id="playlists-h">Playlists</h2>
+    <div id="playlists"></div>
+  </section>
+
+  <section class="card" id="playlist" hidden aria-labelledby="pl-title">
+    <h2 id="pl-title" dir="auto"></h2>
+    <div id="pl-counts"></div>
+    <div class="tabs" role="group" aria-label="Filter">
+      <button type="button" data-filter="all" aria-pressed="true">All</button>
+      <button type="button" data-filter="review" aria-pressed="false">Review</button>
+      <button type="button" data-filter="unmatched" aria-pressed="false">Unmatched</button>
+      <button type="button" data-filter="pending" aria-pressed="false">Pending</button>
+    </div>
+    <div id="pl-tracks"></div>
+  </section>
+
   <section class="card" aria-labelledby="recent-h">
     <h2 id="recent-h">Recent tracks</h2>
     <div id="recent"></div>
@@ -85,6 +142,10 @@
   let current = null;
   let peaks = [];
   let pollTimer = null;
+  let openPlaylistId = null;
+  let playlistFilter = "all";
+  let playlistTimer = null;
+  let lastPlaylist = null;
 
   async function api(path, opts) {
     const r = await fetch(path, opts);
@@ -100,19 +161,50 @@
     return e;
   }
 
-  function row({ artwork, title, subtitle, duration, status, action, onAction }) {
+  function chip(text, kind) {
+    return el("span", kind ? "chip " + kind : "chip", text);
+  }
+
+  const MATCH_KIND = { matched: "ok", chosen: "ok", review: "warn", unmatched: "bad", pending: "" };
+
+  function matchChip(t) {
+    if (!t.match_status) return null;
+    const score = t.match_status === "review" && t.source && t.source.score != null ? " " + t.source.score.toFixed(2) : "";
+    return chip(t.match_status + score, MATCH_KIND[t.match_status]);
+  }
+
+  function cacheChip(t) {
+    return chip(t.status, t.status === "cached" ? "ok" : t.status === "failed" ? "bad" : "");
+  }
+
+  function sourceLink(source) {
+    const host = source.provider === "ytmusic" ? "https://music.youtube.com" : "https://www.youtube.com";
+    const parts = [source.title, source.uploader, fmt(source.duration_ms)].filter(Boolean);
+    const a = el("a", "sub", "Source: " + parts.join(" · "));
+    a.href = host + "/watch?v=" + encodeURIComponent(source.external_id);
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    a.dir = "auto";
+    return a;
+  }
+
+  function row({ artwork, title, subtitle, detail, duration, chips = [], action, onAction }) {
     const r = el("div", "row");
     const img = el("img");
     img.alt = "";
+    img.loading = "lazy";
     if (artwork) img.src = artwork;
     const info = el("div");
     const t = el("div", "title", title); t.dir = "auto";
     const s = el("div", "sub", subtitle); s.dir = "auto";
     info.append(t, s);
+    if (detail) info.append(detail);
+    const c = el("div", "chips");
+    c.append(...chips.filter(Boolean));
     const b = el("button", "", action);
     b.type = "button";
     b.addEventListener("click", onAction);
-    r.append(img, info, el("span", "sub dur", fmt(duration)), status ? el("span", "chip", status) : el("span"), b);
+    r.append(img, info, el("span", "sub dur", fmt(duration)), c, b);
     return r;
   }
 
@@ -145,6 +237,16 @@
       }));
       loadRecent();
     } catch (err) {
+      $("player").hidden = false;
+      $("p-err").textContent = "Error: " + err.message;
+    }
+  }
+
+  async function play(id) {
+    try {
+      show(await api("/api/tracks/" + id + "/cache", { method: "POST" }));
+    } catch (err) {
+      $("player").hidden = false;
       $("p-err").textContent = "Error: " + err.message;
     }
   }
@@ -222,6 +324,122 @@
     audio.currentTime = ((e.clientX - rect.left) / rect.width) * audio.duration;
   });
 
+  $("import-file").addEventListener("change", () => {
+    const file = $("import-file").files[0];
+    if (file && !$("import-name").value) $("import-name").value = file.name.replace(/\.csv$/i, "").replace(/_/g, " ").trim();
+  });
+
+  $("import-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const file = $("import-file").files[0];
+    const out = $("import-result");
+    out.textContent = "Importing";
+    try {
+      const qs = new URLSearchParams({ url: $("import-url").value, name: $("import-name").value });
+      const sum = await api("/api/playlists/import?" + qs, {
+        method: "POST",
+        headers: { "Content-Type": "text/csv" },
+        body: await file.text(),
+      });
+      out.textContent = [sum.tracks + " tracks", sum.added + " added", sum.queued + " queued", sum.skipped + " skipped"].join(" · ");
+      await loadPlaylists();
+      openPlaylist(sum.playlist_id);
+    } catch (err) {
+      out.textContent = "Import failed: " + err.message;
+    }
+  });
+
+  function countChips(c) {
+    const box = el("div", "chips");
+    box.append(
+      chip("Matched " + c.matched, "ok"),
+      chip("Review " + c.review, c.review ? "warn" : ""),
+      chip("Unmatched " + c.unmatched, c.unmatched ? "bad" : ""),
+      chip("Pending " + c.pending),
+      chip("Cached " + c.cached + "/" + c.total),
+    );
+    return box;
+  }
+
+  function progress(c) {
+    const bar = el("div", "bar");
+    bar.setAttribute("role", "progressbar");
+    bar.setAttribute("aria-label", "Cached");
+    bar.setAttribute("aria-valuemin", "0");
+    bar.setAttribute("aria-valuemax", String(c.total));
+    bar.setAttribute("aria-valuenow", String(c.cached));
+    const fill = el("span");
+    fill.style.width = (c.total ? (100 * c.cached) / c.total : 0) + "%";
+    bar.append(fill);
+    return bar;
+  }
+
+  async function loadPlaylists() {
+    try {
+      const { playlists } = await api("/api/playlists");
+      if (!playlists.length) return $("playlists").replaceChildren(el("div", "empty", "No playlists"));
+      $("playlists").replaceChildren(...playlists.map((p) => {
+        const r = el("div", "prow");
+        const info = el("div");
+        const t = el("div", "title", p.name); t.dir = "auto";
+        info.append(t, countChips(p.counts), progress(p.counts));
+        const b = el("button", "", "Open");
+        b.type = "button";
+        b.addEventListener("click", () => openPlaylist(p.id));
+        r.append(info, b);
+        return r;
+      }));
+    } catch (err) {
+      $("playlists").replaceChildren(el("div", "empty", "Couldn't load playlists: " + err.message));
+    }
+  }
+
+  async function openPlaylist(id) {
+    openPlaylistId = id;
+    $("playlist").hidden = false;
+    await refreshPlaylist();
+  }
+
+  async function refreshPlaylist() {
+    const id = openPlaylistId;
+    clearTimeout(playlistTimer);
+    try {
+      const p = await api("/api/playlists/" + id);
+      if (id !== openPlaylistId) return;
+      renderPlaylist(p);
+      const c = p.counts;
+      if (c.pending > 0 || c.cached < c.matched + c.review) {
+        playlistTimer = setTimeout(() => { refreshPlaylist(); loadPlaylists(); }, 5000);
+      }
+    } catch (err) {
+      $("pl-tracks").replaceChildren(el("div", "empty", "Couldn't load playlist: " + err.message));
+    }
+  }
+
+  function renderPlaylist(p) {
+    lastPlaylist = p;
+    $("pl-title").textContent = p.name;
+    $("pl-counts").replaceChildren(countChips(p.counts), progress(p.counts));
+    const tracks = p.tracks.filter((t) => playlistFilter === "all" || t.match_status === playlistFilter);
+    if (!tracks.length) return $("pl-tracks").replaceChildren(el("div", "empty", "No tracks"));
+    $("pl-tracks").replaceChildren(...tracks.map((t) => row({
+      artwork: t.artwork_url,
+      title: t.title,
+      subtitle: t.artists.join(", ") + (t.album ? " · " + t.album : ""),
+      detail: t.source && (t.match_status === "review" || t.match_status === "unmatched") ? sourceLink(t.source) : null,
+      duration: t.duration_ms,
+      chips: [matchChip(t), cacheChip(t)],
+      action: "Play",
+      onAction: () => play(t.id),
+    })));
+  }
+
+  document.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => {
+    playlistFilter = b.dataset.filter;
+    document.querySelectorAll(".tabs button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    if (lastPlaylist) renderPlaylist(lastPlaylist);
+  }));
+
   async function loadRecent() {
     try {
       const { tracks } = await api("/api/tracks?limit=20");
@@ -231,9 +449,9 @@
         title: t.title,
         subtitle: t.artists.join(", ") + (t.album ? " · " + t.album : ""),
         duration: t.duration_ms,
-        status: t.status,
+        chips: [cacheChip(t)],
         action: "Play",
-        onAction: () => show(t),
+        onAction: () => play(t.id),
       })));
     } catch (err) {
       $("recent").replaceChildren(el("div", "empty", "Couldn't load tracks: " + err.message));
@@ -241,6 +459,7 @@
   }
 
   loadRecent();
+  loadPlaylists();
 </script>
 </body>
 </html>
