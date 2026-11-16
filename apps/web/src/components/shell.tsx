@@ -15,6 +15,7 @@ import { isPublicPath, useIsAdmin, useMe, useMembers } from "@/lib/session";
 import { startSocial, usePresence } from "@/lib/social";
 import { startGift } from "@/lib/gift";
 import { startTogetherState } from "@/lib/together";
+import { startTogetherSync } from "@/player/together";
 import { dismiss, useToasts } from "@/lib/toast";
 import { usePalette } from "@/player/shortcuts";
 import { usePlayer } from "@/player/store";
@@ -22,6 +23,7 @@ import { usePlayer } from "@/player/store";
 import { CommandPalette } from "./CommandPalette";
 import { GlobalDialogs } from "./dialogs";
 import { KeepsakeDialogs } from "./KeepsakeDialogs";
+import { TogetherBanner } from "./Together";
 import { Cover } from "./media";
 import { PlayerDock } from "./player/Player";
 
@@ -212,6 +214,7 @@ function AuthGate({ children }: { children: ReactNode }) {
       (id) => nameRef.current.get(id) ?? "Someone",
     );
     startTogetherState();
+    startTogetherSync(me.data.id);
     startGift();
   }, [me.data]);
   useEffect(() => {
@@ -256,6 +259,7 @@ function appFrame(home: boolean, children: ReactNode) {
       <CommandPalette />
       <GlobalDialogs />
       <KeepsakeDialogs />
+      <TogetherBanner />
       <div id="live-region" aria-live="polite" className="sr-only" />
     </>
   );

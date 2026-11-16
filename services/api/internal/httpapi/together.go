@@ -93,6 +93,9 @@ func (a *api) registerTogether() {
 			PositionMs int64       `json:"position_ms"`
 			From       int         `json:"from"`
 			To         int         `json:"to"`
+			Key        string      `json:"key"`
+			At         *int        `json:"at"`
+			Keys       []string    `json:"keys"`
 		}
 		if json.Unmarshal(e.Data, &c) != nil {
 			return
@@ -102,6 +105,10 @@ func (a *api) registerTogether() {
 		a.room.mu.Lock()
 		st := &a.room.state
 		changed := true
+		if c.Action != "start" && !containsID(st.Members, user) {
+			a.room.mu.Unlock()
+			return
+		}
 		switch c.Action {
 		case "start":
 			if len(c.TrackIDs) == 0 || len(c.TrackIDs) > 500 {
@@ -112,7 +119,11 @@ func (a *api) registerTogether() {
 			for _, id := range c.TrackIDs {
 				q = append(q, queueItem{TrackID: id, AddedBy: user, Key: a.room.key()})
 			}
-			*st = roomState{Active: true, Members: []uuid.UUID{user}, Queue: q, Index: clampIndex(c.Index, len(q)), Playing: true,
+			members := []uuid.UUID{user}
+			if st.Active && containsID(st.Members, user) {
+				members = st.Members
+			}
+			*st = roomState{Active: true, Members: members, Queue: q, Index: clampIndex(c.Index, len(q)), Playing: true,
 				StartedAtServerMs: at, PositionAtStartMs: max(0, c.PositionMs), StartedBy: user, Version: st.Version + 1}
 		case "play":
 			if !st.Active || st.Playing {
@@ -140,6 +151,10 @@ func (a *api) registerTogether() {
 				changed = false
 				break
 			}
+			if c.Key != "" && st.Queue[st.Index].Key != c.Key {
+				changed = false
+				break
+			}
 			next := st.Index + 1
 			if c.Action == "jump" {
 				next = c.Index
@@ -159,9 +174,15 @@ func (a *api) registerTogether() {
 				changed = false
 				break
 			}
+			added := make([]queueItem, 0, len(c.TrackIDs))
 			for _, id := range c.TrackIDs {
-				st.Queue = append(st.Queue, queueItem{TrackID: id, AddedBy: user, Key: a.room.key()})
+				added = append(added, queueItem{TrackID: id, AddedBy: user, Key: a.room.key()})
 			}
+			pos := len(st.Queue)
+			if c.At != nil && *c.At > st.Index && *c.At < len(st.Queue) {
+				pos = *c.At
+			}
+			st.Queue = append(st.Queue[:pos:pos], append(added, st.Queue[pos:]...)...)
 		case "queue.remove":
 			if !st.Active || c.Index < 0 || c.Index >= len(st.Queue) || c.Index == st.Index {
 				changed = false
@@ -186,6 +207,41 @@ func (a *api) registerTogether() {
 					st.Index = i
 				}
 			}
+		case "queue.order":
+			if !st.Active || len(c.Keys) != len(st.Queue) {
+				changed = false
+				break
+			}
+			byKey := make(map[string]queueItem, len(st.Queue))
+			for _, it := range st.Queue {
+				byKey[it.Key] = it
+			}
+			current := st.Queue[st.Index].Key
+			q := make([]queueItem, 0, len(c.Keys))
+			for _, k := range c.Keys {
+				it, ok := byKey[k]
+				if !ok {
+					break
+				}
+				delete(byKey, k)
+				q = append(q, it)
+			}
+			if len(q) != len(st.Queue) {
+				changed = false
+				break
+			}
+			st.Queue = q
+			for i, it := range q {
+				if it.Key == current {
+					st.Index = i
+				}
+			}
+		case "queue.clear":
+			if !st.Active || st.Index >= len(st.Queue)-1 {
+				changed = false
+				break
+			}
+			st.Queue = st.Queue[: st.Index+1 : st.Index+1]
 		case "end":
 			*st = roomState{Version: st.Version + 1}
 		default:

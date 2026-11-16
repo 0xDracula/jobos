@@ -1,19 +1,39 @@
 "use client";
 
-import { GripVertical, ListX, Save, X } from "lucide-react";
+import { GripVertical, Headphones, ListX, LogOut, Save, X } from "lucide-react";
 import { Reorder, useDragControls } from "motion/react";
 import { useMemo, useState, type KeyboardEvent } from "react";
 import { useShallow } from "zustand/react/shallow";
 
 import { cn } from "@/lib/cn";
 import { useCreatePlaylist } from "@/lib/queries";
+import { useMe } from "@/lib/session";
+import { useTogether } from "@/lib/together";
 import { toast } from "@/lib/toast";
 import { clearQueue, jumpTo, removeFromQueue, reorderUpcoming } from "@/player/controls";
 import { usePlayer, type QueueItem } from "@/player/store";
+import { leaveSession, startSession } from "@/player/together";
 
 import { NamePromptDialog } from "../dialogs";
+import { PersonBadge } from "../PersonBadge";
 import { Artwork, LevelMeter } from "../media";
 import { Button, IconButton } from "../ui";
+
+function TogetherButton({ disabled }: { disabled: boolean }) {
+  const me = useMe().data;
+  const room = useTogether().data;
+  const inside = !!(me && room?.active && room.members.includes(me.id));
+  if (room?.active && !inside) return null;
+  return inside ? (
+    <Button size="sm" variant="ghost" onClick={leaveSession}>
+      <LogOut className="size-4" /> Leave
+    </Button>
+  ) : (
+    <Button size="sm" variant="ghost" onClick={() => startSession()} disabled={disabled}>
+      <Headphones className="size-4" /> Together
+    </Button>
+  );
+}
 
 const SHOWN = 150;
 
@@ -39,6 +59,7 @@ export function QueuePanel() {
       <div className="flex items-center justify-between gap-2 pb-2">
         <h2 className="font-display text-xl font-semibold">Queue</h2>
         <div className="flex gap-1">
+          <TogetherButton disabled={!queue.length} />
           <Button size="sm" variant="ghost" onClick={() => setSaving(true)} disabled={!queue.length}>
             <Save className="size-4" /> Save
           </Button>
@@ -74,6 +95,12 @@ export function QueuePanel() {
       />
     </div>
   );
+}
+
+function AddedBy({ uid }: { uid: string }) {
+  const room = useTogether().data;
+  const by = room?.active ? room.queue.find((q) => q.key === uid)?.added_by : undefined;
+  return by ? <PersonBadge userId={by} /> : null;
 }
 
 function Row({
@@ -114,6 +141,7 @@ function Row({
           </span>
         </span>
       </button>
+      <AddedBy uid={item.uid} />
       {!current && (
         <IconButton label={`Remove ${t.title}`} size="sm" onClick={() => removeFromQueue(item.uid)}>
           <X />

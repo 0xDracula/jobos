@@ -406,12 +406,21 @@ export class Engine {
     this.graph?.setCrackle(p.vinyl && usePlayer.getState().playing ? volume * this.sleepGain : 0);
   }
 
+  private syncRate: number | null = null;
+
+  setSyncRate(rate: number | null) {
+    if (rate === this.syncRate) return;
+    this.syncRate = rate;
+    this.applyRate(usePrefs.getState());
+  }
+
   private applyRate(p: Prefs) {
-    const rate = rateFor(p.effect);
+    const effect = this.syncRate == null ? rateFor(p.effect) : 1;
+    const rate = effect * (this.syncRate ?? 1);
     for (const { el } of this.slots) {
       el.defaultPlaybackRate = rate;
       el.playbackRate = rate;
-      el.preservesPitch = rate === 1;
+      el.preservesPitch = effect === 1;
     }
   }
 
