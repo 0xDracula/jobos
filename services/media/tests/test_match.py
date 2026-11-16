@@ -106,3 +106,14 @@ def test_equal_scores_go_to_the_same_album_then_the_closer_length():
     near = song("near", "Wahdy", "Cairokee", 295)
     far = song("far", "Wahdy", "Cairokee", 296)
     assert match.rank(match.matching.Recording("Wahdy", ["Cairokee"], 295_400), [far, near])[0]["external_id"] == "near"
+
+
+def test_soundcloud_candidate_with_the_isrc_wins():
+    plain = {**song("https://soundcloud.com/a/wahdy", "Wahdy", "Cairokee", 296, official=False, provider="soundcloud"), "isrc": None}
+    label = {**song("https://soundcloud.com/b/wahdy", "Wahdy", "Cairokee", 296, official=False, provider="soundcloud"),
+             "isrc": "QMDA62664608"}
+    p = {**payload("Wahdy", ["Cairokee"], 294), "isrc": "QMDA62664608"}
+    result = match.match_track(p, searcher([]), searcher([]), searcher([plain, label]))
+    best, second = result["candidates"][:2]
+    assert best["external_id"] == "https://soundcloud.com/b/wahdy"
+    assert round(best["score"] - second["score"], 4) == 0.10

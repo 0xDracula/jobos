@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import logging
 import re
 import time
@@ -12,6 +13,45 @@ from ytmusicapi import YTMusic
 from . import matching
 
 log = logging.getLogger("jobbos.search")
+
+ISRC_RE = re.compile(r"^[A-Z]{2}[A-Z0-9]{3}[0-9]{7}$")
+
+
+def clean_isrc(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+    isrc = value.replace("-", "").replace(" ", "").upper()
+    return isrc if ISRC_RE.match(isrc) else None
+
+
+def with_isrc(extract):
+    @functools.wraps(extract)
+    def wrapper(self, info, *args, **kwargs):
+        out = extract(self, info, *args, **kwargs)
+        if isinstance(out, dict) and isinstance(info, dict):
+            isrc = clean_isrc((info.get("publisher_metadata") or {}).get("isrc"))
+            if isrc:
+                out["isrc"] = isrc
+        return out
+
+    wrapper.keeps_isrc = True
+    return wrapper
+
+
+def keep_soundcloud_isrc() -> bool:
+    try:
+        from yt_dlp.extractor import soundcloud
+
+        base = soundcloud.SoundcloudBaseIE
+        if not getattr(base._extract_info_dict, "keeps_isrc", False):
+            base._extract_info_dict = with_isrc(base._extract_info_dict)
+        return True
+    except (ImportError, AttributeError) as e:
+        log.warning("SoundCloud ISRCs unavailable: %s", e)
+        return False
+
+
+keep_soundcloud_isrc()
 
 
 _SIZE_RE = re.compile(r"=w\d+-h\d+")
@@ -48,6 +88,7 @@ def search_songs(query: str, limit: int = 20) -> list[dict]:
                 "explicit": bool(r.get("isExplicit")),
                 "thumbnail": large_artwork(thumbnails[-1]["url"]) if thumbnails else None,
                 "official": True,
+                "isrc": None,
             }
         )
     return out[:limit]
@@ -74,6 +115,7 @@ def search_videos(query: str, limit: int = 10) -> list[dict]:
                 "explicit": False,
                 "thumbnail": thumbnails[-1]["url"] if thumbnails else None,
                 "official": False,
+                "isrc": None,
             }
         )
     return out[:limit]
@@ -107,6 +149,7 @@ def _flat_result(entry: dict, provider: str) -> dict:
         "explicit": False,
         "thumbnail": thumb,
         "official": False,
+        "isrc": clean_isrc(entry.get("isrc")),
     }
 
 
@@ -120,6 +163,8 @@ def search_soundcloud(query: str, limit: int = 10) -> list[dict]:
 
 
 def same_recording(a: dict, b: dict) -> bool:
+    if a.get("isrc") and a.get("isrc") == b.get("isrc"):
+        return True
     if a["duration_ms"] and b["duration_ms"] and abs(a["duration_ms"] - b["duration_ms"]) > 3000:
         return False
     names = lambda r: [x["name"] for x in r["artists"]]
