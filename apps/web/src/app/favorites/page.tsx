@@ -1,7 +1,7 @@
 "use client";
 
 import { X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Loading } from "@/components/common";
 import { Segmented, inputClass } from "@/components/ui";
@@ -82,6 +82,10 @@ export default function FavoritesPage() {
   const members = useMembers();
   const lists = useFavoriteLists();
   const [who, setWho] = useState<string>("");
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("id");
+    if (id) setWho(id);
+  }, []);
   const viewing = who || me?.id || "";
   const list = lists.data?.find((l) => l.user_id === viewing);
   const editable = viewing === me?.id;
