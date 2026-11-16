@@ -5,7 +5,7 @@ MEDIA_ROOT ?= $(CURDIR)/.data/media
 MIGRATIONS_DIR ?= $(CURDIR)/db/migrations
 COMPOSE := docker compose -f deploy/compose.dev.yaml
 
-.PHONY: db-up db-down db-psql api media worker test test-api test-media
+.PHONY: db-up db-down db-psql api media worker dev test test-api test-media
 
 db-up:
 	$(COMPOSE) up -d --wait
@@ -24,6 +24,9 @@ media:
 
 worker:
 	cd services/media && uv run python -m jobbos_media.worker
+
+dev: db-up
+	./tools/dev.sh
 
 test: test-api test-media
 
