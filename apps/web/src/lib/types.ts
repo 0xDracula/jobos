@@ -19,6 +19,10 @@ export type AudioView = {
   waveform?: number[];
   tempo_bpm?: number;
   beats?: number[];
+  energy?: number | null;
+  valence?: number | null;
+  danceability?: number | null;
+  key?: string | null;
 };
 
 export type Track = {
@@ -113,7 +117,13 @@ export type Lyrics = {
   duration_ms: number | null;
 };
 
-export type User = { id: string; username: string; display_name: string; role: string };
+export type User = {
+  id: string;
+  username: string;
+  display_name: string;
+  role: string;
+  avatar?: Record<string, unknown> | null;
+};
 
 export type Account = User & { last_seen_at: string | null; sessions: number; created_at: string };
 

@@ -28,7 +28,7 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
-const json = (method: string, body?: unknown): RequestInit => ({
+export const json = (method: string, body?: unknown): RequestInit => ({
   method,
   body: body === undefined ? undefined : JSON.stringify(body),
 });
