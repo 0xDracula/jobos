@@ -37,6 +37,17 @@ def search(
         raise HTTPException(status_code=502, detail=f"search failed: {e}") from e
 
 
+@app.get("/radio")
+def radio(
+    video_id: str = Query(pattern="^[A-Za-z0-9_-]{11}$"),
+    limit: int = Query(25, ge=1, le=100),
+) -> dict:
+    try:
+        return {"results": search_module.radio(video_id, limit)}
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"radio failed: {e}") from e
+
+
 @app.get("/link")
 def link(url: str = Query(min_length=1, max_length=2048)) -> dict:
     try:

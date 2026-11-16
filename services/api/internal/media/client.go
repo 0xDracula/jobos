@@ -56,6 +56,10 @@ func (c *Client) Search(ctx context.Context, query string, limit int, sources []
 	return c.get(ctx, u)
 }
 
+func (c *Client) Radio(ctx context.Context, videoID string, limit int) (json.RawMessage, error) {
+	return c.get(ctx, c.base+"/radio?video_id="+url.QueryEscape(videoID)+"&limit="+strconv.Itoa(limit))
+}
+
 type Stream struct {
 	URL       string            `json:"url"`
 	Headers   map[string]string `json:"headers"`

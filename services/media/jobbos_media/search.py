@@ -121,6 +121,48 @@ def search_videos(query: str, limit: int = 10) -> list[dict]:
     return out[:limit]
 
 
+def parse_length(text: str | None) -> int | None:
+    try:
+        parts = [int(p) for p in (text or "").split(":")]
+    except ValueError:
+        return None
+    if not parts or len(parts) > 3:
+        return None
+    seconds = 0
+    for p in parts:
+        seconds = seconds * 60 + p
+    return seconds * 1000 or None
+
+
+_SONG, _OFFICIAL_VIDEO = "MUSIC_VIDEO_TYPE_ATV", "MUSIC_VIDEO_TYPE_OMV"
+
+
+def radio(video_id: str, limit: int = 25) -> list[dict]:
+    watch = _client().get_watch_playlist(videoId=video_id, radio=True, limit=limit + 1)
+    out: list[dict] = []
+    for t in watch.get("tracks") or []:
+        vid = t.get("videoId")
+        if not vid or vid == video_id:
+            continue
+        thumbnails = t.get("thumbnail") or []
+        album = t.get("album")
+        out.append(
+            {
+                "provider": "ytmusic" if t.get("videoType") == _SONG else "youtube",
+                "external_id": vid,
+                "title": t.get("title") or "",
+                "artists": [{"name": a["name"], "id": a.get("id")} for a in (t.get("artists") or []) if a.get("name")],
+                "album": {"name": album["name"], "id": album.get("id")} if album and album.get("name") else None,
+                "duration_ms": parse_length(t.get("length")),
+                "explicit": False,
+                "thumbnail": large_artwork(thumbnails[-1]["url"]) if thumbnails else None,
+                "official": t.get("videoType") in (_SONG, _OFFICIAL_VIDEO),
+                "isrc": None,
+            }
+        )
+    return out[:limit]
+
+
 SOURCE_DEADLINE_S = 6.0
 CACHE_TTL_S = 600
 CACHE_SIZE = 256
