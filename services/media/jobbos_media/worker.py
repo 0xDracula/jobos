@@ -13,6 +13,27 @@ from . import config, enrich, ingest, lyrics, match
 log = logging.getLogger("jobbos.worker")
 
 
+class Breaker:
+    def __init__(self, failures: int = 5, pause_s: float = 15 * 60, clock=time.monotonic):
+        self.failures, self.pause_s, self.clock = failures, pause_s, clock
+        self.in_a_row = 0
+        self.until = 0.0
+
+    def record(self, ok: bool) -> bool:
+        if ok:
+            self.in_a_row = 0
+            return False
+        self.in_a_row += 1
+        if self.in_a_row < self.failures:
+            return False
+        self.in_a_row = 0
+        self.until = self.clock() + self.pause_s
+        return True
+
+    def is_open(self) -> bool:
+        return self.clock() < self.until
+
+
 def handle_download(payload: dict) -> dict:
     return ingest.ingest(payload["provider"], payload["external_id"])
 
@@ -63,11 +84,13 @@ def main() -> None:
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
     headers = {"Authorization": f"Bearer {config.WORKER_TOKEN}"}
+    downloads = Breaker()
     with httpx.Client(base_url=config.API_URL, headers=headers, timeout=30) as http:
         log.info("worker %s polling %s", worker_id, config.API_URL)
         while not stopping:
+            kinds = [k for k in HANDLERS if not (k == "download_track" and downloads.is_open())]
             try:
-                r = http.post("/internal/jobs/claim", json={"queue": "default", "worker": worker_id, "kinds": list(HANDLERS)})
+                r = http.post("/internal/jobs/claim", json={"queue": "default", "worker": worker_id, "kinds": kinds})
             except httpx.HTTPError as e:
                 log.warning("API unreachable: %s", e)
                 time.sleep(5)
@@ -75,7 +98,10 @@ def main() -> None:
             if r.status_code == 204:
                 time.sleep(2)
                 continue
-            r.raise_for_status()
+            if r.status_code != 200:
+                log.warning("claim failed: %s %s", r.status_code, r.text[:200])
+                time.sleep(5)
+                continue
             job = r.json()
             log.info("job %s %s started", job["id"], job["kind"])
             try:
@@ -83,9 +109,16 @@ def main() -> None:
                 result = handler(job["payload"])
                 http.post(f"/internal/jobs/{job['id']}/complete", json={"result": result}).raise_for_status()
                 log.info("job %s %s", job["id"], describe(job["kind"], job["payload"], result))
+                if job["kind"] == "download_track":
+                    downloads.record(ok=True)
             except Exception as e:
                 log.exception("job %s failed", job["id"])
-                http.post(f"/internal/jobs/{job['id']}/fail", json={"error": str(e)[:2000]})
+                try:
+                    http.post(f"/internal/jobs/{job['id']}/fail", json={"error": str(e)[:2000]})
+                except httpx.HTTPError:
+                    log.warning("could not report job %s as failed", job["id"])
+                if job["kind"] == "download_track" and downloads.record(ok=False):
+                    log.warning("%d downloads failed in a row; pausing downloads for 15 minutes", downloads.failures)
 
 
 if __name__ == "__main__":
