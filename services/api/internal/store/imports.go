@@ -232,6 +232,44 @@ func (s *Store) RematchPlaylist(ctx context.Context, playlistID uuid.UUID, statu
 	return len(ids), nil
 }
 
+func (s *Store) ChooseSource(ctx context.Context, trackID uuid.UUID, in SourceTrack) (sourceID uuid.UUID, download bool, err error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return
+	}
+	defer tx.Rollback(ctx)
+	tag, err := tx.Exec(ctx, `update tracks set match_status = 'chosen', updated_at = now() where id = $1`, trackID)
+	if err != nil {
+		return
+	}
+	if tag.RowsAffected() == 0 {
+		return sourceID, false, ErrNotFound
+	}
+	if err = tx.QueryRow(ctx, `insert into track_sources (id, track_id, provider, external_id, raw_title, uploader, duration_ms, status)
+		values ($1, $2, $3, $4, $5, $6, $7, 'candidate')
+		on conflict (track_id, provider, external_id) do update set raw_title = excluded.raw_title,
+			uploader = coalesce(excluded.uploader, track_sources.uploader),
+			duration_ms = coalesce(excluded.duration_ms, track_sources.duration_ms), updated_at = now()
+		returning id`, newID(), trackID, in.Provider, in.ExternalID, in.Title, artistNames(in.Artists), in.DurationMs).Scan(&sourceID); err != nil {
+		return
+	}
+	if _, err = tx.Exec(ctx, `update track_sources set status = 'candidate', updated_at = now()
+		where track_id = $1 and status = 'selected' and id <> $2`, trackID, sourceID); err != nil {
+		return
+	}
+	if _, err = tx.Exec(ctx, `update track_sources set status = 'selected', updated_at = now() where id = $1`, sourceID); err != nil {
+		return
+	}
+	if err = dropQueuedDownloads(ctx, tx, trackID, sourceID); err != nil {
+		return
+	}
+	if err = tx.QueryRow(ctx, `select not exists (select 1 from track_media
+		where track_id = $1 and variant = 'main' and track_source_id = $2)`, trackID, sourceID).Scan(&download); err != nil {
+		return
+	}
+	return sourceID, download, tx.Commit(ctx)
+}
+
 func dropQueuedDownloads(ctx context.Context, tx pgx.Tx, trackID, keep uuid.UUID) error {
 	_, err := tx.Exec(ctx, `delete from jobs where kind = $1 and status = 'queued'
 		and payload->>'track_id' = $2 and payload->>'source_id' <> $3`, KindDownloadTrack, trackID.String(), keep.String())

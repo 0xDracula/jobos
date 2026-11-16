@@ -34,6 +34,7 @@ type Store interface {
 	Playlists(ctx context.Context) ([]store.PlaylistSummary, error)
 	Playlist(ctx context.Context, id uuid.UUID) (*store.PlaylistView, error)
 	RematchPlaylist(ctx context.Context, playlistID uuid.UUID, statuses []string) (int, error)
+	ChooseSource(ctx context.Context, trackID uuid.UUID, in store.SourceTrack) (uuid.UUID, bool, error)
 	ClaimJob(ctx context.Context, queue, worker string, kinds []string) (*store.Job, error)
 	CompleteJob(ctx context.Context, id int64, result json.RawMessage) error
 	FailJob(ctx context.Context, id int64, message string) error
@@ -75,6 +76,7 @@ func New(d Deps) http.Handler {
 		r.Get("/tracks/{id}", a.track)
 		r.Get("/tracks/{id}/audio", a.trackAudio)
 		r.Post("/tracks/{id}/cache", a.cacheTrack)
+		r.Put("/tracks/{id}/source", a.chooseSource)
 		r.Get("/media/{file}", a.mediaFile)
 		r.Get("/playlists", a.listPlaylists)
 		r.Post("/playlists/import", a.importPlaylist)
@@ -185,6 +187,43 @@ func (a *api) cacheTrack(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusAccepted, view)
+}
+
+func (a *api) chooseSource(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusNotFound, "track not found")
+		return
+	}
+	var in store.SourceTrack
+	if !readJSON(w, r, &in) {
+		return
+	}
+	if err := in.Validate(); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	sourceID, download, err := a.Store.ChooseSource(r.Context(), id, in)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "track not found")
+		return
+	}
+	if err != nil {
+		a.serverError(w, "choose source", err)
+		return
+	}
+	if download {
+		if err := a.enqueueDownload(r.Context(), id, sourceID, in.Provider, in.ExternalID); err != nil {
+			a.serverError(w, "enqueue download", err)
+			return
+		}
+	}
+	view, err := a.Store.Track(r.Context(), id)
+	if err != nil {
+		a.serverError(w, "load track", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, view)
 }
 
 func (a *api) importPlaylist(w http.ResponseWriter, r *http.Request) {

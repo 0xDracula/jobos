@@ -99,3 +99,21 @@ func TestRematchRejectsChosenStatus(t *testing.T) {
 		t.Errorf("status %d, want 400", rec.Code)
 	}
 }
+
+func TestChooseSourceValidatesInput(t *testing.T) {
+	cases := map[string]struct {
+		path, body string
+		want       int
+	}{
+		"bad id":           {"/api/tracks/nope/source", `{"provider":"youtube","external_id":"abc","title":"x"}`, http.StatusNotFound},
+		"unknown provider": {"/api/tracks/01a1e546-b14e-73a9-826b-81452848e479/source", `{"provider":"spotify","external_id":"abc","title":"x"}`, http.StatusBadRequest},
+		"no title":         {"/api/tracks/01a1e546-b14e-73a9-826b-81452848e479/source", `{"provider":"youtube","external_id":"abc"}`, http.StatusBadRequest},
+	}
+	for name, c := range cases {
+		rec := httptest.NewRecorder()
+		testServer().ServeHTTP(rec, httptest.NewRequest(http.MethodPut, c.path, strings.NewReader(c.body)))
+		if rec.Code != c.want {
+			t.Errorf("%s: status %d, want %d", name, rec.Code, c.want)
+		}
+	}
+}
