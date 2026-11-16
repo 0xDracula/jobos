@@ -4,9 +4,10 @@ export
 MEDIA_ROOT ?= $(CURDIR)/.data/media
 MIGRATIONS_DIR ?= $(CURDIR)/db/migrations
 WEB_ROOT ?= $(CURDIR)/apps/web/out
+GEOIP_DB ?= $(CURDIR)/.data/geo/dbip-city-lite.mmdb
 COMPOSE := docker compose -f deploy/compose.dev.yaml
 
-.PHONY: db-up db-down db-psql api media worker dev web web-install web-build test test-api test-media test-web
+.PHONY: db-up db-down db-psql api media worker dev web web-install web-build geoip test test-api test-media test-web
 
 db-up:
 	$(COMPOSE) up -d --wait
@@ -37,6 +38,9 @@ web-install:
 
 web-build:
 	cd apps/web && npm run build
+
+geoip:
+	./tools/update-geoip.sh
 
 test: test-api test-media test-web
 

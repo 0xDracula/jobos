@@ -159,6 +159,8 @@ type AudioView struct {
 	LoudnessLUFS *float32        `json:"loudness_lufs"`
 	GainDB       *float32        `json:"gain_db"`
 	Waveform     json.RawMessage `json:"waveform,omitempty"`
+	TempoBPM     *float32        `json:"tempo_bpm,omitempty"`
+	Beats        json.RawMessage `json:"beats,omitempty"`
 }
 
 type SourceView struct {
@@ -268,7 +270,10 @@ func (s *Store) Track(ctx context.Context, id uuid.UUID) (*TrackView, error) {
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
-	return v, err
+	if err != nil {
+		return nil, err
+	}
+	return v, s.trackBeats(ctx, v)
 }
 
 func (s *Store) trackViews(ctx context.Context, suffix string, args ...any) ([]TrackView, error) {

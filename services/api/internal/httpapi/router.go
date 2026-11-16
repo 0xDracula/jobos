@@ -84,6 +84,15 @@ type Store interface {
 	SetLyricsOffset(ctx context.Context, trackID uuid.UUID, offsetMs int32) error
 	BackfillLyrics(ctx context.Context) (int, error)
 	BackfillEnrich(ctx context.Context) (int, error)
+	RoomStats(ctx context.Context, userID uuid.UUID) (*store.RoomStats, error)
+	HiddenNotes(ctx context.Context, userID uuid.UUID) ([]store.HiddenNote, error)
+	FindNote(ctx context.Context, userID, noteID uuid.UUID) (*store.HiddenNote, error)
+	CreateNote(ctx context.Context, authorID uuid.UUID, in store.NoteInput) (uuid.UUID, error)
+	AdminNotes(ctx context.Context) ([]store.AdminNote, error)
+	DeleteNote(ctx context.Context, id uuid.UUID) error
+	UserCities(ctx context.Context) ([]store.UserCity, error)
+	DeleteSetting(ctx context.Context, userID uuid.UUID, key string) error
+	BackfillAnalysis(ctx context.Context) (int, error)
 	ClaimJob(ctx context.Context, queue, worker string, kinds []string) (*store.Job, error)
 	CompleteJob(ctx context.Context, id int64, result json.RawMessage) error
 	FailJob(ctx context.Context, id int64, message string) error
@@ -99,6 +108,8 @@ type Deps struct {
 	Resolver    Resolver
 	Links       Linker
 	MediaStatus StatusReader
+	World       WeatherSource
+	Locator     CityLocator
 	CurrentUser uuid.UUID
 	WebRoot     string
 	MediaRoot   string
@@ -177,7 +188,9 @@ func New(d Deps) http.Handler {
 			r.Post("/jobs/{id}/retry", a.retryJob)
 			r.Post("/cache/clear", a.clearCache)
 			r.Post("/playlists/sync", a.syncNow)
+			a.registerWorldAdminRoutes(r)
 		})
+		a.registerWorldRoutes(r)
 		r.Get("/tracks/{id}/lyrics", a.lyrics)
 		r.Patch("/tracks/{id}/lyrics", a.lyricsOffset)
 		r.Post("/lyrics/backfill", a.backfillLyrics)

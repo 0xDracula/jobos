@@ -18,6 +18,7 @@ type Config struct {
 	AdminUsername              string
 	AdminDisplayName           string
 	WebRoot                    string
+	GeoIPDB                    string
 }
 
 func Load() (Config, error) {
@@ -32,6 +33,7 @@ func Load() (Config, error) {
 		AdminUsername:    os.Getenv("ADMIN_USERNAME"),
 		AdminDisplayName: os.Getenv("ADMIN_DISPLAY_NAME"),
 		WebRoot:          os.Getenv("WEB_ROOT"),
+		GeoIPDB:          os.Getenv("GEOIP_DB"),
 	}
 	required := []struct{ name, value string }{
 		{"DATABASE_URL", c.DatabaseURL},

@@ -143,6 +143,8 @@ type AssetResult struct {
 	Palette          json.RawMessage `json:"palette"`
 	OutputLUFS       *float64        `json:"output_lufs"`
 	OutputTruePeakDB *float64        `json:"output_true_peak_db"`
+	TempoBPM         *float64        `json:"tempo_bpm"`
+	Beats            json.RawMessage `json:"beats"`
 }
 
 type DownloadResult struct {
@@ -203,6 +205,8 @@ func (s *Store) CompleteJob(ctx context.Context, id int64, result json.RawMessag
 		err = completeUpload(ctx, tx, payload, result, priority)
 	case KindProcessCover:
 		err = completeCover(ctx, tx, payload, result)
+	case KindAnalyzeAudio:
+		err = completeAnalysis(ctx, tx, payload, result)
 	}
 	if err != nil {
 		return err
@@ -302,15 +306,16 @@ func insertAsset(ctx context.Context, tx pgx.Tx, a AssetResult) (uuid.UUID, erro
 	var id uuid.UUID
 	err := tx.QueryRow(ctx, `insert into media_assets
 			(id, sha256, kind, path, mime, bytes, duration_ms, bitrate, loudness_lufs, true_peak_db, gain_db, waveform,
-			 width, height, palette, output_lufs, output_true_peak_db)
-		values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+			 width, height, palette, output_lufs, output_true_peak_db, tempo_bpm, beats)
+		values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
 		on conflict (sha256) do update set path = excluded.path,
 			width = coalesce(excluded.width, media_assets.width), height = coalesce(excluded.height, media_assets.height),
-			palette = coalesce(excluded.palette, media_assets.palette)
+			palette = coalesce(excluded.palette, media_assets.palette),
+			tempo_bpm = coalesce(excluded.tempo_bpm, media_assets.tempo_bpm), beats = coalesce(excluded.beats, media_assets.beats)
 		returning id`,
 		newID(), a.SHA256, a.Kind, a.Path, a.Mime, a.Bytes, a.DurationMs, a.Bitrate,
 		a.LoudnessLUFS, a.TruePeakDB, a.GainDB, jsonOrNil(a.Waveform), a.Width, a.Height, jsonOrNil(a.Palette),
-		a.OutputLUFS, a.OutputTruePeakDB).Scan(&id)
+		a.OutputLUFS, a.OutputTruePeakDB, a.TempoBPM, jsonOrNil(a.Beats)).Scan(&id)
 	return id, err
 }
 

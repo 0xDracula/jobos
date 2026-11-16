@@ -17,6 +17,7 @@ import (
 	"jobbos/api/internal/httpapi"
 	"jobbos/api/internal/media"
 	"jobbos/api/internal/store"
+	"jobbos/api/internal/world"
 )
 
 func main() {
@@ -56,18 +57,30 @@ func run(log *slog.Logger) error {
 	}
 	log.Info("acting as", "user", admin.Username)
 	mediaService := media.New(cfg.MediaServiceURL)
+	locator, err := world.OpenLocator(cfg.GeoIPDB)
+	if err != nil {
+		return err
+	}
+	defer locator.Close()
+	if locator == nil {
+		log.Info("city detection off: no GeoIP database", "path", cfg.GeoIPDB)
+	}
 	deps := httpapi.Deps{
 		Store:       st,
 		Media:       mediaService,
 		Resolver:    mediaService,
 		Links:       mediaService,
 		MediaStatus: mediaService,
+		World:       world.NewOpenMeteo(),
 		CurrentUser: admin.ID,
 		WebRoot:     cfg.WebRoot,
 		MediaRoot:   cfg.MediaRoot,
 		WorkerToken: cfg.WorkerToken,
 		DevUI:       cfg.DevUI,
 		Log:         log,
+	}
+	if locator != nil {
+		deps.Locator = locator
 	}
 	srv := &http.Server{
 		Addr:              cfg.ListenAddr,
