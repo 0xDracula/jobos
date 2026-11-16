@@ -11,12 +11,12 @@ type RoomState = {
   sheet: RoomSheet;
   selected: string | null;
   draft: RoomLayout | null;
-  lampOn: boolean | null;
   reveal: HiddenNoteView | null;
   pets: number;
   kittenAwakeUntil: number;
   sleepMode: boolean;
-  unlocked: string | null;
+  unlocking: { id: string; at: number } | null;
+  star: string | null;
 };
 
 export const useRoom = create<RoomState>(() => ({
@@ -24,12 +24,12 @@ export const useRoom = create<RoomState>(() => ({
   sheet: null,
   selected: null,
   draft: null,
-  lampOn: null,
   reveal: null,
   pets: 0,
   kittenAwakeUntil: 0,
   sleepMode: false,
-  unlocked: null,
+  unlocking: null,
+  star: null,
 }));
 
 export const openSheet = (sheet: RoomSheet) => useRoom.setState({ sheet });

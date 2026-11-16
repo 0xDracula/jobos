@@ -6,18 +6,26 @@ import { useEffect, useRef, useState } from "react";
 import { beat, tickBeat } from "../beat";
 import { placeHotspots, roomView } from "../hotspots";
 import { useRoom } from "../state";
+import { Kit } from "./kit";
 import { PixelRenderer, type RoomInput } from "./renderer";
+import { loadRoomArt } from "./rooms";
+import type { RoomId } from "./rooms/types";
 import { loadSheets } from "./sprites";
 
 export type PixelRoomProps = Omit<RoomInput, "highlight" | "selected"> & {
+  room: RoomId;
   hotspotIds: string[];
   inset: number;
   active: boolean;
+  playing: boolean;
   onActivate: (id: string) => void;
+  onStar?: (id: string) => void;
   onReady?: () => void;
 };
 
 const FRAME_MS = 1000 / 12;
+
+export const roomStats = { frames: 0 };
 
 export default function PixelRoom(p: PixelRoomProps) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -63,6 +71,7 @@ export default function PixelRoom(p: PixelRoomProps) {
         pulse: beat.pulse,
         playing: beat.playing,
       });
+      roomStats.frames++;
       placeHotspots((id) => r.anchor(id));
       syncSides.current();
     };
@@ -71,16 +80,25 @@ export default function PixelRoom(p: PixelRoomProps) {
     const loop = (now: number) => {
       raf = requestAnimationFrame(loop);
       if (!props.current.active) return;
+      if (props.current.reducedMotion) return;
       if (now - last < FRAME_MS) return;
       last = now;
       paint(now);
     };
 
-    void loadSheets().then((sheets) => {
+    if (process.env.NODE_ENV === "development") (window as unknown as { __room: unknown }).__room = roomStats;
+    void Promise.all([loadSheets(), loadRoomArt(props.current.room)]).then(([sheets, art]) => {
       if (dead) return;
-      renderer.current = new PixelRenderer(el, sheets);
+      renderer.current = new PixelRenderer(el, new Kit(sheets), art);
+      renderer.current.onChange = () => draw.current();
       roomView.reveal = (id) => {
         renderer.current?.reveal(id);
+        draw.current();
+      };
+      roomView.revealDecoration = (id) => {
+        const r = renderer.current;
+        const spot = r?.decorationSpot(id);
+        if (r && spot) r.revealX(spot.x);
         draw.current();
       };
       ro.observe(el);
@@ -94,8 +112,23 @@ export default function PixelRoom(p: PixelRoomProps) {
       cancelAnimationFrame(raf);
       ro.disconnect();
       roomView.reveal = () => {};
+      roomView.revealDecoration = () => {};
     };
   }, []);
+
+  useEffect(() => {
+    let dead = false;
+    const r = renderer.current;
+    if (!r || r.roomId === p.room) return;
+    void loadRoomArt(p.room).then((art) => {
+      if (dead || !renderer.current) return;
+      renderer.current.setArt(art);
+      draw.current();
+    });
+    return () => {
+      dead = true;
+    };
+  }, [p.room]);
 
   useEffect(() => {
     const r = renderer.current;
@@ -137,7 +170,8 @@ export default function PixelRoom(p: PixelRoomProps) {
       if (e.pointerType !== "mouse") return;
       const { x, y } = local(e);
       const id = r.hit(x, y, props.current.hotspotIds);
-      el.style.cursor = id ? "pointer" : r.canPan() ? "grab" : "default";
+      const star = id ? null : r.hitStar(x, y);
+      el.style.cursor = id || star ? "pointer" : r.canPan() ? "grab" : "default";
       if (useRoom.getState().highlight !== id) useRoom.setState({ highlight: id });
     };
     const onUp = (e: PointerEvent) => {
@@ -148,7 +182,9 @@ export default function PixelRoom(p: PixelRoomProps) {
       if (!tap) return;
       const { x, y } = local(e);
       const id = r.hit(x, y, props.current.hotspotIds);
-      if (id) props.current.onActivate(id);
+      if (id) return props.current.onActivate(id);
+      const star = r.hitStar(x, y);
+      if (star) props.current.onStar?.(star);
     };
     const onLeave = () => {
       if (useRoom.getState().highlight) useRoom.setState({ highlight: null });

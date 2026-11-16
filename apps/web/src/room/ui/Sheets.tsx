@@ -13,7 +13,7 @@ import type { City, Track, Weather } from "@/lib/types";
 import { playTracks, setSleep } from "@/player/controls";
 
 import { AMBIENT_SOUNDS, setAmbientLevel, setAmbientLevels, startAmbient, stopAmbient, useAmbient, type AmbientId } from "../ambient";
-import { METRIC_LABELS, PLANT_STAGES, plantStage, progressOf, type Stats, type Unlockable } from "../calendar";
+import { METRIC_LABELS, PLANT_STAGES, plantStage, progressOf, type MilestoneDay, type Stats, type Unlockable } from "../calendar";
 import { saveAmbientMixes, useAmbientMixes, useHiddenNotes } from "../data";
 import { moonPhaseName, PHASE_LABELS, skyAt, type SkyState } from "../sky";
 import { roomNow } from "../clock";
@@ -45,7 +45,7 @@ function SkySection({ title, sky, weather, city }: { title?: string; sky: SkySta
         </h3>
       )}
       <Row label="City" value={city ? [city.name, city.country].filter(Boolean).join(", ") : "Not set"} />
-      <Row label="Local time" value={localTime(now, weather)} />
+      <Row label="Local time" value={localTime(now, weather, city?.timezone)} />
       {sky && <Row label="Sky" value={PHASE_LABELS[sky.phase]} />}
       {weather && <Row label="Weather" value={`${WEATHER_LABELS[weather.condition]}, ${Math.round(weather.temperature_c)}°C`} />}
       {sky && <Row label="Sunrise" value={timeOf(sky.sunrise)} />}
@@ -55,13 +55,25 @@ function SkySection({ title, sky, weather, city }: { title?: string; sky: SkySta
   );
 }
 
-function SkySheet({ sky, place, weather, other }: { sky: SkyState | null; place: City | null; weather: Weather | null; other: { name: string; city: City } | null }) {
+function SkySheet({
+  sky,
+  place,
+  weather,
+  other,
+  otherWeather,
+}: {
+  sky: SkyState | null;
+  place: City | null;
+  weather: Weather | null;
+  other: { name: string; city: City } | null;
+  otherWeather: Weather | null;
+}) {
   const otherSky = other ? skyAt(roomNow(), other.city.lat, other.city.lon) : null;
   return (
     <>
       <div className="grid gap-3">
         <SkySection title={other ? place?.name : undefined} sky={sky} weather={weather} city={place} />
-        {other && <SkySection title={`${other.name}: ${other.city.name}`} sky={otherSky} weather={null} city={other.city} />}
+        {other && <SkySection title={`${other.name}: ${other.city.name}`} sky={otherSky} weather={otherWeather} city={other.city} />}
       </div>
       <Link href="/settings/#location" onClick={close} className="mt-4 inline-flex min-h-11 items-center font-bold text-accent-strong hover:underline">
         City settings
@@ -135,7 +147,7 @@ function Bar({ value }: { value: number }) {
 
 const STAGE_LABELS = ["Sprouts", "Seedlings", "Leafy", "Flowering", "In full bloom"];
 
-function GrowthSheet({ metrics, unlocked, unlockables }: { metrics: Stats; unlocked: Set<string>; unlockables: Unlockable[] }) {
+function GrowthSheet({ metrics, unlocked, unlockables, milestones }: { metrics: Stats; unlocked: Set<string>; unlockables: Unlockable[]; milestones: MilestoneDay[] }) {
   const stage = plantStage(metrics.hours);
   const next = PLANT_STAGES[stage + 1];
   return (
@@ -157,10 +169,10 @@ function GrowthSheet({ metrics, unlocked, unlockables }: { metrics: Stats; unloc
             <div className="flex items-center justify-between gap-3">
               <span className="font-bold">{u.label}</span>
               <span className={cn("text-sm font-bold", unlocked.has(u.id) ? "text-accent-strong" : "text-muted")}>
-                {unlocked.has(u.id) ? "Unlocked" : `${METRIC_LABELS[u.metric]}: ${Math.floor(metrics[u.metric])}/${u.threshold}`}
+                {unlocked.has(u.id) ? "Unlocked" : u.metric === "milestone" ? METRIC_LABELS.milestone : `${METRIC_LABELS[u.metric]}: ${Math.floor(metrics[u.metric])}/${u.threshold}`}
               </span>
             </div>
-            <Bar value={progressOf(u, metrics)} />
+            <Bar value={unlocked.has(u.id) ? 1 : progressOf(u, metrics, milestones)} />
           </div>
         ))}
       </section>
@@ -278,26 +290,6 @@ function NoteReveal() {
   );
 }
 
-function Unlocked({ unlockables }: { unlockables: Unlockable[] }) {
-  const id = useRoom((s) => s.unlocked);
-  const u = unlockables.find((x) => x.id === id);
-  return (
-    <Dialog open={!!u} onOpenChange={(o) => !o && useRoom.setState({ unlocked: null })} title="Unlocked">
-      {u && (
-        <div className="grid justify-items-center gap-3 py-4 text-center">
-          <span aria-hidden className="text-5xl">
-            ✨
-          </span>
-          <p className="font-display text-2xl font-semibold">{u.label}</p>
-          <Button variant="primary" onClick={() => useRoom.setState({ unlocked: null, sheet: "edit", draft: null })}>
-            Place it
-          </Button>
-        </div>
-      )}
-    </Dialog>
-  );
-}
-
 const TITLES = { sky: "Sky", ambient: "Ambient sounds", growth: "Growth", notes: "Found notes", sleep: "Sleep mode" } as const;
 
 export function RoomSheets({
@@ -305,31 +297,34 @@ export function RoomSheets({
   place,
   weather,
   other,
+  otherWeather,
   metrics,
   unlocked,
   unlockables,
+  milestones,
 }: {
   sky: SkyState | null;
   place: City | null;
   weather: Weather | null;
   other: { name: string; city: City } | null;
+  otherWeather: Weather | null;
   metrics: Stats;
   unlocked: Set<string>;
   unlockables: Unlockable[];
+  milestones: MilestoneDay[];
 }) {
   const sheet = useRoom((s) => s.sheet);
   const open = sheet && sheet !== "edit" ? sheet : null;
   return (
     <>
       <Dialog open={!!open} onOpenChange={(o) => !o && close()} title={open ? TITLES[open] : ""} wide={open === "ambient"}>
-        {open === "sky" && <SkySheet sky={sky} place={place} weather={weather} other={other} />}
+        {open === "sky" && <SkySheet sky={sky} place={place} weather={weather} other={other} otherWeather={otherWeather} />}
         {open === "ambient" && <AmbientSheet />}
-        {open === "growth" && <GrowthSheet metrics={metrics} unlocked={unlocked} unlockables={unlockables} />}
+        {open === "growth" && <GrowthSheet metrics={metrics} unlocked={unlocked} unlockables={unlockables} milestones={milestones} />}
         {open === "notes" && <NotesSheet />}
         {open === "sleep" && <SleepSheet />}
       </Dialog>
       <NoteReveal />
-      <Unlocked unlockables={unlockables} />
     </>
   );
 }
