@@ -8,6 +8,7 @@ import subprocess
 import tempfile
 from array import array
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
 import yt_dlp
 
@@ -45,6 +46,31 @@ def download(url: str, workdir: Path) -> tuple[Path, dict]:
         "highlight": highlight(info.get("heatmap")),
     }
     return path, meta
+
+
+STREAM_MIMES = {"m4a": "audio/mp4", "mp4": "audio/mp4", "webm": "audio/webm", "mp3": "audio/mpeg", "ogg": "audio/ogg"}
+
+
+def resolve(provider: str, external_id: str) -> dict:
+    opts = {"format": "bestaudio[ext=m4a]/bestaudio", "quiet": True, "no_warnings": True, "noplaylist": True}
+    if config.YTDLP_COOKIES:
+        opts["cookiefile"] = config.YTDLP_COOKIES
+    with yt_dlp.YoutubeDL(opts) as ydl:
+        info = ydl.extract_info(source_url(provider, external_id), download=False)
+    return stream_info(info)
+
+
+def stream_info(info: dict) -> dict:
+    url = info["url"]
+    expire = parse_qs(urlparse(url).query).get("expire", [None])[0]
+    return {
+        "url": url,
+        "headers": info.get("http_headers") or {},
+        "mime": STREAM_MIMES.get(info.get("ext") or "", "application/octet-stream"),
+        "bytes": info.get("filesize") or info.get("filesize_approx"),
+        "duration_ms": int(info["duration"] * 1000) if info.get("duration") else None,
+        "expires_at": int(expire) if expire and expire.isdigit() else None,
+    }
 
 
 def highlight(heatmap: list[dict] | None) -> dict | None:

@@ -55,3 +55,24 @@ def test_source_url():
     assert ingest.source_url("soundcloud", "https://soundcloud.com/a/b") == "https://soundcloud.com/a/b"
     with pytest.raises(ValueError):
         ingest.source_url("upload", "file")
+
+
+def test_stream_info():
+    from jobbos_media.ingest import stream_info
+
+    info = {
+        "url": "https://rr3---sn-x.googlevideo.com/videoplayback?expire=1795000000&itag=140&n=abc",
+        "http_headers": {"User-Agent": "Mozilla/5.0"},
+        "ext": "m4a",
+        "filesize": 3426450,
+        "duration": 212,
+    }
+    assert stream_info(info) == {
+        "url": info["url"],
+        "headers": {"User-Agent": "Mozilla/5.0"},
+        "mime": "audio/mp4",
+        "bytes": 3426450,
+        "duration_ms": 212000,
+        "expires_at": 1795000000,
+    }
+    assert stream_info({"url": "https://x.googlevideo.com/v", "ext": "webm"})["mime"] == "audio/webm"
