@@ -21,6 +21,7 @@ import { usePlayer } from "@/player/store";
 
 import { CommandPalette } from "./CommandPalette";
 import { GlobalDialogs } from "./dialogs";
+import { KeepsakeDialogs } from "./KeepsakeDialogs";
 import { Cover } from "./media";
 import { PlayerDock } from "./player/Player";
 
@@ -254,6 +255,7 @@ function appFrame(home: boolean, children: ReactNode) {
       <Toasts />
       <CommandPalette />
       <GlobalDialogs />
+      <KeepsakeDialogs />
       <div id="live-region" aria-live="polite" className="sr-only" />
     </>
   );
