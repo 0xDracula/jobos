@@ -3,6 +3,7 @@ export
 
 MEDIA_ROOT ?= $(CURDIR)/.data/media
 MIGRATIONS_DIR ?= $(CURDIR)/db/migrations
+WEB_ROOT ?= $(CURDIR)/apps/web/out
 COMPOSE := docker compose -f deploy/compose.dev.yaml
 
 .PHONY: db-up db-down db-psql api media worker dev test test-api test-media

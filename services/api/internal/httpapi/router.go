@@ -52,6 +52,33 @@ type Store interface {
 	AdminStatus(ctx context.Context) (*store.AdminStatus, error)
 	RetryJob(ctx context.Context, id int64) error
 	ClearUnpinned(ctx context.Context) ([]store.ClearedFile, error)
+	User(ctx context.Context, id uuid.UUID) (*store.User, error)
+	RegisterDevice(ctx context.Context, userID uuid.UUID, id *uuid.UUID, name, platform string) (uuid.UUID, error)
+	Settings(ctx context.Context, userID uuid.UUID) (map[string]json.RawMessage, error)
+	SetSetting(ctx context.Context, userID uuid.UUID, key string, value json.RawMessage) error
+	Like(ctx context.Context, userID, trackID uuid.UUID) error
+	Unlike(ctx context.Context, userID, trackID uuid.UUID) error
+	LikedIDs(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error)
+	Likes(ctx context.Context, userID uuid.UUID, sort string) ([]store.TrackView, error)
+	Hide(ctx context.Context, userID uuid.UUID, itemType string, itemID uuid.UUID) error
+	Unhide(ctx context.Context, userID uuid.UUID, itemType string, itemID uuid.UUID) error
+	Hidden(ctx context.Context, userID uuid.UUID) ([]store.TrackView, []store.HiddenArtist, error)
+	HiddenIDs(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, []uuid.UUID, error)
+	RecordEvents(ctx context.Context, userID uuid.UUID, events []store.ListeningEvent) error
+	RecentlyPlayed(ctx context.Context, userID uuid.UUID, limit int) ([]store.TrackView, error)
+	MostPlayed(ctx context.Context, userID uuid.UUID, days, limit int) ([]store.PlayedTrack, error)
+	SavePlayback(ctx context.Context, userID uuid.UUID, p store.PlaybackState) error
+	Playback(ctx context.Context, userID uuid.UUID) ([]store.PlaybackState, error)
+	CreatePlaylist(ctx context.Context, userID uuid.UUID, name, description string) (uuid.UUID, error)
+	EditPlaylist(ctx context.Context, id uuid.UUID, e store.PlaylistEdit) error
+	DeletePlaylist(ctx context.Context, id uuid.UUID) error
+	AddToPlaylist(ctx context.Context, playlistID, userID uuid.UUID, trackIDs []uuid.UUID) (int, error)
+	RemoveFromPlaylist(ctx context.Context, playlistID, trackID uuid.UUID) error
+	ReorderPlaylist(ctx context.Context, playlistID uuid.UUID, trackIDs []uuid.UUID) error
+	EnqueuePlaylistCover(ctx context.Context, playlistID uuid.UUID, path string) error
+	Album(ctx context.Context, id uuid.UUID) (*store.AlbumView, error)
+	Artist(ctx context.Context, userID, id uuid.UUID) (*store.ArtistView, error)
+	SearchLibrary(ctx context.Context, q string, limit int) ([]store.TrackView, error)
 	Lyrics(ctx context.Context, trackID uuid.UUID) (*store.LyricsView, error)
 	SetLyricsOffset(ctx context.Context, trackID uuid.UUID, offsetMs int32) error
 	BackfillLyrics(ctx context.Context) (int, error)
@@ -71,6 +98,8 @@ type Deps struct {
 	Resolver    Resolver
 	Links       Linker
 	MediaStatus StatusReader
+	CurrentUser uuid.UUID
+	WebRoot     string
 	MediaRoot   string
 	WorkerToken string
 	DevUI       bool
@@ -115,6 +144,32 @@ func New(d Deps) http.Handler {
 		r.Post("/uploads", a.upload)
 		r.Post("/prefetch", a.prefetch)
 		r.Patch("/playlists/{id}", a.updatePlaylist)
+		r.Post("/playlists", a.createPlaylist)
+		r.Delete("/playlists/{id}", a.deletePlaylist)
+		r.Post("/playlists/{id}/items", a.addToPlaylist)
+		r.Put("/playlists/{id}/items", a.reorderPlaylist)
+		r.Delete("/playlists/{id}/items/{trackID}", a.removeFromPlaylist)
+		r.Post("/playlists/{id}/cover", a.setPlaylistCover)
+		r.Get("/albums/{id}", a.album)
+		r.Get("/artists/{id}", a.artist)
+		r.Get("/library/search", a.searchLibrary)
+		r.Get("/me", a.me)
+		r.Post("/devices", a.registerDevice)
+		r.Get("/settings", a.settings)
+		r.Put("/settings/{key}", a.setSetting)
+		r.Get("/likes", a.likes)
+		r.Get("/likes/ids", a.likedIDs)
+		r.Put("/likes/{trackID}", a.setLike)
+		r.Delete("/likes/{trackID}", a.setLike)
+		r.Get("/hidden", a.hidden)
+		r.Get("/hidden/ids", a.hiddenIDs)
+		r.Put("/hidden/{type}/{id}", a.setHidden)
+		r.Delete("/hidden/{type}/{id}", a.setHidden)
+		r.Post("/events", a.events)
+		r.Get("/history/recent", a.recentlyPlayed)
+		r.Get("/history/top", a.mostPlayed)
+		r.Get("/playback", a.playback)
+		r.Put("/playback", a.savePlayback)
 		r.Route("/admin", func(r chi.Router) {
 			r.Get("/status", a.adminStatus)
 			r.Post("/jobs/{id}/retry", a.retryJob)
@@ -131,6 +186,9 @@ func New(d Deps) http.Handler {
 		r.Get("/playlists/{id}", a.playlist)
 		r.Post("/playlists/{id}/rematch", a.rematchPlaylist)
 	})
+	if d.WebRoot != "" {
+		r.Handle("/*", webApp(d.WebRoot))
+	}
 	r.Route("/internal", func(r chi.Router) {
 		r.Use(a.requireWorker)
 		r.Post("/jobs/claim", a.claimJob)

@@ -27,8 +27,9 @@ type UploadPayload struct {
 }
 
 type CoverPayload struct {
-	TrackID uuid.UUID `json:"track_id"`
-	Path    string    `json:"path"`
+	TrackID    *uuid.UUID `json:"track_id,omitempty"`
+	PlaylistID *uuid.UUID `json:"playlist_id,omitempty"`
+	Path       string     `json:"path"`
 }
 
 func (s *Store) CreateUpload(ctx context.Context, in UploadInput) (uuid.UUID, error) {
@@ -129,7 +130,13 @@ func setTrackCover(ctx context.Context, tx pgx.Tx, trackID uuid.UUID, cover Asse
 
 func (s *Store) EnqueueCover(ctx context.Context, trackID uuid.UUID, path string) error {
 	_, _, err := s.Enqueue(ctx, JobSpec{Kind: KindProcessCover, DedupeKey: "cover:" + trackID.String(), Priority: PriorityInteractive,
-		Payload: CoverPayload{TrackID: trackID, Path: path}})
+		Payload: CoverPayload{TrackID: &trackID, Path: path}})
+	return err
+}
+
+func (s *Store) EnqueuePlaylistCover(ctx context.Context, playlistID uuid.UUID, path string) error {
+	_, _, err := s.Enqueue(ctx, JobSpec{Kind: KindProcessCover, DedupeKey: "cover:" + playlistID.String(), Priority: PriorityInteractive,
+		Payload: CoverPayload{PlaylistID: &playlistID, Path: path}})
 	return err
 }
 
@@ -150,11 +157,22 @@ func completeCover(ctx context.Context, tx pgx.Tx, payload, result []byte) error
 	if err := validateImage(r.Cover, "artwork"); err != nil {
 		return err
 	}
-	var exists bool
-	if err := tx.QueryRow(ctx, `select exists (select 1 from tracks where id = $1)`, p.TrackID).Scan(&exists); err != nil || !exists {
+	if p.PlaylistID != nil {
+		coverID, err := insertAsset(ctx, tx, *r.Cover)
+		if err != nil {
+			return err
+		}
+		_, err = tx.Exec(ctx, `update playlists set cover_asset_id = $2, updated_at = now() where id = $1`, *p.PlaylistID, coverID)
 		return err
 	}
-	return setTrackCover(ctx, tx, p.TrackID, *r.Cover)
+	if p.TrackID == nil {
+		return errors.New("cover job without a track or playlist")
+	}
+	var exists bool
+	if err := tx.QueryRow(ctx, `select exists (select 1 from tracks where id = $1)`, *p.TrackID).Scan(&exists); err != nil || !exists {
+		return err
+	}
+	return setTrackCover(ctx, tx, *p.TrackID, *r.Cover)
 }
 
 type TrackEdit struct {

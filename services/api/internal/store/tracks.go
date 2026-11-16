@@ -176,7 +176,9 @@ type TrackView struct {
 	ID              uuid.UUID       `json:"id"`
 	Title           string          `json:"title"`
 	Artists         []string        `json:"artists"`
+	ArtistIDs       []uuid.UUID     `json:"artist_ids"`
 	Album           *string         `json:"album"`
+	AlbumID         *uuid.UUID      `json:"album_id"`
 	DurationMs      *int32          `json:"duration_ms"`
 	ArtworkURL      *string         `json:"artwork_url"`
 	ArtworkThumbURL *string         `json:"artwork_thumb_url"`
@@ -194,8 +196,10 @@ var ErrNotFound = errors.New("not found")
 
 var MediaExt = map[string]string{"audio/mp4": "m4a", "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
 
-const trackViewSQL = `select t.id, t.title, al.title, t.duration_ms, t.artwork_url,
+const trackViewSQL = `select t.id, t.title, al.title, al.id, t.duration_ms, t.artwork_url,
 		coalesce((select array_agg(a.name order by ta.position) from track_artists ta
+			join artists a on a.id = ta.artist_id where ta.track_id = t.id), '{}'),
+		coalesce((select array_agg(a.id order by ta.position) from track_artists ta
 			join artists a on a.id = ta.artist_id where ta.track_id = t.id), '{}'),
 		t.match_status, t.note,
 		ma.sha256, ma.duration_ms, ma.loudness_lufs, ma.gain_db, ma.waveform, tm.track_source_id,
@@ -225,7 +229,7 @@ func scanTrackView(row pgx.Row) (*TrackView, error) {
 		artSHA, artMime                 *string
 		palette                         []byte
 	)
-	if err := row.Scan(&v.ID, &v.Title, &v.Album, &v.DurationMs, &v.ArtworkURL, &v.Artists, &v.MatchStatus, &v.Note,
+	if err := row.Scan(&v.ID, &v.Title, &v.Album, &v.AlbumID, &v.DurationMs, &v.ArtworkURL, &v.Artists, &v.ArtistIDs, &v.MatchStatus, &v.Note,
 		&sha, &mDur, &loudness, &gain, &waveform, &fileSourceID,
 		&sourceID, &provider, &externalID, &rawTitle, &uploader, &sDur, &score,
 		&jobStatus, &jobLastErr, &artSHA, &artMime, &palette); err != nil {

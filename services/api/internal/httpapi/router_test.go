@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 )
@@ -191,6 +192,67 @@ func TestPhaseOneEndpointsValidateInput(t *testing.T) {
 		testServer().ServeHTTP(rec, req)
 		if rec.Code != c.want {
 			t.Errorf("%s %s: status %d, want %d (%s)", c.method, c.path, rec.Code, c.want, rec.Body.String())
+		}
+	}
+}
+
+func TestPhaseTwoEndpointsValidateInput(t *testing.T) {
+	const pl = "/api/playlists/01a1e546-b14e-73a9-826b-81452848e479"
+	cases := []struct {
+		method, path, body string
+		want               int
+	}{
+		{http.MethodPost, "/api/devices", `{"name":""}`, http.StatusBadRequest},
+		{http.MethodPost, "/api/events", `{"events":[]}`, http.StatusBadRequest},
+		{http.MethodPost, "/api/events", `{"events":[{"track_id":"01a1e546-b14e-73a9-826b-81452848e479","event":"dance"}]}`, http.StatusBadRequest},
+		{http.MethodPut, "/api/playback", `{"device_id":"01a1e546-b14e-73a9-826b-81452848e479","repeat":"forever"}`, http.StatusBadRequest},
+		{http.MethodPost, "/api/playlists", `{"name":"  "}`, http.StatusBadRequest},
+		{http.MethodPatch, pl, `{"name":""}`, http.StatusBadRequest},
+		{http.MethodPost, pl + "/items", `{"track_ids":[]}`, http.StatusBadRequest},
+		{http.MethodPut, "/api/hidden/album/01a1e546-b14e-73a9-826b-81452848e479", "", http.StatusNotFound},
+		{http.MethodGet, "/api/library/search?q=", "", http.StatusBadRequest},
+		{http.MethodGet, "/api/albums/nope", "", http.StatusNotFound},
+	}
+	for _, c := range cases {
+		rec := httptest.NewRecorder()
+		testServer().ServeHTTP(rec, httptest.NewRequest(c.method, c.path, strings.NewReader(c.body)))
+		if rec.Code != c.want {
+			t.Errorf("%s %s %s: status %d, want %d", c.method, c.path, c.body, rec.Code, c.want)
+		}
+	}
+}
+
+func TestWebAppServesPagesAndAssets(t *testing.T) {
+	root := t.TempDir()
+	for name, body := range map[string]string{
+		"index.html":                 "home",
+		"library/index.html":         "library",
+		"404.html":                   "missing",
+		"_next/static/chunks/app.js": "js",
+	} {
+		p := root + "/" + name
+		if err := os.MkdirAll(p[:strings.LastIndex(p, "/")], 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	h := New(Deps{WebRoot: root, Log: slog.New(slog.NewTextHandler(io.Discard, nil))})
+	for path, want := range map[string]struct {
+		code        int
+		body, cache string
+	}{
+		"/":                           {200, "home", "no-cache"},
+		"/library/":                   {200, "library", "no-cache"},
+		"/_next/static/chunks/app.js": {200, "js", "public, max-age=31536000, immutable"},
+		"/nowhere":                    {404, "missing", "no-cache"},
+		"/../etc/passwd":              {404, "missing", "no-cache"},
+	} {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+		if rec.Code != want.code || rec.Body.String() != want.body || rec.Header().Get("Cache-Control") != want.cache {
+			t.Errorf("%s: %d %q %q", path, rec.Code, rec.Body.String(), rec.Header().Get("Cache-Control"))
 		}
 	}
 }

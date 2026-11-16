@@ -50,6 +50,11 @@ func run(log *slog.Logger) error {
 
 	st := store.New(pool)
 	st.BackgroundDownloadInterval = cfg.BackgroundDownloadInterval
+	admin, err := st.EnsureAdmin(ctx, cfg.AdminUsername, cfg.AdminDisplayName)
+	if err != nil {
+		return err
+	}
+	log.Info("acting as", "user", admin.Username)
 	mediaService := media.New(cfg.MediaServiceURL)
 	deps := httpapi.Deps{
 		Store:       st,
@@ -57,6 +62,8 @@ func run(log *slog.Logger) error {
 		Resolver:    mediaService,
 		Links:       mediaService,
 		MediaStatus: mediaService,
+		CurrentUser: admin.ID,
+		WebRoot:     cfg.WebRoot,
 		MediaRoot:   cfg.MediaRoot,
 		WorkerToken: cfg.WorkerToken,
 		DevUI:       cfg.DevUI,

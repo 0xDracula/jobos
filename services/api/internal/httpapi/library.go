@@ -201,23 +201,33 @@ func (a *api) updatePlaylist(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
+		store.PlaylistEdit
 		SyncEnabled *bool `json:"sync_enabled"`
 	}
 	if !readJSON(w, r, &in) {
 		return
 	}
-	if in.SyncEnabled == nil {
-		writeError(w, http.StatusBadRequest, "sync_enabled is required")
+	if in.SyncEnabled == nil && in.Name == nil && in.Description == nil {
+		writeError(w, http.StatusBadRequest, "name, description or sync_enabled is required")
 		return
 	}
-	err = a.Store.SetPlaylistSync(r.Context(), id, *in.SyncEnabled)
+	if err := in.PlaylistEdit.Validate(); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if in.Name != nil || in.Description != nil {
+		err = a.Store.EditPlaylist(r.Context(), id, in.PlaylistEdit)
+	}
+	if err == nil && in.SyncEnabled != nil {
+		err = a.Store.SetPlaylistSync(r.Context(), id, *in.SyncEnabled)
+	}
 	switch {
 	case errors.Is(err, store.ErrNotFound):
 		writeError(w, http.StatusNotFound, "playlist not found")
 	case errors.Is(err, store.ErrNotSyncable):
 		writeError(w, http.StatusUnprocessableEntity, err.Error())
 	case err != nil:
-		a.serverError(w, "set playlist sync", err)
+		a.serverError(w, "update playlist", err)
 	default:
 		a.playlist(w, r)
 	}

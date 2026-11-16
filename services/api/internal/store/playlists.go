@@ -26,6 +26,10 @@ type PlaylistSummary struct {
 	Provider    *string        `json:"source_provider"`
 	SyncEnabled bool           `json:"sync_enabled"`
 	SyncedAt    *time.Time     `json:"synced_at"`
+	Description *string        `json:"description"`
+	OwnerID     *uuid.UUID     `json:"owner_id"`
+	CoverURL    *string        `json:"cover_url"`
+	Collage     []string       `json:"collage"`
 	Counts      PlaylistCounts `json:"counts"`
 }
 
@@ -34,7 +38,13 @@ type PlaylistView struct {
 	Tracks []TrackView `json:"tracks"`
 }
 
-const playlistSummarySQL = `select p.id, p.name, p.kind, p.source_url, p.source_provider, p.sync_enabled, p.synced_at,
+var playlistSummarySQL = `select p.id, p.name, p.kind, p.source_url, p.source_provider, p.sync_enabled, p.synced_at,
+		p.description, p.owner_id, (select ` + imageURLSQL("pc") + ` from media_assets pc where pc.id = p.cover_asset_id),
+		(select coalesce(array_agg(c.u order by c.pos), '{}') from (
+			select min(pi2.position) as pos, '/api/media/' || ma2.sha256 || '.300.jpg' as u
+			from playlist_items pi2 join tracks t2 on t2.id = pi2.track_id left join albums al2 on al2.id = t2.album_id
+			join media_assets ma2 on ma2.id = coalesce(t2.artwork_asset_id, al2.artwork_asset_id)
+			where pi2.playlist_id = p.id group by ma2.sha256 order by pos limit 4) c),
 		count(t.id),
 		count(t.id) filter (where t.match_status = 'pending'),
 		count(t.id) filter (where t.match_status in ('matched', 'chosen')),
@@ -49,7 +59,8 @@ const playlistSummarySQL = `select p.id, p.name, p.kind, p.source_url, p.source_
 func scanPlaylistSummary(row pgx.Row) (PlaylistSummary, error) {
 	var p PlaylistSummary
 	c := &p.Counts
-	err := row.Scan(&p.ID, &p.Name, &p.Kind, &p.SourceURL, &p.Provider, &p.SyncEnabled, &p.SyncedAt, &c.Total, &c.Pending, &c.Matched, &c.Review, &c.Unmatched, &c.Cached)
+	err := row.Scan(&p.ID, &p.Name, &p.Kind, &p.SourceURL, &p.Provider, &p.SyncEnabled, &p.SyncedAt,
+		&p.Description, &p.OwnerID, &p.CoverURL, &p.Collage, &c.Total, &c.Pending, &c.Matched, &c.Review, &c.Unmatched, &c.Cached)
 	return p, err
 }
 

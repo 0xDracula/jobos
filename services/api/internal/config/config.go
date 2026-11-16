@@ -15,17 +15,23 @@ type Config struct {
 	WorkerToken                string
 	DevUI                      bool
 	BackgroundDownloadInterval time.Duration
+	AdminUsername              string
+	AdminDisplayName           string
+	WebRoot                    string
 }
 
 func Load() (Config, error) {
 	c := Config{
-		DatabaseURL:     os.Getenv("DATABASE_URL"),
-		ListenAddr:      getenv("LISTEN_ADDR", "127.0.0.1:8080"),
-		MediaServiceURL: getenv("MEDIA_SERVICE_URL", "http://127.0.0.1:8001"),
-		MediaRoot:       os.Getenv("MEDIA_ROOT"),
-		MigrationsDir:   os.Getenv("MIGRATIONS_DIR"),
-		WorkerToken:     os.Getenv("WORKER_TOKEN"),
-		DevUI:           os.Getenv("DEV_UI") == "1",
+		DatabaseURL:      os.Getenv("DATABASE_URL"),
+		ListenAddr:       getenv("LISTEN_ADDR", "127.0.0.1:8080"),
+		MediaServiceURL:  getenv("MEDIA_SERVICE_URL", "http://127.0.0.1:8001"),
+		MediaRoot:        os.Getenv("MEDIA_ROOT"),
+		MigrationsDir:    os.Getenv("MIGRATIONS_DIR"),
+		WorkerToken:      os.Getenv("WORKER_TOKEN"),
+		DevUI:            os.Getenv("DEV_UI") == "1",
+		AdminUsername:    os.Getenv("ADMIN_USERNAME"),
+		AdminDisplayName: os.Getenv("ADMIN_DISPLAY_NAME"),
+		WebRoot:          os.Getenv("WEB_ROOT"),
 	}
 	required := []struct{ name, value string }{
 		{"DATABASE_URL", c.DatabaseURL},
