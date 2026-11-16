@@ -1,0 +1,178 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #fff7f0;
+  --surface: rgba(255, 255, 255, 0.65);
+  --surface-solid: #ffffff;
+  --glass-border: rgba(255, 255, 255, 0.5);
+  --text: #3b2f3f;
+  --text-muted: #7a6a7e;
+  --accent: #e88fa3;
+  --accent-strong: #a8445e;
+  --accent-soft: #f7c6d0;
+  --on-accent: #ffffff;
+  --lavender: #c9b8f0;
+  --butter: #ffe6a7;
+  --sage: #c8dcc0;
+  --danger: #b43a3a;
+  --line: rgba(59, 47, 63, 0.12);
+  --shadow: 0 8px 24px rgba(168, 68, 94, 0.12);
+  --tint: var(--accent);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="day"]) {
+    --bg: #1e1b3a;
+    --surface: rgba(255, 255, 255, 0.08);
+    --surface-solid: #29254a;
+    --glass-border: rgba(255, 255, 255, 0.12);
+    --text: #f5eef8;
+    --text-muted: #b9aec6;
+    --accent: #f2a7b8;
+    --accent-strong: #f2a7b8;
+    --accent-soft: #3a3160;
+    --on-accent: #1e1b3a;
+    --butter: #ffd98a;
+    --line: rgba(245, 238, 248, 0.12);
+    --shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="night"] {
+  --bg: #1e1b3a;
+  --surface: rgba(255, 255, 255, 0.08);
+  --surface-solid: #29254a;
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --text: #f5eef8;
+  --text-muted: #b9aec6;
+  --accent: #f2a7b8;
+  --accent-strong: #f2a7b8;
+  --accent-soft: #3a3160;
+  --on-accent: #1e1b3a;
+  --butter: #ffd98a;
+  --line: rgba(245, 238, 248, 0.12);
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-solid: var(--surface-solid);
+  --color-ink: var(--text);
+  --color-muted: var(--text-muted);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-on-accent: var(--on-accent);
+  --color-lavender: var(--lavender);
+  --color-butter: var(--butter);
+  --color-sage: var(--sage);
+  --color-danger: var(--danger);
+  --color-line: var(--line);
+  --color-tint: var(--tint);
+  --font-display: var(--font-fredoka), var(--font-baloo), ui-rounded, sans-serif;
+  --font-sans: var(--font-nunito), var(--font-tajawal), ui-sans-serif, system-ui, sans-serif;
+  --font-hand: var(--font-caveat), var(--font-ruqaa), cursive;
+  --radius-chip: 10px;
+  --radius-button: 16px;
+  --radius-card: 24px;
+  --radius-sheet: 32px;
+  --shadow-soft: var(--shadow);
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+body {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  -webkit-tap-highlight-color: transparent;
+}
+
+:where([dir="rtl"], :lang(ar)) {
+  line-height: 1.7;
+}
+
+.glass {
+  background: var(--surface);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(20px) saturate(140%);
+  border: 1px solid var(--glass-border);
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@keyframes level {
+  0%, 100% { transform: scaleY(0.3); }
+  50% { transform: scaleY(1); }
+}
+
+.level-bar {
+  transform-origin: bottom;
+  transform: scaleY(0.3);
+}
+
+.level-playing .level-bar {
+  animation: level 0.9s ease-in-out infinite;
+}
+
+.level-playing .level-bar:nth-child(2) { animation-duration: 0.7s; animation-delay: -0.2s; }
+.level-playing .level-bar:nth-child(3) { animation-duration: 1.1s; animation-delay: -0.5s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .level-playing .level-bar { animation: none; transform: scaleY(0.6); }
+}
+
+:root[data-motion="reduced"] .level-playing .level-bar {
+  animation: none;
+  transform: scaleY(0.6);
+}
+
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+@keyframes menu-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes sheet-in {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 1ms !important; }
+}
+
+body {
+  background:
+    radial-gradient(48rem 32rem at 0% -8%, color-mix(in oklab, var(--accent-soft) 60%, transparent), transparent 70%),
+    radial-gradient(40rem 30rem at 100% 0%, color-mix(in oklab, var(--lavender) 30%, transparent), transparent 70%),
+    var(--bg);
+  background-attachment: fixed;
+  min-height: 100dvh;
+}
+
+.row-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 64px;
+}
