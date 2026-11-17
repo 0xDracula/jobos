@@ -85,13 +85,30 @@ export type Album = {
 
 export type AlbumSummary = { id: string; title: string; artwork_url: string | null; tracks: number };
 
+export type TopTrack = {
+  rank: number;
+  title: string;
+  album: string | null;
+  duration_ms: number | null;
+  artwork_url: string | null;
+  track: Track | null;
+};
+
+export type SimilarArtist = { name: string; image_url: string | null; artist_id: string | null };
+
 export type Artist = {
   id: string;
   name: string;
   image_url: string | null;
   bio: string | null;
+  bio_source: string | null;
+  bio_url: string | null;
+  tags: string[];
+  top_tracks: TopTrack[];
   tracks: Track[];
   albums: AlbumSummary[];
+  similar: SimilarArtist[];
+  enriched: boolean;
 };
 
 export type SearchResult = {

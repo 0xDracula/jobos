@@ -91,6 +91,7 @@ export const api = {
 
   album: (id: string) => request<Album>(`/api/albums/${id}`),
   artist: (id: string) => request<Artist>(`/api/artists/${id}`),
+  artistTopTrack: (id: string, rank: number) => request<Track>(`/api/artists/${id}/top/${rank}`, { method: "POST" }),
 
   likes: (sort: string) => request<{ tracks: Track[] }>(`/api/likes?sort=${sort}`),
   likedIds: () => request<{ ids: string[] }>("/api/likes/ids"),

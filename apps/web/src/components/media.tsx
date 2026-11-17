@@ -103,6 +103,9 @@ export function MediaCard({
       </Link>
     );
   }
+  if (!onClick) {
+    return <div className="min-w-0 p-1.5">{body}</div>;
+  }
   return (
     <button type="button" onClick={onClick} className={cn(cls, "w-full")}>
       {body}
