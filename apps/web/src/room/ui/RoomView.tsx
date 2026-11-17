@@ -11,10 +11,13 @@ import { avatarFrames } from "@/avatar/draw";
 import { lookOf, type AvatarLook } from "@/avatar/look";
 import type { AvatarFrames } from "@/avatar/types";
 import { ContinueHere } from "@/components/ContinueHere";
+import { SongOfTheDayHome } from "@/components/letters/SongOfTheDay";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui";
 import { ApiError } from "@/lib/api";
 import { cn } from "@/lib/cn";
+import { useCountdowns } from "@/lib/dates";
 import { useMixtapes, useRoomConfig, useStars } from "@/lib/gift";
+import { useJar, useLetterCounts } from "@/lib/letters";
 import { usePrefs } from "@/lib/prefs";
 import { usePlaylist, useTrackDetail } from "@/lib/queries";
 import { useMe, useMembers } from "@/lib/session";
@@ -199,6 +202,8 @@ function WindowTag({ id, text, above }: { id: string; text: string; above?: bool
   );
 }
 
+const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
+
 const LAMP_EVERY = 10 * 60_000;
 const LAMP_KEY = "jobbos.lamp.sent";
 const UNLOCK_MS = 2800;
@@ -244,6 +249,9 @@ export function RoomView() {
   const together = useTogether();
   const mixtapes = useMixtapes();
   const stars = useStars();
+  const countdowns = useCountdowns();
+  const letterCounts = useLetterCounts();
+  const jar = useJar();
   const seasonsOn = usePrefs((p) => p.seasons);
   const motionPref = usePrefs((p) => p.motion);
   const weekendPlaylist = usePrefs((p) => p.weekendPlaylist);
@@ -451,6 +459,21 @@ export function RoomView() {
     }
   };
 
+  const countdown = countdowns.data?.countdowns[0] ?? null;
+  const surprise = !!countdown?.surprise && !countdown.title;
+  const dayOfMonth = useMemo(() => {
+    try {
+      return Number(new Intl.DateTimeFormat("en", { day: "numeric", timeZone: place?.timezone || undefined }).format(now ?? undefined));
+    } catch {
+      return (now ?? new Date()).getDate();
+    }
+  }, [now, place?.timezone]);
+  const calendar = useMemo(() => ({ days: countdown?.days ?? null, surprise, date: dayOfMonth }), [countdown?.days, surprise, dayOfMonth]);
+  const jarState = useMemo(() => ({ left: jar.data?.left ?? 0, waiting: !!jar.data?.waiting }), [jar.data?.left, jar.data?.waiting]);
+  const countdownLabel = countdown
+    ? `${surprise ? "Surprise" : clip(countdown.title || "Countdown", 24)} · ${countdown.days === 0 ? "Today" : countdown.days === 1 ? "1 day" : `${countdown.days} days`}`
+    : undefined;
+
   const night = (sky?.night ?? 0) > 0.5;
   const names = OBJECT_LABELS[room];
   const noteSpots = useMemo(() => new Set<string>((notes.data ?? []).filter((n) => !n.found).map((n) => n.spot)), [notes.data]);
@@ -462,11 +485,22 @@ export function RoomView() {
       action: () => (usePlayer.getState().index >= 0 ? expand() : router.push("/library/")),
     },
     { id: "pinned_record", label: "Our song", action: () => router.push("/song/") },
+    { id: "story_book", label: "Story book", action: () => router.push("/story/") },
+    { id: "note_jar", label: "Note jar", opens: jarState.waiting ? "New note" : undefined, action: () => router.push("/jar/") },
     { id: "records", label: names.records ?? "Records", opens: "Library", action: () => router.push("/library/") },
+    {
+      id: "letters",
+      label: "Letters",
+      opens: letterCounts.unopened ? `${letterCounts.unopened} new` : undefined,
+      action: () => router.push(letterCounts.next ? `/letters/?id=${letterCounts.next.id}` : "/letters/"),
+    },
     wrapped
       ? { id: "cassette", label: "New mixtape", action: () => router.push(`/mixtapes/?id=${wrapped.id}`) }
       : { id: "cassette", label: "Mixtapes", action: () => router.push("/mixtapes/") },
     { id: "telephone", label: "Chat", action: () => router.push("/chat/") },
+    { id: "calendar", label: "Calendar", opens: countdownLabel, action: () => router.push(countdown ? `/calendar/?date=${countdown.date}` : "/calendar/") },
+    { id: "globe", label: "Globe", opens: "Places", action: () => router.push("/places/") },
+    { id: "promises", label: "Promises", action: () => router.push("/promises/") },
     { id: "window", label: "Discover", action: () => router.push("/discover/") },
     { id: "lamp", label: "Lamp", opens: otherUser ? "Shared lamp" : undefined, action: () => void toggleLamp() },
     { id: "bed", label: names.bed ?? "Bed", opens: "Sleep mode", action: () => void startSleepMode() },
@@ -529,6 +563,9 @@ export function RoomView() {
             holiday={decorations}
             milestoneDay={milestoneDay}
             mixtape={wrapped?.color ?? null}
+            calendar={calendar}
+            letters={letterCounts.unopened}
+            jar={jarState}
             avatars={avatars}
             songStars={songStars}
             unlocking={unlocking}
@@ -600,8 +637,9 @@ export function RoomView() {
         </div>
       </div>
 
-      <div className="pointer-events-none absolute inset-x-3 top-[calc(max(env(safe-area-inset-top),12px)+56px)] flex justify-center lg:top-20">
+      <div className="pointer-events-none absolute inset-x-3 top-[calc(max(env(safe-area-inset-top),12px)+56px)] flex flex-col items-center gap-2 lg:top-20">
         <ContinueHere className="pointer-events-auto w-full max-w-xl" />
+        <SongOfTheDayHome className="pointer-events-auto w-full max-w-xl" />
       </div>
 
       <RoomSheets sky={sky} place={place} weather={weather.data ?? null} other={other} otherWeather={otherWeather} metrics={metrics} unlocked={unlocked} unlockables={unlockables} milestones={milestones} />

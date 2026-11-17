@@ -1,7 +1,7 @@
 "use client";
 
-import { Play, Sparkles, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { Play, Sparkles, Trash2, X } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { Loading } from "@/components/common";
 import { Dialog } from "@/components/dialogs";
@@ -56,6 +56,61 @@ export function SongOfTheDayCard({ className }: { className?: string }) {
         )}
         {s.auto && <p className="mt-1 text-xs font-bold text-muted">From picks</p>}
       </div>
+    </section>
+  );
+}
+
+export function SongOfTheDayHome({ className }: { className?: string }) {
+  const q = useSongOfTheDay();
+  const names = useNames();
+  const s = q.data?.today;
+  const key = s ? `jobbos.song-of-the-day.${s.date}` : "";
+  const [hidden, setHidden] = useState(true);
+  useEffect(() => {
+    if (!key) return;
+    try {
+      setHidden(localStorage.getItem(key) === "1");
+    } catch {
+      setHidden(false);
+    }
+  }, [key]);
+  if (!s?.track || hidden) return null;
+  const t = s.track;
+  const dismiss = () => {
+    setHidden(true);
+    try {
+      localStorage.setItem(key, "1");
+    } catch {
+    }
+  };
+  return (
+    <section aria-label="Song of the day" className={cn("flex items-center gap-3 rounded-card bg-surface-solid/80 p-3 shadow-soft backdrop-blur", className)}>
+      <Artwork src={t.artwork_thumb_url ?? t.artwork_url} className="size-16 shrink-0 self-start rounded-button" />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-accent-strong">
+          <Sparkles className="size-4" /> Song of the day
+        </div>
+        <div dir="auto" className="truncate font-bold">
+          {t.title}
+        </div>
+        <div dir="auto" className="truncate text-sm font-semibold text-muted">
+          {t.artists.join(", ")} · {names(s.author_id)}
+        </div>
+        {s.note && (
+          <Handwriting authorId={s.author_id} className="line-clamp-2 text-[19px] leading-snug">
+            {s.note}
+          </Handwriting>
+        )}
+      </div>
+      <Button variant="primary" onClick={() => play(t)} className="shrink-0 max-sm:hidden">
+        <Play className="size-5 fill-current" /> Play
+      </Button>
+      <IconButton label={`Play ${t.title}`} onClick={() => play(t)} className="shrink-0 bg-accent text-on-accent sm:hidden">
+        <Play className="fill-current" />
+      </IconButton>
+      <IconButton label="Dismiss" size="sm" onClick={dismiss}>
+        <X />
+      </IconButton>
     </section>
   );
 }

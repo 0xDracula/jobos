@@ -571,3 +571,127 @@ function gridSpriteLazy(rows: string[]) {
   const cache: Record<string, HTMLCanvasElement> = {};
   return (color: string) => (cache[color] ??= gridSprite(rows, { o: color }));
 }
+
+export type WallCalendar = { days: number | null; surprise: boolean; date: number };
+
+const DIGITS = [
+  "111101101101111",
+  "010110010010111",
+  "111001111100111",
+  "111001111001111",
+  "101101111001001",
+  "111100111001111",
+  "111100111101111",
+  "111001010010010",
+  "111101111101111",
+  "111101111001111",
+];
+
+function number(g: Ctx, n: number, cx: number, y: number, color: string) {
+  const s = String(Math.max(0, Math.min(999, Math.round(n))));
+  const x0 = cx - Math.floor((s.length * 4 - 1) / 2);
+  for (let i = 0; i < s.length; i++) {
+    const d = DIGITS[Number(s[i])];
+    for (let j = 0; j < 15; j++) if (d[j] === "1") px(g, color, x0 + i * 4 + (j % 3), y + Math.floor(j / 3));
+  }
+}
+
+export function wallCalendar(c: WallCalendar): HTMLCanvasElement {
+  const out = canvas(13, 12);
+  const g = out.getContext("2d")!;
+  px(g, INK, 0, 1, 13, 11);
+  const head = c.surprise ? "#f7a6c4" : "#e0475a";
+  px(g, head, 1, 2, 11, 2);
+  px(g, lighten(head, 0.3), 1, 2, 11, 1);
+  px(g, WHITE, 1, 4, 11, 7);
+  px(g, "#e3dccb", 1, 10, 11, 1);
+  if (c.surprise) {
+    px(g, GOLD, 6, 2, 1, 2);
+    grid(g, ["y.y", ".y."], { y: GOLD }, 5, 0);
+  } else {
+    px(g, COLORS.STEEL_LIGHT, 3, 0, 1, 3);
+    px(g, COLORS.STEEL_LIGHT, 9, 0, 1, 3);
+  }
+  if (c.days === 0) grid(g, ["rr.rr", "rrrrr", ".rrr.", "..r.."], { r: "#d9435a" }, 4, 5);
+  else if (c.days !== null) number(g, c.days, 6, 5, "#d9435a");
+  else number(g, c.date, 6, 5, INK);
+  return out;
+}
+
+export function floorGlobe(): HTMLCanvasElement {
+  return gridSprite([
+    "....mmmM.....",
+    "...m.ooooo...",
+    "..moohlllboo.",
+    ".m.ohbbbbbbo.",
+    "m.obbllllbbbo",
+    "m.obblllllbBo",
+    "m.obbblllbbBo",
+    "m.obbbbllbbBo",
+    "m.obbbbllbbBo",
+    ".m.obbbblbBo.",
+    "..mooBbbbBoo.",
+    "...m.ooooo...",
+    "....mmmM.....",
+    "......oMo....",
+    "......owo....",
+    "......oWo....",
+    ".....owwwo...",
+    "....oo.o.oo..",
+    "...oo..o..oo.",
+  ], { o: INK, b: "#4985cc", B: "#3a6ea8", l: LEAF, h: "#9cc7ec", m: GOLD, M: "#b8904a", w: WOOD, W: WOOD_DARK });
+}
+
+export function storyBook(): HTMLCanvasElement {
+  return gridSprite([
+    ".oooo.oooo.",
+    "owwwwowwwwo",
+    "owllwowllwo",
+    "oPPPPrPPPPo",
+    ".ooooroooo.",
+    ".....r.....",
+  ], { o: INK, P: "#e88fa3", w: "#fff6dc", l: "#cdbf9f", r: "#d9435a" });
+}
+
+export function deskLetters(unopened: number): HTMLCanvasElement {
+  return gridSprite([
+    "ooooooo.",
+    "owwwwwo.",
+    unopened > 1 ? "owwswwo." : "owwwwwo.",
+    "oooooooo",
+    "oovWWWvo",
+    ".oWvsvWo",
+    ".oWsssWo",
+    ".ooooooo",
+  ], { o: INK, w: "#efe2c4", W: "#fff6dc", v: "#d9c49a", s: unopened > 0 ? "#d9435a" : "#f7a6c4" });
+}
+
+export function stool(): HTMLCanvasElement {
+  return gridSprite([
+    ".ooooooo.",
+    "oLLLLLLLo",
+    "oWWWWWWWo",
+    ".oDoooDo.",
+    ".oDo.oDo.",
+    ".oDo.oDo.",
+    ".ooo.ooo.",
+  ], { o: INK, L: GOLD, W: WOOD, D: WOOD_DARK });
+}
+
+const JAR_NOTES = ["pybw", "bgpy", "ywbp", "gpyb"];
+
+export function noteJar(rows: number, waiting: boolean): HTMLCanvasElement {
+  const top = waiting ? ["..ooo..", "..opo..", "..opo.."] : [".......", ".ooooo.", ".oKKKo."];
+  const body = [4, 3, 2, 1, 0].map((row) => `oh${row < Math.min(4, rows) ? JAR_NOTES[row] : "gggG"}o`);
+  return gridSprite([...top, "ooooooo", ...body, ".ooooo."], {
+    o: INK,
+    h: "#ffffff",
+    g: "#d6e8f0",
+    G: "#aac4d4",
+    K: "#c4844a",
+    p: "#f7a6c4",
+    y: "#ffe08a",
+    b: "#9cc7ec",
+    w: "#fff6dc",
+  });
+}

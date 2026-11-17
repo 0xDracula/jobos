@@ -40,6 +40,13 @@ export const RECORD_PLAYER = { x: 10, y: 104 };
 export const SNACK = { x: 36 };
 export const CASSETTE = { x: 43 };
 
+export const TELEPHONE = { x: 44, y: 98 };
+export const CALENDAR = { x: 41, y: 82 };
+export const DESK_LETTERS = { x: 34, bottom: 113 };
+export const GLOBE = { cx: 46, bottom: 150 };
+export const STORY_BOOK = { x: 137 };
+export const NOTE_JAR = { cx: 117, bottom: 139 };
+
 export const TRAY = { x: 215, y: 143 };
 export const PET_BED = { x: 268, y: 150 };
 
@@ -73,13 +80,25 @@ export const ANCHORS: Record<string, [number, number]> = {
   frame: [28, 85],
   cassette: [47, 111],
   pinned_record: [123, 89],
-  telephone: [46, 95],
+  telephone: [46, 98],
   tea: [223, 142],
+  calendar: [42, 82],
+  letters: [36, 105],
+  globe: [46, 131],
+  story_book: [142, 94],
+  note_jar: [117, 121],
+  promises: [17, 124],
 };
 
 export const HIT: Record<string, [number, number, number, number]> = {
   pinned_record: [117, 88, 11, 11],
-  telephone: [42, 93, 9, 11],
+  telephone: [42, 96, 9, 11],
+  calendar: [40, 80, 15, 14],
+  letters: [33, 104, 9, 10],
+  globe: [39, 129, 15, 22],
+  story_book: [136, 92, 13, 8],
+  note_jar: [111, 122, 13, 18],
+  promises: [8, 120, 20, 13],
   tea: [207, 141, 33, 24],
   record_player: [9, 101, 26, 17],
   records: [118, 96, 32, 34],

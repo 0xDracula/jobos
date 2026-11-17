@@ -18,10 +18,13 @@ import {
   drinkTray,
   filmPoster,
   FLAG_COLORS,
+  floorGlobe,
   flowerBunch,
   HEART_SMALL,
   holidayTree,
   lantern,
+  deskLetters,
+  noteJar,
   pinnedRecord,
   placePoster,
   polaroid,
@@ -29,8 +32,12 @@ import {
   roseBouquet,
   snackSprite,
   starLantern,
+  stool,
+  storyBook,
   tinCan,
+  wallCalendar,
   wrappedCassette,
+  type WallCalendar,
 } from "./decor";
 import { glassMask, type Kit } from "./kit";
 import { RecordPlayer } from "./record";
@@ -79,6 +86,9 @@ export type RoomInput = {
   holiday: string[];
   milestoneDay: boolean;
   mixtape: string | null;
+  calendar: WallCalendar;
+  letters: number;
+  jar: { left: number; waiting: boolean };
   avatars: { me: AvatarView | null; other: AvatarView | null; together: boolean };
   songStars: StarPoint[];
   unlocking: { id: string; at: number } | null;
@@ -107,6 +117,9 @@ const rgba = (h: string, a: number) => {
   const n = parseInt(h.slice(1), 16);
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${Math.max(0, Math.min(1, a))})`;
 };
+
+const calendarKey = (c: WallCalendar) => (c.days === null ? `d${c.date}` : `${c.days}${c.surprise ? "s" : ""}`);
+const jarRows = (left: number) => (left <= 0 ? 0 : left < 4 ? 1 : left < 10 ? 2 : left < 20 ? 3 : 4);
 
 const smooth = (t: number) => t * t * (3 - 2 * t);
 const rainy = (c: string | undefined) => c === "rain" || c === "drizzle" || c === "thunderstorm";
@@ -212,6 +225,9 @@ export class PixelRenderer {
       cassette_tray: cassetteTray,
       tin_can: tinCan,
       pinned_record: pinnedRecord,
+      globe: floorGlobe,
+      story_book: storyBook,
+      stool,
       banner,
       crescent,
       lantern: () => lantern(),
@@ -472,6 +488,10 @@ export class PixelRenderer {
       input.holiday.join(","),
       input.milestoneDay,
       input.mixtape,
+      calendarKey(input.calendar),
+      input.letters,
+      jarRows(input.jar.left),
+      input.jar.waiting,
       input.unlocking?.id ?? "",
       JSON.stringify(layout.items),
     ].join("|");
@@ -498,8 +518,11 @@ export class PixelRenderer {
     this.put(g, fav.film === "default" ? "frame_flowers" : this.cached(`film:${fav.film}`, () => filmPoster(fav.film)), H.poster.x, H.poster.y);
     if (input.otherSky) glass(F.secondWindow, H.second_window.x, H.second_window.y);
     else this.put(g, fav.artist === "default" ? F.picture : this.cached(`artist:${fav.artist}`, () => artistPoster(fav.artist)), S.PICTURE.x, S.PICTURE.y);
-    this.put(g, "tin_can", 44, 95);
-    for (let x = 47; x <= 58; x++) px(g, "#d9d4c8", x, Math.round(95 - (x - 47) * 0.3 + 0.08 * (x - 47) * (58 - x)));
+    const T = S.TELEPHONE;
+    this.put(g, "tin_can", T.x, T.y);
+    for (let x = T.x + 3; x <= 58; x++) px(g, "#d9d4c8", x, Math.round(T.y - (x - T.x - 3) * 0.3 + 0.08 * (x - T.x - 3) * (58 - x)));
+    const cal = input.calendar;
+    this.put(g, this.cached(`calendar:${calendarKey(cal)}`, () => wallCalendar(cal)), S.CALENDAR.x, S.CALENDAR.y);
 
     const decos = this.visibleDecorations(input);
     const garland = decos.find(({ d }) => d.id === "photo_garland");
@@ -531,10 +554,18 @@ export class PixelRenderer {
     stand(fav.books.length ? this.cached(`books:${this.art.id}:${fav.books.join("")}`, () => recolorBooks(F.bookcase, fav.books)) : F.bookcase, S.STANDING.bookcase);
     stand(F.speaker, S.STANDING.speaker);
     stand(F.table, S.STANDING.table);
-    on(this.sprite("pinned_record"), 118, S.STANDING.bookcase.bottom - 31, S.STANDING.bookcase.bottom + 0.5);
+    const shelfTop = S.STANDING.bookcase.bottom - 31;
+    on(this.sprite("pinned_record"), 118, shelfTop, S.STANDING.bookcase.bottom + 0.5);
     on(F.shelfPlant, H.shelf_plant.x + 3, H.shelf_plant.y + F.shelfPlant.height, S.STANDING.bookcase.bottom + 0.5);
+    on(this.sprite("story_book"), S.STORY_BOOK.x, shelfTop + 1, S.STANDING.bookcase.bottom + 0.5);
+    stand(this.sprite("globe"), S.GLOBE);
+    const seat = this.sprite("stool")!;
+    stand(seat, { cx: S.NOTE_JAR.cx, bottom: S.NOTE_JAR.bottom });
+    const jar = this.cached(`jar:${jarRows(input.jar.left)}:${input.jar.waiting}`, () => noteJar(jarRows(input.jar.left), input.jar.waiting));
+    on(jar, Math.round(S.NOTE_JAR.cx - jar.width / 2), S.NOTE_JAR.bottom - seat.height + 2, S.NOTE_JAR.bottom + 0.1);
     const deskTop = S.DESK_TOP;
     const deskSort = S.STANDING.desk.bottom + 0.5;
+    on(this.cached(`letters:${Math.min(2, input.letters)}`, () => deskLetters(input.letters)), S.DESK_LETTERS.x, S.DESK_LETTERS.bottom, deskSort - 0.01);
     on(this.cached(`snack:${fav.food}`, () => snackSprite(fav.food)), S.SNACK.x, deskTop, deskSort);
     on(this.sprite("cassette_tray"), S.CASSETTE.x - 1, deskTop, deskSort);
     if (input.mixtape) on(this.cached(`mixtape:${input.mixtape}`, () => wrappedCassette(input.mixtape!)), S.CASSETTE.x, deskTop - 4, deskSort + 0.1);

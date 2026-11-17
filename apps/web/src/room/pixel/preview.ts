@@ -21,6 +21,7 @@ export function spriteSheet(scale = 4): HTMLCanvasElement {
   groups.push(["food", ["default" as const, ...FOODS].map((f) => D.snackSprite(f))]);
   groups.push(["drinks", DRINKS.map((d) => D.drinkTray(d))]);
   groups.push(["desk", [D.cassetteTray(), D.wrappedCassette("#4985cc"), D.tinCan(), D.pinnedRecord(), D.cushion("#e88fa3"), P.breakfastTray()]]);
+  groups.push(["gift", [D.wallCalendar({ days: 16, surprise: true, date: 17 }), D.wallCalendar({ days: 128, surprise: false, date: 17 }), D.wallCalendar({ days: 0, surprise: false, date: 17 }), D.wallCalendar({ days: null, surprise: false, date: 17 }), D.floorGlobe(), D.storyBook(), D.deskLetters(0), D.deskLetters(2), D.stool(), D.noteJar(3, false), D.noteJar(1, true), D.noteJar(0, false)]]);
   groups.push(["milestones", [D.anniversaryCake(), D.starLantern(), D.roseBouquet(), D.polaroid(0), D.polaroid(1), D.banner(), D.balloons()]]);
   groups.push(["holidays", [D.lantern(), D.crescent(), D.holidayTree(), D.HEART_SMALL("#e0475a")]]);
   const pad = 4;
