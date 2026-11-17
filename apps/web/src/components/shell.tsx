@@ -60,7 +60,6 @@ function Sidebar() {
           <PixelIcon name="record" size={34} />
           Jobbos
         </Link>
-        <SkyToggle className="size-11" />
       </div>
       {[...NAV, { href: "/settings/", label: "Settings", icon: Settings }, ...(admin ? [{ href: "/admin/", label: "Admin", icon: Shield }] : [])].map(({ href, label, icon: Icon }) => (
         <Link

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, type ReactNode, type RefObject } from "react";
 
 import { cn } from "@/lib/cn";
 import { usePrefs } from "@/lib/prefs";
@@ -9,6 +9,13 @@ import { useResolvedTheme } from "@/lib/theme";
 import { PixelIcon } from "../pixel/PixelIcon";
 
 const UNIT = 3;
+
+const CLEAR_PAD = 12;
+
+type Box = { x0: number; y0: number; x1: number; y1: number };
+
+const overlaps = (boxes: Box[], x0: number, y0: number, x1: number, y1: number) =>
+  boxes.some((b) => x1 >= b.x0 && x0 <= b.x1 && y1 >= b.y0 && y0 <= b.y1);
 
 type Palette = {
   far: string;
@@ -56,7 +63,12 @@ function random(seed: number) {
   };
 }
 
-function drawCity(canvas: HTMLCanvasElement, p: Palette, seed: number) {
+function stream(seed: number) {
+  const r = random(seed);
+  return { r, int: (a: number, b: number) => a + Math.floor(r() * (b - a + 1)) };
+}
+
+function drawCity(canvas: HTMLCanvasElement, p: Palette, seed: number, clear: Box[]) {
   const w = Math.max(1, Math.ceil(canvas.clientWidth / UNIT));
   const h = Math.max(1, Math.ceil(canvas.clientHeight / UNIT));
   canvas.width = w;
@@ -64,16 +76,20 @@ function drawCity(canvas: HTMLCanvasElement, p: Palette, seed: number) {
   const g = canvas.getContext("2d");
   if (!g) return;
   g.clearRect(0, 0, w, h);
-  const r = random(seed);
-  const int = (a: number, b: number) => a + Math.floor(r() * (b - a + 1));
+  const sky = stream(seed);
+  const air = stream(seed ^ 0x5bd1e995);
+  const { r, int } = stream(seed ^ 0x27d4eb2f);
 
   const skyBottom = h - 14;
   for (let i = 0; i < Math.min(240, (w * skyBottom) / 190) && p.stars.length; i++) {
-    g.fillStyle = p.stars[int(0, p.stars.length - 1)];
-    const x = int(0, w - 1);
-    const y = int(0, skyBottom);
+    const color = p.stars[sky.int(0, p.stars.length - 1)];
+    const x = sky.int(0, w - 1);
+    const y = sky.int(0, skyBottom);
+    const sparkle = sky.r() < 0.025;
+    if (overlaps(clear, x - 1, y - 1, x + 1, y + 1)) continue;
+    g.fillStyle = color;
     g.fillRect(x, y, 1, 1);
-    if (r() < 0.025) {
+    if (sparkle) {
       g.fillRect(x - 1, y, 3, 1);
       g.fillRect(x, y - 1, 1, 3);
     }
@@ -81,12 +97,16 @@ function drawCity(canvas: HTMLCanvasElement, p: Palette, seed: number) {
   if (p.cloud) {
     g.fillStyle = p.cloud;
     for (let i = 0; i < Math.max(2, w / 90); i++) {
-      const cx = int(0, w - 24);
-      const cy = int(2, Math.max(3, skyBottom - 16));
-      const cw = int(12, 22);
-      g.fillRect(cx, cy + 2, cw, 3);
-      g.fillRect(cx + 3, cy, cw - 8, 3);
-      g.fillRect(cx + 6, cy - 2, Math.max(3, cw - 14), 2);
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const cx = air.int(0, w - 24);
+        const cy = air.int(2, Math.max(3, skyBottom - 16));
+        const cw = air.int(12, 22);
+        if (overlaps(clear, cx, cy - 2, cx + cw, cy + 5)) continue;
+        g.fillRect(cx, cy + 2, cw, 3);
+        g.fillRect(cx + 3, cy, cw - 8, 3);
+        g.fillRect(cx + 6, cy - 2, Math.max(3, cw - 14), 2);
+        break;
+      }
     }
   }
 
@@ -130,17 +150,35 @@ function drawCity(canvas: HTMLCanvasElement, p: Palette, seed: number) {
   }
 }
 
-function City({ theme, seed, className }: { theme: "day" | "night"; seed: number; className?: string }) {
+const NO_CLEAR: RefObject<HTMLElement | null>[] = [];
+
+function City({ theme, seed, clear = NO_CLEAR, className }: { theme: "day" | "night"; seed: number; clear?: RefObject<HTMLElement | null>[]; className?: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = ref.current;
     if (!canvas) return;
-    const paint = () => drawCity(canvas, PALETTES[theme], seed);
+    const paint = () => {
+      const c = canvas.getBoundingClientRect();
+      const boxes = clear.flatMap((el) => {
+        const b = el.current?.getBoundingClientRect();
+        if (!b || !b.width || !b.height) return [];
+        return [
+          {
+            x0: Math.floor((b.left - c.left - CLEAR_PAD) / UNIT),
+            y0: Math.floor((b.top - c.top - CLEAR_PAD) / UNIT),
+            x1: Math.ceil((b.right - c.left + CLEAR_PAD) / UNIT),
+            y1: Math.ceil((b.bottom - c.top + CLEAR_PAD) / UNIT),
+          },
+        ];
+      });
+      drawCity(canvas, PALETTES[theme], seed, boxes);
+    };
     paint();
     const ro = new ResizeObserver(paint);
     ro.observe(canvas);
+    for (const el of clear) if (el.current) ro.observe(el.current);
     return () => ro.disconnect();
-  }, [theme, seed]);
+  }, [theme, seed, clear]);
   return <canvas ref={ref} aria-hidden className={cn("absolute inset-0 size-full [image-rendering:pixelated]", className)} />;
 }
 
@@ -175,26 +213,35 @@ function seedOf(text: string) {
 export function PageHero({ title, meta, children, actions }: { title: ReactNode; meta?: ReactNode; children?: ReactNode; actions?: ReactNode }) {
   const theme = useResolvedTheme();
   const seed = seedOf(typeof title === "string" ? title : "page");
+  const textRef = useRef<HTMLDivElement>(null);
+  const actionsRef = useRef<HTMLDivElement>(null);
+  const clear = useMemo(() => [textRef, actionsRef], []);
   return (
     <section className="bleed relative isolate -mt-[max(env(safe-area-inset-top),24px)] mb-8 overflow-hidden lg:-mt-10">
       <div aria-hidden className={cn("absolute inset-0 transition-opacity duration-700", theme === "night" ? "opacity-100" : "opacity-0")}>
         <div className="absolute inset-0 bg-[linear-gradient(180deg,#0d0f2b_0%,#15163b_55%,var(--bg)_100%)]" />
-        <City theme="night" seed={seed} />
+        <City theme="night" seed={seed} clear={clear} />
       </div>
       <div aria-hidden className={cn("absolute inset-0 transition-opacity duration-700", theme === "day" ? "opacity-100" : "opacity-0")}>
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,#9fcbee_0%,#d4e6f4_50%,var(--bg)_100%)]" />
-        <City theme="day" seed={seed} />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,#9fcbee_0%,#cfe3f3_40%,#f9dccb_78%,var(--bg)_100%)]" />
+        <City theme="day" seed={seed} clear={clear} />
       </div>
       <div className="relative mx-auto max-w-6xl px-4 pb-24 pt-[calc(max(env(safe-area-inset-top),24px)+6px)] lg:px-10 lg:pb-28 lg:pt-12">
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
-            <h1 className={cn("font-display text-[34px] font-semibold leading-tight text-balance lg:text-[44px]", theme === "night" ? "text-[#f8f2fb] [text-shadow:0_2px_12px_#0d0f2b]" : "text-[#2c2340] [text-shadow:0_1px_10px_#d4e6f4]")}>
-              {title}
-            </h1>
-            {meta && <p className={cn("mt-1 font-bold", theme === "night" ? "text-[#cfc6ea] [text-shadow:0_1px_8px_#0d0f2b]" : "text-[#4f4466] [text-shadow:0_1px_8px_#d4e6f4]")}>{meta}</p>}
+            <div ref={textRef} className="w-fit max-w-full">
+              <h1 className={cn("font-display text-[34px] font-semibold leading-tight text-balance lg:text-[44px]", theme === "night" ? "text-[#f8f2fb] [text-shadow:0_2px_12px_#0d0f2b]" : "text-[#2c2340] [text-shadow:0_1px_10px_#d4e6f4]")}>
+                {title}
+              </h1>
+              {meta && <p className={cn("mt-1 font-bold", theme === "night" ? "text-[#cfc6ea] [text-shadow:0_1px_8px_#0d0f2b]" : "text-[#4f4466] [text-shadow:0_1px_8px_#d4e6f4]")}>{meta}</p>}
+            </div>
           </div>
-          {actions}
-          <SkyToggle className="-me-2 -mt-1 shrink-0 lg:hidden" />
+          {actions && (
+            <div ref={actionsRef} className="shrink-0">
+              {actions}
+            </div>
+          )}
+          <SkyToggle className="-me-2 -mt-1 shrink-0" />
         </div>
         {children && <div className="mt-5">{children}</div>}
       </div>
@@ -211,7 +258,7 @@ export function SkyBackdrop() {
         <City theme="night" seed={20261203} />
       </div>
       <div className={cn("absolute inset-0 transition-opacity duration-700", theme === "day" ? "opacity-100" : "opacity-0")}>
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,#9fcbee_0%,#d4e6f4_60%,#f3e3ec_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,#9fcbee_0%,#cfe3f3_45%,#f9dccb_82%,#fbe8dc_100%)]" />
         <City theme="day" seed={20261203} />
       </div>
     </div>
