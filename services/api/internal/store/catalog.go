@@ -88,6 +88,9 @@ type SimilarArtist struct {
 
 const sameArtistSQL = `select x.id from artists x where x.id = $1 or lower(x.name) = lower((select name from artists where id = $1))`
 
+const artistDataOrder = `order by exists (select 1 from artist_top_tracks t where t.artist_id = x.id) desc,
+	exists (select 1 from artist_related r where r.artist_id = x.id) desc, x.bio is not null desc, x.id = $1 desc`
+
 func titleKeySQL(expr string) string {
 	return `lower(trim(regexp_replace(` + expr + `, '\s*[\(\[].*$', '')))`
 }
@@ -104,7 +107,16 @@ func (s *Store) Artist(ctx context.Context, userID, id uuid.UUID) (*ArtistView, 
 	if err != nil {
 		return nil, err
 	}
-	if err := s.artistExtras(ctx, &a); err != nil {
+	var dataID uuid.UUID
+	var bio, bioSource, bioURL *string
+	if err := s.pool.QueryRow(ctx, `select x.id, x.bio, x.bio_source, x.bio_url, x.enriched_at is not null
+		from artists x where x.id in (`+sameArtistSQL+`) `+artistDataOrder+` limit 1`, id).Scan(&dataID, &bio, &bioSource, &bioURL, &a.Enriched); err != nil {
+		return nil, err
+	}
+	if a.Bio == nil {
+		a.Bio, a.BioSource, a.BioURL = bio, bioSource, bioURL
+	}
+	if err := s.artistExtras(ctx, dataID, &a); err != nil {
 		return nil, err
 	}
 	if a.Tracks, err = s.trackViews(ctx, `where t.id in (select ta.track_id from track_artists ta join artists x on x.id = ta.artist_id
@@ -127,9 +139,9 @@ func (s *Store) Artist(ctx context.Context, userID, id uuid.UUID) (*ArtistView, 
 	return &a, err
 }
 
-func (s *Store) artistExtras(ctx context.Context, a *ArtistView) error {
+func (s *Store) artistExtras(ctx context.Context, dataID uuid.UUID, a *ArtistView) error {
 	rows, err := s.pool.Query(ctx, `select t.name from artist_tags x join tags t on t.id = x.tag_id where x.artist_id = $1
-		group by t.name order by max(x.weight) desc, t.name limit 8`, a.ID)
+		group by t.name order by max(x.weight) desc, t.name limit 8`, dataID)
 	if err != nil {
 		return err
 	}
@@ -141,7 +153,7 @@ func (s *Store) artistExtras(ctx context.Context, a *ArtistView) error {
 				where ta.artist_id in (`+sameArtistSQL+`) and `+titleKeySQL("t.title")+` = `+titleKeySQL("tt.title")+`
 				order by exists (select 1 from track_media tm where tm.track_id = t.id and tm.variant = 'main') desc, t.created_at
 				limit 1))
-		from artist_top_tracks tt where tt.artist_id = $1 order by tt.rank`, a.ID)
+		from artist_top_tracks tt where tt.artist_id = $1 order by tt.rank`, dataID)
 	if err != nil {
 		return err
 	}
@@ -182,7 +194,7 @@ func (s *Store) artistExtras(ctx context.Context, a *ArtistView) error {
 			order by x.id = r.related_artist_id desc nulls last, x.deezer_id = r.deezer_id desc nulls last, x.created_at
 			limit 1) lib on true
 		left join media_assets img on img.id = lib.image_asset_id
-		where r.artist_id = $1 order by r.rank`, a.ID)
+		where r.artist_id = $1 order by r.rank`, dataID)
 	if err != nil {
 		return err
 	}
@@ -199,6 +211,14 @@ func (s *Store) AddTopTrack(ctx context.Context, artistID uuid.UUID, rank int) (
 		return uuid.Nil, err
 	}
 	defer tx.Rollback(ctx)
+	var dataID uuid.UUID
+	err = tx.QueryRow(ctx, `select x.id from artists x where x.id in (`+sameArtistSQL+`) `+artistDataOrder+` limit 1`, artistID).Scan(&dataID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, ErrNotFound
+	}
+	if err != nil {
+		return uuid.Nil, err
+	}
 	var title, artistName string
 	var album, artworkURL *string
 	var duration *int32
@@ -209,7 +229,7 @@ func (s *Store) AddTopTrack(ctx context.Context, artistID uuid.UUID, rank int) (
 				order by exists (select 1 from track_media tm where tm.track_id = t.id and tm.variant = 'main') desc, t.created_at
 				limit 1))
 		from artist_top_tracks tt join artists a on a.id = tt.artist_id
-		where tt.artist_id = $1 and tt.rank = $2 for update of tt`, artistID, rank).
+		where tt.artist_id = $1 and tt.rank = $2 for update of tt`, dataID, rank).
 		Scan(&title, &album, &duration, &artworkURL, &artistName, &trackID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return uuid.Nil, ErrNotFound
@@ -254,7 +274,7 @@ func (s *Store) AddTopTrack(ctx context.Context, artistID uuid.UUID, rank int) (
 			return uuid.Nil, err
 		}
 	}
-	if _, err := tx.Exec(ctx, `update artist_top_tracks set track_id = $3 where artist_id = $1 and rank = $2`, artistID, rank, *trackID); err != nil {
+	if _, err := tx.Exec(ctx, `update artist_top_tracks set track_id = $3 where artist_id = $1 and rank = $2`, dataID, rank, *trackID); err != nil {
 		return uuid.Nil, err
 	}
 	return *trackID, tx.Commit(ctx)
