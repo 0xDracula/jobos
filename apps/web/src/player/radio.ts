@@ -21,7 +21,7 @@ export const MOODS: [string, string][] = [
 const RADIO_ID = "radio";
 const BATCH = 10;
 
-let session: { seed: RadioSeed; key: string; skipped: Set<string>; fetching: boolean } | null = null;
+let session: { seed: RadioSeed; key: string; skipped: Set<string>; fetching: boolean; lastFetch: number; exhausted: boolean } | null = null;
 
 async function batch(exclude: string[], recent: string[]): Promise<Track[]> {
   if (!session) return [];
@@ -42,7 +42,7 @@ async function batch(exclude: string[], recent: string[]): Promise<Track[]> {
 }
 
 export async function startRadio(seed: RadioSeed) {
-  session = { seed, key: crypto.randomUUID(), skipped: new Set(), fetching: true };
+  session = { seed, key: crypto.randomUUID(), skipped: new Set(), fetching: true, lastFetch: Date.now(), exhausted: false };
   try {
     const tracks = await batch(seed.type === "track" && seed.id ? [seed.id] : [], []);
     if (!tracks.length) {
@@ -59,13 +59,17 @@ export async function startRadio(seed: RadioSeed) {
 
 async function refill() {
   const s = usePlayer.getState();
-  if (!session || session.fetching) return;
+  if (!session || session.fetching || session.exhausted || Date.now() - session.lastFetch < 5000) return;
   session.fetching = true;
+  session.lastFetch = Date.now();
   try {
     const ids = s.queue.map((q) => q.track.id);
     const recent = s.queue.slice(Math.max(0, s.index - 3), s.index + 1).map((q) => q.track.id);
     const more = await batch(ids, recent);
-    if (!more.length) return;
+    if (!more.length) {
+      session.exhausted = true;
+      return;
+    }
     if (together.handler) together.handler.addToQueue(more.map((t) => t.id));
     else usePlayer.setState(insertTracks(usePlayer.getState(), more, "last"));
   } catch {

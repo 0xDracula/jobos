@@ -164,7 +164,9 @@ export function startTogetherSync(meId: string) {
   if (started) return;
   started = true;
   queryClient.getQueryCache().subscribe((e) => {
-    if (e.type === "updated" && e.query.queryKey[0] === togetherKey[0]) void apply(e.query.state.data as TogetherState | undefined);
+    if (e.type === "updated" && e.action.type === "success" && e.query.queryKey[0] === togetherKey[0]) {
+      void apply(e.query.state.data as TogetherState | undefined);
+    }
   });
   usePlayer.subscribe((s, prev) => {
     if (!inSession || !room || s.queue !== prev.queue || s.index === prev.index || s.index === room.index) return;
