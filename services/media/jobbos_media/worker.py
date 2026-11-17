@@ -112,6 +112,9 @@ def describe(kind: str, payload: dict, result: dict) -> str:
     if kind == "enrich_metadata":
         art = result["artwork_source"] or "-"
         return f"artwork {art}, artist image {'yes' if result['artist_image'] else '-'} {payload['title']!r}"
+    if kind in ("download_track", "process_upload"):
+        a = result["asset"]
+        return f"{a['output_lufs']} LUFS, {a['output_true_peak_db']} dBTP, {a['bitrate'] // 1000} kbps {a['path']}"
     if kind == "update_ytdlp":
         return f"yt-dlp {result['result']}: {result['previous']} -> {result['version']}"
     if kind == "analyze_audio":

@@ -55,6 +55,7 @@ type AdminStatus struct {
 	Cache       CacheStats     `json:"cache"`
 	LoudFiles   []LoudFile     `json:"loud_files"`
 	Unmeasured  int            `json:"unmeasured_files"`
+	OffTarget   int            `json:"off_target_files"`
 	YtdlpUpdate *YtdlpUpdate   `json:"ytdlp_update"`
 }
 
@@ -123,6 +124,10 @@ func (s *Store) AdminStatus(ctx context.Context) (*AdminStatus, error) {
 		return nil, err
 	}
 	if err := s.pool.QueryRow(ctx, `select count(*) from media_assets where kind = 'audio' and output_true_peak_db is null`).Scan(&st.Unmeasured); err != nil {
+		return nil, err
+	}
+	if err := s.pool.QueryRow(ctx, `select count(*) from track_media tm join media_assets ma on ma.id = tm.asset_id
+		where tm.variant = 'main' and ma.kind = 'audio' and `+offTargetSQL).Scan(&st.OffTarget); err != nil {
 		return nil, err
 	}
 	st.YtdlpUpdate, err = s.ytdlpUpdate(ctx)

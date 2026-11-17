@@ -895,8 +895,18 @@
         setTimeout(loadStatus, 1500);
       });
       const loud = el("div");
-      loud.append(el("div", "sub", st.store.loud_files.length + " files above −1 dBTP · " + st.store.unmeasured_files + " files not measured"));
+      loud.append(el("div", "sub", st.store.loud_files.length + " files above −1 dBTP · " + st.store.unmeasured_files + " files not measured · "
+        + st.store.off_target_files + " tracks outside −14 ±1 LUFS or −1 dBTP"));
       for (const l of st.store.loud_files.slice(0, 10)) loud.append(el("div", "sub", l.title + " · " + l.true_peak_db.toFixed(1) + " dBTP"));
+      const reprocess = el("button", "", "Re-process");
+      reprocess.type = "button";
+      reprocess.disabled = !st.store.off_target_files;
+      reprocess.addEventListener("click", async () => {
+        reprocess.disabled = true;
+        const res = await api("/api/admin/loudness/reprocess", { method: "POST" });
+        reprocess.textContent = "Queued " + res.queued;
+      });
+      loud.append(reprocess);
       const update = el("button", "", up.queued ? "Update queued" : "Update yt-dlp");
       update.type = "button";
       update.disabled = !!up.queued;

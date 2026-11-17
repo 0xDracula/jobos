@@ -84,6 +84,24 @@ func (a *api) retryJob(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (a *api) reprocessLoudness(w http.ResponseWriter, r *http.Request) {
+	limit := 0
+	if s := r.URL.Query().Get("limit"); s != "" {
+		n, err := strconv.Atoi(s)
+		if err != nil || n < 1 {
+			writeError(w, http.StatusBadRequest, "limit must be a positive number")
+			return
+		}
+		limit = n
+	}
+	queued, found, err := a.Store.ReprocessLoudness(r.Context(), limit)
+	if err != nil {
+		a.serverError(w, "reprocess loudness", err)
+		return
+	}
+	writeJSON(w, http.StatusAccepted, map[string]int{"queued": queued, "found": found})
+}
+
 func (a *api) syncNow(w http.ResponseWriter, r *http.Request) {
 	SyncPlaylists(r.Context(), a.Deps, 0)
 	w.WriteHeader(http.StatusNoContent)

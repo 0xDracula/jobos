@@ -95,6 +95,7 @@ type Store interface {
 	DeleteSetting(ctx context.Context, userID uuid.UUID, key string) error
 	BackfillAnalysis(ctx context.Context) (int, error)
 	LastJobAt(ctx context.Context, kind string) (*time.Time, error)
+	ReprocessLoudness(ctx context.Context, limit int) (int, int, error)
 	ClaimJob(ctx context.Context, queue, worker string, kinds []string) (*store.Job, error)
 	CompleteJob(ctx context.Context, id int64, result json.RawMessage) error
 	FailJob(ctx context.Context, id int64, message string) error
@@ -277,6 +278,7 @@ func New(d Deps) http.Handler {
 				r.Post("/cache/clear", a.clearCache)
 				r.Post("/playlists/sync", a.syncNow)
 				r.Post("/ytdlp/update", a.updateYtdlpNow)
+				r.Post("/loudness/reprocess", a.reprocessLoudness)
 				a.registerWorldAdminRoutes(r)
 			})
 			a.registerWorldRoutes(r)
