@@ -4,12 +4,14 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { useDebounced } from "@/components/common";
-import { Button, inputClass, Segmented, Spinner, Switch } from "@/components/ui";
+import { Button, Chip, inputClass, Segmented, Spinner, Switch } from "@/components/ui";
 import { api } from "@/lib/api";
 import { usePrefs } from "@/lib/prefs";
 import { usePlaylists } from "@/lib/queries";
 
-import { useCity, useSetCity } from "../data";
+import { saveRoomLayout, useCity, useRoomLayout, useSetCity } from "../data";
+import { ROOMS } from "../layout";
+import { ROOM_LABELS } from "../pixel/rooms/types";
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -105,11 +107,22 @@ const BEAT_LEVELS: [string, string][] = [
 export function RoomPrefs() {
   const prefs = usePrefs();
   const playlists = usePlaylists();
+  const layout = useRoomLayout();
   const beatValue = BEAT_LEVELS.reduce((best, [v]) => (Math.abs(Number(v) - prefs.beatIntensity) < Math.abs(Number(best) - prefs.beatIntensity) ? v : best), "0.6");
   return (
-    <section className="mb-10">
+    <section id="room" className="mb-10 scroll-mt-6">
       <h2 className="mb-3 font-display text-xl font-semibold">Room</h2>
       <div className="grid grid-cols-1 gap-1 rounded-card bg-surface-solid/60 p-2 shadow-soft">
+        <div className="flex min-h-14 flex-wrap items-center justify-between gap-3 px-3 py-2">
+          <span className="font-bold">Room</span>
+          <div role="radiogroup" aria-label="Room" className="flex flex-wrap gap-1.5">
+            {ROOMS.map((r) => (
+              <Chip key={r} role="radio" aria-checked={layout.room === r} selected={layout.room === r} onClick={() => void saveRoomLayout({ ...layout, room: r })}>
+                {ROOM_LABELS[r]}
+              </Chip>
+            ))}
+          </div>
+        </div>
         <Row label="Beat lighting">
           <Segmented label="Beat lighting" value={beatValue} options={BEAT_LEVELS} onChange={(v) => prefs.set({ beatIntensity: Number(v) })} />
         </Row>
