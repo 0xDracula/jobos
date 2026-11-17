@@ -173,7 +173,7 @@ function HotspotButton({ h }: { h: Hotspot }) {
   );
 }
 
-function WindowTag({ id, text }: { id: string; text: string }) {
+function WindowTag({ id, text, above }: { id: string; text: string; above?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = ref.current;
@@ -185,7 +185,13 @@ function WindowTag({ id, text }: { id: string; text: string }) {
   }, [id]);
   return (
     <div ref={ref} aria-hidden style={{ visibility: "hidden" }} className="pointer-events-none absolute left-0 top-0">
-      <span dir="auto" className="block -translate-x-1/2 whitespace-nowrap rounded-full bg-[#1e1b3a]/75 px-2 py-px text-[10px] font-bold leading-4 text-[#f5eef8] shadow-soft">
+      <span
+        dir="auto"
+        className={cn(
+          "block max-w-[9.5rem] -translate-x-1/2 truncate whitespace-nowrap rounded-full bg-[#1e1b3a]/75 px-1.5 text-[10px] font-bold leading-[15px] text-[#f5eef8] shadow-soft",
+          above && "-translate-y-full",
+        )}
+      >
         {text}
       </span>
     </div>
@@ -214,9 +220,11 @@ export function RoomView() {
   const city = useCity();
   const place = city.data?.city ?? null;
   const weatherQuery = useWeather(place);
+  const preview = roomClock.weather as Weather["condition"] | null;
+  const cover = preview ? { clear: 5, clouds: 85, fog: 60, drizzle: 90, rain: 100, snow: 95, thunderstorm: 100 }[preview] : 0;
   const weather = {
-    data: weatherQuery.data && roomClock.weather ? { ...weatherQuery.data, condition: roomClock.weather as Weather["condition"] }
-      : roomClock.weather ? ({ condition: roomClock.weather, code: 0, temperature_c: 20, cloud_cover: 80, precipitation_mm: 0, wind_kmh: 0, is_day: true, timezone: "", utc_offset_s: -new Date().getTimezoneOffset() * 60, fetched_at: "" } as Weather)
+    data: weatherQuery.data && preview ? { ...weatherQuery.data, condition: preview, cloud_cover: cover }
+      : preview ? ({ condition: preview, code: 0, temperature_c: 20, cloud_cover: cover, precipitation_mm: 0, wind_kmh: 8, is_day: true, timezone: "", utc_offset_s: -new Date().getTimezoneOffset() * 60, fetched_at: "" } as Weather)
       : weatherQuery.data,
   };
   const other = useOtherCity(place);
@@ -538,8 +546,8 @@ export function RoomView() {
           ))}
           {other && now && (
             <>
-              <WindowTag id="window_label" text={`${place?.name ?? ""} · ${localTime(now, weather.data, place?.timezone)}`} />
-              <WindowTag id="second_window_label" text={`${other.city.name} · ${localTime(now, otherWeather, other.city.timezone)}`} />
+              <WindowTag id="window_label" text={[place?.name, localTime(now, weather.data, place?.timezone)].filter(Boolean).join(" · ")} />
+              <WindowTag id="second_window_label" above text={`${other.city.name} · ${localTime(now, otherWeather, other.city.timezone)}`} />
             </>
           )}
         </div>

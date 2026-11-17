@@ -213,6 +213,12 @@ export default function PixelRoom(p: PixelRoomProps) {
     };
   }, []);
 
+  const [sheet, setSheet] = useState<string | null>(null);
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "development" || !new URLSearchParams(location.search).has("sprites")) return;
+    void import("./preview").then((m) => setSheet(m.spriteSheet().toDataURL()));
+  }, []);
+
   const pan = (side: "room" | "roof") => {
     renderer.current?.show(side);
     draw.current();
@@ -231,6 +237,7 @@ export default function PixelRoom(p: PixelRoomProps) {
           <ChevronRight className="size-5" />
         </button>
       )}
+      {sheet && <img alt="" src={sheet} className="absolute left-0 top-0 z-50 max-w-none [image-rendering:pixelated]" />}
     </>
   );
 }

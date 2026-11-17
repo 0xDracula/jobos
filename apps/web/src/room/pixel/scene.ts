@@ -63,7 +63,7 @@ export const ANCHORS: Record<string, [number, number]> = {
   record_player: [22, 103],
   records: [134, 98],
   window: [73, 86],
-  second_window: [106, 82],
+  second_window: [106, 88],
   lamp: [105, 103],
   bed: [74, 121],
   plants: [260, 104],

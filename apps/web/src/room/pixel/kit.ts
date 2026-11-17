@@ -77,38 +77,30 @@ export class Kit {
   }
 }
 
-export function clearGlass(c: HTMLCanvasElement) {
+const MASKS = new WeakMap<HTMLCanvasElement, HTMLCanvasElement>();
+
+export function clearGlass(c: HTMLCanvasElement): HTMLCanvasElement {
+  const done = MASKS.get(c);
+  if (done) return done;
   const g = c.getContext("2d")!;
   const img = g.getImageData(0, 0, c.width, c.height);
   const d = img.data;
+  const mask = canvas(c.width, c.height);
+  const mg = mask.getContext("2d")!;
+  const m = mg.createImageData(c.width, c.height);
   for (let i = 0; i < d.length; i += 4) {
     if (d[i + 3] < 200) continue;
     const h = hex(d[i], d[i + 1], d[i + 2]);
     const blue = d[i + 2] >= d[i] + 8 && d[i + 2] > 190 && d[i + 1] > 180;
-    if (GLASS.has(h) || blue) d[i + 3] = 0;
+    if (GLASS.has(h) || blue) {
+      d[i + 3] = 0;
+      m.data[i + 3] = 255;
+    }
   }
   g.putImageData(img, 0, 0);
+  mg.putImageData(m, 0, 0);
+  MASKS.set(c, mask);
+  return mask;
 }
 
-export function glassMask(c: HTMLCanvasElement): HTMLCanvasElement {
-  const out = canvas(c.width, c.height);
-  const src = c.getContext("2d")!.getImageData(0, 0, c.width, c.height).data;
-  const g = out.getContext("2d")!;
-  const img = g.createImageData(c.width, c.height);
-  for (let y = 0; y < c.height; y++) {
-    let first = -1;
-    let last = -1;
-    for (let x = 0; x < c.width; x++) {
-      if (src[(y * c.width + x) * 4 + 3] > 0) {
-        if (first < 0) first = x;
-        last = x;
-      }
-    }
-    for (let x = first + 1; x < last; x++) {
-      const o = (y * c.width + x) * 4;
-      if (src[o + 3] === 0) img.data[o + 3] = 255;
-    }
-  }
-  g.putImageData(img, 0, 0);
-  return out;
-}
+export const glassMask = (c: HTMLCanvasElement) => clearGlass(c);

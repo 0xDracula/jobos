@@ -1,7 +1,7 @@
 import { mixHex } from "../../sky";
 import { clearGlass, type Kit } from "../kit";
 import * as S from "../scene";
-import { ellipse, INK, px, rng, satelliteDish, speaker, waterTank, widen } from "../sprites";
+import { curtainWindow, ellipse, INK, px, rng, satelliteDish, speaker, waterTank, widen } from "../sprites";
 import type { BackdropInput, Ctx, Furniture, Item, Look, RoomArt } from "./types";
 
 type NearBuilding = { x: number; w: number; top: number; face: number; roof: "tank" | "dish" | "laundry" | "antenna" | "" };
@@ -165,7 +165,7 @@ export function deskSprite(kit: Kit): HTMLCanvasElement {
 }
 
 export function rooftopFurniture(kit: Kit): Furniture {
-  const window = kit.sprite("window_curtains")!;
+  const window = curtainWindow();
   const second = kit.sprite("window_small")!;
   clearGlass(window);
   clearGlass(second);

@@ -280,6 +280,45 @@ export function widen(src: HTMLCanvasElement, width: number, from: number, to: n
   return c;
 }
 
+export function curtainWindow(curtain = ["#d0be9c", "#b99e86", "#9c786b", "#916662"]): HTMLCanvasElement {
+  const c = canvas(34, 26);
+  const g = c.getContext("2d")!;
+  const [light, mid, shade, dark] = curtain;
+  px(g, INK, 5, 2, 24, 21);
+  px(g, "#b5754d", 6, 3, 22, 19);
+  px(g, "#c78c59", 6, 3, 22, 1);
+  for (const [x, y] of [[8, 5], [18, 5], [8, 13], [18, 13]] as const) {
+    px(g, "#a85f46", x - 1, y - 1, 9, 1);
+    px(g, "#a85f46", x - 1, y, 1, 7);
+    px(g, "#d8d0e0", x, y, 8, 7);
+    px(g, "#f8f8f8", x + 5, y + 1, 1, 1);
+    px(g, "#f8f8f8", x + 4, y + 2, 1, 1);
+    px(g, "#f8f8f8", x + 6, y + 1, 1, 1);
+  }
+  px(g, INK, 3, 21, 28, 3);
+  px(g, "#c78c59", 4, 21, 26, 1);
+  px(g, "#b5754d", 4, 22, 26, 1);
+  px(g, INK, 1, 0, 32, 2);
+  px(g, "#808088", 1, 1, 32, 1);
+  px(g, "#ebe4f2", 0, 0, 2, 2);
+  px(g, "#ebe4f2", 32, 0, 2, 2);
+  const drape = (x0: number, flip: boolean) => {
+    for (let y = 2; y < 26; y++) {
+      const tie = y >= 13 && y <= 14;
+      const w = y < 13 ? 7 : y < 16 ? 5 : Math.min(8, 5 + Math.floor((y - 15) / 3));
+      for (let i = 0; i < w; i++) {
+        const x = flip ? x0 + 6 - i : x0 + i;
+        const edge = i === w - 1 || y === 25;
+        const col = tie ? (i % 2 ? "#ed931e" : "#f2b22b") : edge ? "#46465e" : [dark, light, mid, light, shade, mid, light, shade][i % 8];
+        px(g, col, x, y, 1, 1);
+      }
+    }
+  };
+  drape(0, false);
+  drape(27, true);
+  return c;
+}
+
 export function breakfastTray(): HTMLCanvasElement {
   return gridSprite([
     ".......oo.........",

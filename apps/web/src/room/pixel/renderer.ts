@@ -105,14 +105,30 @@ const rgba = (h: string, a: number) => {
 const smooth = (t: number) => t * t * (3 - 2 * t);
 const rainy = (c: string | undefined) => c === "rain" || c === "drizzle" || c === "thunderstorm";
 
-type Mask = { x: number; y: number; w: number; h: number; on: Uint8Array };
+type Mask = { x: number; y: number; w: number; h: number; on: Uint8Array; points: [number, number][]; runs: [number, number, number][] };
 
 function maskOf(c: HTMLCanvasElement, x: number, y: number): Mask {
   const m = glassMask(c);
   const d = m.getContext("2d")!.getImageData(0, 0, m.width, m.height).data;
   const on = new Uint8Array(m.width * m.height);
-  for (let i = 0; i < on.length; i++) on[i] = d[i * 4 + 3] > 0 ? 1 : 0;
-  return { x, y, w: m.width, h: m.height, on };
+  const points: [number, number][] = [];
+  for (let i = 0; i < on.length; i++) {
+    on[i] = d[i * 4 + 3] > 0 ? 1 : 0;
+    if (on[i]) points.push([i % m.width, Math.floor(i / m.width)]);
+  }
+  const runs: [number, number, number][] = [];
+  for (let xx = 0; xx < m.width; xx++) {
+    let start = -1;
+    for (let yy = 0; yy <= m.height; yy++) {
+      const glass = yy < m.height && on[yy * m.width + xx];
+      if (glass && start < 0) start = yy;
+      if (!glass && start >= 0) {
+        if (yy - start >= 4) runs.push([xx, start, yy - 1]);
+        start = -1;
+      }
+    }
+  }
+  return { x, y, w: m.width, h: m.height, on, points, runs };
 }
 
 type Idle = { kind: "stretch" | "yawn" | "look" | null; start: number; next: number };
@@ -319,7 +335,7 @@ export class PixelRenderer {
       const p = this.avatarPos.get(id.slice(7));
       return p ? { x: p.x + p.w / 2, y: p.y } : null;
     }
-    if (id === "second_window_label") return { x: S.HANGING.second_window.x + 12, y: S.HANGING.second_window.y + 16 };
+    if (id === "second_window_label") return { x: S.HANGING.second_window.x + 12.5, y: S.HANGING.second_window.y - 1 };
     if (id === "window_label") return { x: S.HANGING.window.x + 17, y: S.HANGING.window.y + 27 };
     const a = S.ANCHORS[id];
     return a ? { x: a[0], y: a[1] } : null;
@@ -465,10 +481,16 @@ export class PixelRenderer {
     this.art.drawShell(g, this.kit, look);
 
     const H = S.HANGING;
-    this.put(g, F.window, H.window.x, H.window.y);
+    const glass = (s: HTMLCanvasElement, x: number, y: number) => {
+      this.put(g, s, x, y);
+      g.globalCompositeOperation = "destination-out";
+      g.drawImage(glassMask(s), x, y);
+      g.globalCompositeOperation = "source-over";
+    };
+    glass(F.window, H.window.x, H.window.y);
     this.put(g, fav.place === "default" ? "frame_cat" : this.cached(`place:${fav.place}`, () => placePoster(fav.place)), H.frame.x, H.frame.y);
     this.put(g, fav.film === "default" ? "frame_flowers" : this.cached(`film:${fav.film}`, () => filmPoster(fav.film)), H.poster.x, H.poster.y);
-    if (input.otherSky) this.put(g, F.secondWindow, H.second_window.x, H.second_window.y);
+    if (input.otherSky) glass(F.secondWindow, H.second_window.x, H.second_window.y);
     else this.put(g, fav.artist === "default" ? F.picture : this.cached(`artist:${fav.artist}`, () => artistPoster(fav.artist)), S.PICTURE.x, S.PICTURE.y);
     this.put(g, "tin_can", 44, 95);
     for (let x = 47; x <= 58; x++) px(g, "#d9d4c8", x, Math.round(95 - (x - 47) * 0.3 + 0.08 * (x - 47) * (58 - x)));
@@ -1361,33 +1383,35 @@ export class PixelRenderer {
   private drawGlass(g: CanvasRenderingContext2D, input: RoomInput, t: number, still: boolean) {
     const one = (m: Mask, weather: Weather | null, seed: number) => {
       const c = weather?.condition;
-      if (!rainy(c)) return;
-      const runs = c === "drizzle" ? 2 : c === "rain" ? 4 : 6;
-      const beads = c === "drizzle" ? 7 : c === "rain" ? 11 : 14;
+      if (!rainy(c) || !m.points.length) return;
+      const area = m.points.length;
+      const runs = Math.max(1, Math.round((area / 60) * (c === "drizzle" ? 0.4 : c === "rain" ? 0.8 : 1.1)));
+      const beads = Math.round((area / 12) * (c === "drizzle" ? 0.6 : c === "rain" ? 1 : 1.3));
       const ox = m.x - this.cam.x;
       const oy = m.y - this.cam.y;
       const dot = (x: number, y: number, col: string) => {
-        const ix = Math.round(x);
-        const iy = Math.round(y);
-        if (ix < 0 || iy < 0 || ix >= m.w || iy >= m.h || !m.on[iy * m.w + ix]) return;
+        if (x < 0 || y < 0 || x >= m.w || y >= m.h || !m.on[y * m.w + x]) return;
         g.fillStyle = col;
-        g.fillRect(ox + ix, oy + iy, 1, 1);
+        g.fillRect(ox + x, oy + y, 1, 1);
       };
       const r = rng(seed);
       for (let i = 0; i < beads; i++) {
-        const x = r() * m.w;
-        const y = r() * m.h;
-        const life = (t * 0.15 + r()) % 1;
-        dot(x, y, `rgba(225,236,255,${(0.35 + 0.35 * Math.sin(life * Math.PI)) * (still ? 0.8 : 1)})`);
+        const [x, y] = m.points[Math.floor(r() * area)];
+        const life = still ? 0.5 : (t * 0.12 + r()) % 1;
+        const a = Math.sin(life * Math.PI);
+        if (a < 0.15) continue;
+        dot(x, y, `rgba(232,240,255,${0.85 * a})`);
+        dot(x, y + 1, `rgba(30,36,60,${0.35 * a})`);
       }
       for (let i = 0; i < runs; i++) {
-        const x = 2 + r() * (m.w - 4);
-        const speed = 3 + r() * 5;
-        const p = t * speed + r() * 40 + Math.sin(t * 1.3 + i * 2) * 2;
-        const y = (p % (m.h + 6)) - 3;
-        dot(x, y, "rgba(240,246,255,0.95)");
-        dot(x, y - 1, "rgba(220,232,255,0.55)");
-        dot(x, y - 2, "rgba(220,232,255,0.3)");
+        const [x, top, bottom] = m.runs[Math.floor(r() * m.runs.length)];
+        const span = bottom - top + 1;
+        const speed = 2.5 + r() * 4;
+        const p = (still ? r() * span : t * speed + r() * 40 + Math.sin(t * 1.3 + i * 2) * 1.5) % (span + 4);
+        const y = top + Math.floor(p);
+        dot(x, y, "rgba(245,249,255,0.95)");
+        dot(x, y + 1, "rgba(30,36,60,0.35)");
+        for (let k = 1; k <= 3; k++) dot(x, y - k, `rgba(215,228,255,${0.45 - k * 0.12})`);
       }
     };
     one(this.glass.main, input.weather, 101);
