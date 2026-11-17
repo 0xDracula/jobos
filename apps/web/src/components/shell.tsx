@@ -1,6 +1,6 @@
 "use client";
 
-import { House, Library, MessageCircleHeart, Search, Settings, Shield, WifiOff } from "lucide-react";
+import { House, Library, MessageCircleHeart, Search, WifiOff } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -9,9 +9,8 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ApiError } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { soft } from "@/lib/motion";
-import { usePlaylists } from "@/lib/queries";
 import { startRealtime } from "@/lib/realtime";
-import { isPublicPath, useIsAdmin, useMe, useMembers } from "@/lib/session";
+import { isPublicPath, useMe, useMembers } from "@/lib/session";
 import { startSocial, usePresence } from "@/lib/social";
 import { startGift } from "@/lib/gift";
 import { startTogetherState } from "@/lib/together";
@@ -22,11 +21,11 @@ import { dismiss, useToasts } from "@/lib/toast";
 import { usePlayer } from "@/player/store";
 
 import { CommandPalette } from "./CommandPalette";
+import { Sidebar } from "./Sidebar";
 import { GlobalDialogs } from "./dialogs";
 import { KeepsakeDialogs } from "./KeepsakeDialogs";
 import { LettersLayer } from "./letters/LettersLayer";
 import { TogetherBanner } from "./Together";
-import { Cover } from "./media";
 import { PixelIcon } from "./pixel/PixelIcon";
 import { PlayerDock } from "./player/Player";
 import { SkyBackdrop, SkyToggle } from "./sky/PageHero";
@@ -49,54 +48,6 @@ function UnreadDot({ href }: { href: string }) {
 }
 
 const isActive = (pathname: string, href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href.replace(/\/$/, "")));
-
-function Sidebar() {
-  const pathname = usePathname();
-  const playlists = usePlaylists();
-  const admin = useIsAdmin();
-  return (
-    <nav aria-label="Main" className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col gap-1 border-e border-line bg-sidebar px-4 pb-28 pt-6 lg:flex">
-      <div className="mb-4 flex items-center gap-1">
-        <Link href="/" className="flex min-w-0 flex-1 items-center gap-2.5 rounded-button px-2 py-1 font-display text-[26px] font-semibold text-accent-strong">
-          <PixelIcon name="record" size={34} />
-          Jobbos
-        </Link>
-      </div>
-      {[...NAV, { href: "/settings/", label: "Settings", icon: Settings }, ...(admin ? [{ href: "/admin/", label: "Admin", icon: Shield }] : [])].map(({ href, label, icon: Icon }) => (
-        <Link
-          key={href}
-          href={href}
-          aria-current={isActive(pathname, href) ? "page" : undefined}
-          className={cn(
-            "flex min-h-11 items-center gap-3 rounded-button px-3 font-bold transition-colors",
-            isActive(pathname, href) ? "bg-accent-soft/80 text-accent-strong" : "text-ink hover:bg-accent-soft/40",
-          )}
-        >
-          <span className="relative">
-            <Icon className="size-5" />
-            <UnreadDot href={href} />
-          </span>
-          {label}
-        </Link>
-      ))}
-      <h2 className="mt-6 px-3 pb-1 text-xs font-extrabold uppercase tracking-wider text-muted">Playlists</h2>
-      <div className="no-scrollbar -mx-1 min-h-0 flex-1 overflow-y-auto px-1">
-        {playlists.data?.map((p) => (
-          <Link
-            key={p.id}
-            href={`/playlist/?id=${p.id}`}
-            className="flex items-center gap-3 rounded-button px-2 py-1.5 font-semibold hover:bg-accent-soft/40"
-          >
-            <Cover cover={p.cover_url} collage={p.collage} className="size-9 shrink-0 rounded-[8px]" />
-            <span dir="auto" className="truncate">
-              {p.name}
-            </span>
-          </Link>
-        ))}
-      </div>
-    </nav>
-  );
-}
 
 function TabBar() {
   const pathname = usePathname();
