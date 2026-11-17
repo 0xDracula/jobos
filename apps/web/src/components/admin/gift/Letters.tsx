@@ -154,7 +154,7 @@ function FontRow({ user, font }: { user: User; font: HandwritingFont | undefined
         <div className="flex items-center gap-1">
           {(busy || font?.status === "processing") && <Spinner className="size-5 text-muted" />}
           <Button size="sm" onClick={() => input.current?.click()} disabled={busy}>
-            <Upload className="size-4" /> TTF or OTF
+            <Upload className="size-4" /> Upload font
           </Button>
           {font && (
             <IconButton label={`Remove ${user.display_name}'s font`} size="sm" onClick={() => void remove()}>

@@ -284,7 +284,8 @@ export function LetterReveal({
             disabled={stage !== "sealed" || !waitForTap}
             onClick={open}
             aria-label="Open letter"
-            className="block w-full disabled:cursor-default"
+            autoFocus={waitForTap}
+            className="block w-full rounded-[10px] outline-offset-4 disabled:cursor-default"
           >
             <Envelope
               stage={stage}
