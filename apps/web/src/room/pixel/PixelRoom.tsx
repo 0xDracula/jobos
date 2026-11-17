@@ -25,7 +25,7 @@ export type PixelRoomProps = Omit<RoomInput, "highlight" | "selected"> & {
 
 const FRAME_MS = 1000 / 12;
 
-export const roomStats = { frames: 0, light: "" };
+export const roomStats = { frames: 0, paintMs: 0, light: "" };
 
 export default function PixelRoom(p: PixelRoomProps) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -60,6 +60,7 @@ export default function PixelRoom(p: PixelRoomProps) {
     const paint = (now: number) => {
       const r = renderer.current;
       if (!r) return;
+      const began = performance.now();
       const s = useRoom.getState();
       r.setInput({ ...props.current, highlight: s.highlight, selected: s.selected });
       const dt = (now - lastTick) / 1000;
@@ -71,13 +72,14 @@ export default function PixelRoom(p: PixelRoomProps) {
         pulse: beat.pulse,
         playing: beat.playing,
       });
+      placeHotspots((id) => r.anchor(id));
+      syncSides.current();
       roomStats.frames++;
       if (process.env.NODE_ENV === "development") {
         const l = r.lightNow();
         roomStats.light = `${l.color} ${l.level.toFixed(2)} ${l.spread.toFixed(2)}`;
+        roomStats.paintMs += (performance.now() - began - roomStats.paintMs) * 0.1;
       }
-      placeHotspots((id) => r.anchor(id));
-      syncSides.current();
     };
     draw.current = () => paint(performance.now());
 
@@ -86,7 +88,7 @@ export default function PixelRoom(p: PixelRoomProps) {
       if (!props.current.active) return;
       if (props.current.reducedMotion) return;
       if (now - last < FRAME_MS) return;
-      last = now;
+      last = now - ((now - last) % FRAME_MS);
       paint(now);
     };
 
