@@ -196,10 +196,10 @@ export function SkyToggle({ className }: { className?: string }) {
       title={night ? "Day theme" : "Night theme"}
       className={cn("group relative grid size-12 place-items-center overflow-hidden rounded-full transition-colors hover:bg-white/10", className)}
     >
-      <span className={cn("absolute transition-[transform,opacity] duration-500 ease-out motion-reduce:transition-opacity", night ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0")}>
+      <span className={cn("absolute transition-[transform,opacity] duration-500 ease-out motion-reduce:transition-opacity [[data-motion=reduced]_&]:transition-opacity", night ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0")}>
         <PixelIcon name="moon" size={34} />
       </span>
-      <span className={cn("absolute transition-[transform,opacity] duration-500 ease-out motion-reduce:transition-opacity", night ? "translate-y-6 opacity-0" : "translate-y-0 opacity-100")}>
+      <span className={cn("absolute transition-[transform,opacity] duration-500 ease-out motion-reduce:transition-opacity [[data-motion=reduced]_&]:transition-opacity", night ? "translate-y-6 opacity-0" : "translate-y-0 opacity-100")}>
         <PixelIcon name="sun" size={34} />
       </span>
     </button>

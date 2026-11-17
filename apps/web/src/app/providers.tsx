@@ -41,8 +41,8 @@ export function Providers({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const root = document.documentElement;
-    if (motion === "reduced") root.dataset.motion = "reduced";
-    else delete root.dataset.motion;
+    if (motion === "system") delete root.dataset.motion;
+    else root.dataset.motion = motion;
   }, [motion]);
 
   return (
