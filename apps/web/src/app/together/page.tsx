@@ -23,7 +23,9 @@ export default function TogetherPage() {
   const name = (id: string) => (id === me?.id ? "You" : (members.data?.find((u) => u.id === id)?.display_name ?? ""));
 
   useEffect(() => {
-    if (room?.active && !inside && new URLSearchParams(window.location.search).get("join") === "1") joinSession();
+    if (!room?.active || inside || new URLSearchParams(window.location.search).get("join") !== "1") return;
+    joinSession();
+    history.replaceState(null, "", "/together/");
   }, [room?.active, inside]);
 
   const addedBy = useMemo(() => new Map((room?.queue ?? []).map((q) => [q.key, q.added_by])), [room?.queue]);
