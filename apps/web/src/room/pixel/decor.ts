@@ -568,6 +568,6 @@ export const FLAG_COLORS = ["#e0475a", "#ffd23f", "#4985cc", "#5aa37e", "#f7a6c4
 export const HEART_SMALL = gridSpriteLazy(["o.o", "ooo", ".o."]);
 
 function gridSpriteLazy(rows: string[]) {
-  let cache: Record<string, HTMLCanvasElement> = {};
+  const cache: Record<string, HTMLCanvasElement> = {};
   return (color: string) => (cache[color] ??= gridSprite(rows, { o: color }));
 }

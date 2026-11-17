@@ -3,7 +3,7 @@ import type { Weather } from "@/lib/types";
 
 import type { Season } from "../calendar";
 import { favoritesKey, type FavoriteArt } from "../favorites";
-import { DECORATIONS, HANGING_DECORATIONS, placementOf, type Decoration, type RoomLayout } from "../layout";
+import { DECORATIONS, HANGING_DECORATIONS, placementOf, type RoomLayout } from "../layout";
 import { blendLight, LIGHT_SECONDS, NEUTRAL_LIGHT, type RoomLight } from "../light";
 import { mixHex, skyPoint, type SkyState } from "../sky";
 import { layoutStars, type StarLayout, type StarPoint } from "../starmap";
@@ -446,7 +446,7 @@ export class PixelRenderer {
       .filter(({ p }) => !p.hidden);
   }
 
-  private decorationSprite(d: Decoration, sprite: string, accent: string): HTMLCanvasElement | undefined {
+  private decorationSprite(sprite: string, accent: string): HTMLCanvasElement | undefined {
     if (sprite === "bean_bag") return this.cached(`bean_bag:${accent}`, () => beanBag(accent));
     return this.sprite(sprite);
   }
@@ -505,8 +505,8 @@ export class PixelRenderer {
       this.put(g, "crescent", 68, H.window.y + 4);
     }
 
-    for (const { d, p } of decos.filter(({ p }) => p.sprite.startsWith("rug"))) {
-      const s = this.decorationSprite(d, p.sprite, input.accent);
+    for (const { p } of decos.filter(({ p }) => p.sprite.startsWith("rug"))) {
+      const s = this.decorationSprite(p.sprite, input.accent);
       if (s) this.put(g, s, p.x - s.width / 2, p.y - s.height / 2, p.flip);
     }
 
@@ -547,7 +547,7 @@ export class PixelRenderer {
     items.push(...this.art.props(this.kit, look));
     for (const { d, p } of decos) {
       if (p.sprite.startsWith("rug") || d.id === "bunting" || d.id === "photo_garland" || d.id === "star_lantern") continue;
-      const s = this.decorationSprite(d, p.sprite, input.accent);
+      const s = this.decorationSprite(p.sprite, input.accent);
       if (!s) continue;
       if (d.id === "hanging_plant") {
         items.push({ bottom: -1, draw: (gg) => this.put(gg, s, p.x - s.width / 2, S.WALL_TOP + 6, p.flip) });
@@ -1056,7 +1056,7 @@ export class PixelRenderer {
       if (!d) return;
       const p = placementOf(d, input.layout.items[d.id]);
       if (HANGING_DECORATIONS.has(d.id) && d.id !== "hanging_plant" && d.id !== "star_lantern") return;
-      const s = this.decorationSprite(d, p.sprite, input.accent);
+      const s = this.decorationSprite(p.sprite, input.accent);
       if (!s) return;
       const rise = still ? 0 : Math.round(8 * (1 - smooth(Math.min(1, k / 0.45))));
       const top = d.id === "hanging_plant" ? S.WALL_TOP + 6 : d.id === "star_lantern" ? Math.round(this.wireY(p.x)) + 5 : p.y - s.height;
@@ -1474,7 +1474,7 @@ export class PixelRenderer {
     const sel = input.selected ? DECORATIONS.find((d) => d.id === input.selected) : null;
     if (sel) {
       const p = placementOf(sel, input.layout.items[sel.id]);
-      const s = this.decorationSprite(sel, p.sprite, input.accent) ?? null;
+      const s = this.decorationSprite(p.sprite, input.accent) ?? null;
       if (s && !p.hidden) {
         const flat = p.sprite.startsWith("rug");
         const spot = this.decorationSpot(sel.id);
