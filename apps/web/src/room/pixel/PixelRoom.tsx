@@ -25,7 +25,13 @@ export type PixelRoomProps = Omit<RoomInput, "highlight" | "selected"> & {
 
 const FRAME_MS = 1000 / 12;
 
-export const roomStats = { frames: 0, paintMs: 0, light: "" };
+export const roomStats = {
+  frames: 0,
+  paintMs: 0,
+  light: "",
+  pulse: 0,
+  probe: (x: number, y: number): [number, number, number] | null => (void x, void y, null),
+};
 
 export default function PixelRoom(p: PixelRoomProps) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -79,6 +85,8 @@ export default function PixelRoom(p: PixelRoomProps) {
         const l = r.lightNow();
         roomStats.light = `${l.color} ${l.level.toFixed(2)} ${l.spread.toFixed(2)}`;
         roomStats.paintMs += (performance.now() - began - roomStats.paintMs) * 0.1;
+        roomStats.pulse = beat.pulse;
+        roomStats.probe = (x, y) => r.pixelAt(x, y);
       }
     };
     draw.current = () => paint(performance.now());

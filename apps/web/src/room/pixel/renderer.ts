@@ -891,6 +891,12 @@ export class PixelRenderer {
     this.light = { from: still ? target : now, to: target, start: t, key };
   }
 
+  pixelAt(sx: number, sy: number): [number, number, number] {
+    const k = this.cam.scale;
+    const d = this.g.getImageData(Math.round((sx - this.cam.x) * k + k / 2), Math.round((sy - this.cam.y) * k + k / 2), 1, 1).data;
+    return [d[0], d[1], d[2]];
+  }
+
   lightNow(): RoomLight {
     return this.currentLight(this.last);
   }

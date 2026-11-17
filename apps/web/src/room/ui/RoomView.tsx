@@ -228,7 +228,9 @@ export function RoomView() {
       : weatherQuery.data,
   };
   const other = useOtherCity(place);
-  const otherWeather = useWeather(other?.city).data ?? null;
+  const otherQuery = useWeather(other?.city);
+  const otherPreview = roomClock.otherWeather as Weather["condition"] | null;
+  const otherWeather = otherQuery.data && otherPreview ? { ...otherQuery.data, condition: otherPreview, cloud_cover: 90 } : (otherQuery.data ?? null);
   const stats = useRoomStats();
   const notes = useHiddenNotes();
   const saved = useRoomLayout();
@@ -366,8 +368,11 @@ export function RoomView() {
 
   const accent = resolveAccent(layout.look.accent, fav.accent);
   const light = useMemo(
-    () => (track ? moodLight(detail.data?.palette ?? track.palette, detail.data?.audio?.energy, detail.data?.audio?.valence) : NEUTRAL_LIGHT),
-    [track, detail.data],
+    () =>
+      track
+        ? moodLight(detail.data?.palette ?? track.palette, roomClock.energy ?? detail.data?.audio?.energy, roomClock.valence ?? detail.data?.audio?.valence)
+        : NEUTRAL_LIGHT,
+    [track, detail.data, now],
   );
   const artwork = detail.data?.artwork_thumb_url ?? track?.artwork_thumb_url ?? track?.artwork_url ?? null;
 

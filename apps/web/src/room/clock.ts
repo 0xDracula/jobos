@@ -11,6 +11,10 @@ export type Preview = {
   together: boolean;
   listening: boolean;
   other: boolean;
+  bpm: number | null;
+  energy: number | null;
+  valence: number | null;
+  otherWeather: string | null;
 };
 
 export const roomClock: { offset: number } & Preview = {
@@ -27,6 +31,10 @@ export const roomClock: { offset: number } & Preview = {
   together: false,
   listening: false,
   other: false,
+  bpm: null,
+  energy: null,
+  valence: null,
+  otherWeather: null,
 };
 
 export const roomNow = () => new Date(Date.now() + roomClock.offset);
@@ -64,4 +72,12 @@ export function readClockParams() {
   roomClock.together = q.get("together") === "1";
   roomClock.listening = q.get("listening") === "1";
   roomClock.other = q.get("other") === "1";
+  const num = (name: string, min: number, max: number) => {
+    const v = Number(q.get(name));
+    return q.has(name) && Number.isFinite(v) && v >= min && v <= max ? v : null;
+  };
+  roomClock.bpm = num("bpm", 30, 240);
+  roomClock.energy = num("energy", 0, 1);
+  roomClock.valence = num("valence", 0, 1);
+  roomClock.otherWeather = pick("otherweather", WEATHERS);
 }
