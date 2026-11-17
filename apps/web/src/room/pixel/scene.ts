@@ -12,27 +12,37 @@ export const ROOF_X1 = 314;
 export const DOOR_Y0 = 132;
 export const DOOR_Y1 = 158;
 
-export type Placed = { sprite: string; x: number; y: number };
+export const BACKDROP = { x: -260, y: -40, w: 840, h: 700 };
+export const WORLD = { x: -16, y: 40, w: 352, h: 620 };
+export const INDOORS: [number, number, number, number] = [0, WALL_TOP, DIVIDER_X + 6, FRONT_Y - WALL_TOP + 7];
 
-export const FURNITURE: Record<string, Placed> = {
-  dresser: { sprite: "dresser", x: 14, y: 112 },
-  window: { sprite: "window_curtains", x: 56, y: 84 },
-  bed: { sprite: "bed_teal", x: 54, y: 118 },
-  lamp: { sprite: "lamp_cream", x: 98, y: 104 },
-  bookcase: { sprite: "bookcase", x: 118, y: 98 },
-  frame: { sprite: "frame_cat", x: 18, y: 86 },
-  flowers: { sprite: "frame_flowers", x: 140, y: 82 },
-  second_window: { sprite: "window_small", x: 94, y: 82 },
-  plant_shelf: { sprite: "plant_small", x: 126, y: 86 },
-  tank: { sprite: "water_tank", x: 284, y: 90 },
-  dish: { sprite: "satellite_dish", x: 262, y: 92 },
-  speaker: { sprite: "speaker", x: 166, y: 104 },
-  table: { sprite: "table_low", x: 208, y: 146 },
-  tray: { sprite: "tea_tray", x: 215, y: 143 },
-  pet_bed: { sprite: "pet_bed", x: 268, y: 150 },
-};
+export const STANDING = {
+  desk: { cx: 30, bottom: 133 },
+  bed: { cx: 74.5, bottom: 150 },
+  lamp: { cx: 105.5, bottom: 129 },
+  bookcase: { cx: 134, bottom: 130 },
+  speaker: { cx: 175, bottom: 130 },
+  table: { cx: 223, bottom: 164 },
+} as const;
 
-export const RECORD_PLAYER = { x: 20, y: 103 };
+export const HANGING = {
+  window: { x: 56, y: 84 },
+  second_window: { x: 94, y: 82 },
+  frame: { x: 18, y: 86 },
+  poster: { x: 140, y: 82 },
+  shelf_plant: { x: 126, y: 86 },
+} as const;
+
+export const PICTURE = { x: 100, y: 82 };
+
+export const DESK_TOP = 118;
+export const RECORD_PLAYER = { x: 10, y: 104 };
+export const SNACK = { x: 36 };
+export const CASSETTE = { x: 43 };
+
+export const TRAY = { x: 215, y: 143 };
+export const PET_BED = { x: 268, y: 150 };
+
 export const PLANTS = { x: 250, base: 130 };
 export const PLANT_STAGES = [["plant_small"], ["plant_small", "plant_bush"], ["plant_bush", "plant_tree"], ["plant_tree", "plant_palm", "plant_bush"], ["plant_palm", "plant_tree", "plant_palm"]];
 
@@ -40,22 +50,38 @@ export const KITTEN = { awake: { x: 196, y: 92 }, asleep: { x: 270, y: 143 } };
 
 export const LIGHTS = { x0: 157, y0: 78, x1: 310, y1: 62, sag: 16 };
 
+export const AVATARS = {
+  me: { x: 96, y: 164 },
+  other: { x: 176, y: 160 },
+  together: [
+    { x: 12, y: 158 },
+    { x: 29, y: 158 },
+  ],
+};
+
 export const ANCHORS: Record<string, [number, number]> = {
-  record_player: [30, 101],
+  record_player: [22, 103],
   records: [134, 98],
   window: [73, 86],
-  second_window: [106, 82],
+  second_window: [106, 88],
   lamp: [105, 103],
   bed: [74, 121],
   plants: [260, 104],
   speaker: [175, 103],
-  drawer: [30, 118],
+  drawer: [30, 124],
   pet_bed: [278, 147],
   frame: [28, 85],
+  cassette: [47, 111],
+  pinned_record: [123, 89],
+  telephone: [46, 95],
+  tea: [223, 142],
 };
 
 export const HIT: Record<string, [number, number, number, number]> = {
-  record_player: [16, 98, 28, 14],
+  pinned_record: [117, 88, 11, 11],
+  telephone: [42, 93, 9, 11],
+  tea: [207, 141, 33, 24],
+  record_player: [9, 101, 26, 17],
   records: [118, 96, 32, 34],
   window: [56, 84, 34, 26],
   second_window: [94, 82, 25, 15],
@@ -63,7 +89,8 @@ export const HIT: Record<string, [number, number, number, number]> = {
   bed: [54, 118, 41, 32],
   plants: [246, 96, 34, 36],
   speaker: [164, 102, 22, 30],
-  drawer: [14, 114, 32, 20],
+  drawer: [8, 121, 44, 12],
   pet_bed: [266, 146, 24, 14],
   frame: [16, 84, 25, 18],
+  cassette: [41, 109, 12, 10],
 };

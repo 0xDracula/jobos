@@ -153,19 +153,79 @@ const CAT_SIT = [
 
 const withRows = (base: string[], rows: Record<number, string>) => base.map((r, i) => rows[i] ?? r);
 
-export function kittenFrames(): Record<"sit" | "blink" | "tail" | "ear" | "sleep" | "sleep2", HTMLCanvasElement> {
+const CAT_YAWN = withRows(CAT_SIT, {
+  6: "offfffffffo...",
+  7: "ofoofffoofo...",
+  8: "olffoooffl o..".replace(" ", "o").slice(0, 14),
+  9: ".offpPpffo..o.",
+  10: ".oolooolloo.ofo".slice(0, 14),
+});
+
+const CAT_BACK = [
+  "..............",
+  ".o.......o....",
+  "ofo.....ofo...",
+  "offooooooffo..",
+  "offfsfsffffo..",
+  "offfffffffffo.",
+  "offsfffffsffo.",
+  "offfffffffffo.",
+  ".offfsfsfffo..",
+  "..offfffffo...",
+  ".offfsfsfffo..",
+  "offfffffffffo.",
+  "offsffffffsffo",
+  "offfffffffffffo".slice(0, 14),
+  ".oooooooooooo.",
+];
+
+const CAT_STRETCH = [
+  "..................o.",
+  ".................ofo",
+  "..............oooofo",
+  "...o..o......offfffo",
+  "..ofoofo....offsfffo",
+  "..offfffooooffffsffo",
+  ".offfoffffsffffffffo",
+  "olffffpfffffsffffffo",
+  ".oolllooooooooofffo.",
+  "oolllo.........ofo..",
+  "ooooo..........oo...",
+];
+const CAT_STAND = [
+  "..................o.",
+  ".................ofo",
+  "...o..o.........ofo.",
+  "..ofoofo.......ofo..",
+  "..offfffooooooofo...",
+  ".offfofffffsffffo...",
+  "olffffpffsfffsffo...",
+  ".oolllfffffffffffo..",
+  "..olffoooooooolffo..",
+  "..ollo........ollo..",
+  "..ooo.........ooo...",
+];
+
+export function kittenFrames() {
   const blink = withRows(CAT_SIT, { 6: "offfffffffo...", 7: "ofoofffoofo..." });
   const tail = withRows(CAT_SIT, { 9: ".offofoffo....", 10: ".oollllloo..oo", 11: "offlllllffooso", 12: "offslllsffofo." });
   const ear = withRows(CAT_SIT, { 1: ".o............", 2: "ofo.....ooo...", 3: "ofpooooooffo.." .slice(0, 14) });
+  const colors = { ...CAT_COLORS, P: "#c45a78" };
   return {
     sit: gridSprite(CAT_SIT, CAT_COLORS),
     blink: gridSprite(blink, CAT_COLORS),
     tail: gridSprite(tail, CAT_COLORS),
     ear: gridSprite(ear, CAT_COLORS),
+    yawn: gridSprite(CAT_YAWN, colors),
+    back: gridSprite(CAT_BACK, CAT_COLORS),
+    stretch: gridSprite(CAT_STRETCH, CAT_COLORS),
+    stand: gridSprite(CAT_STAND, CAT_COLORS),
     sleep: gridSprite(CAT_SLEEP, CAT_COLORS),
     sleep2: gridSprite(CAT_SLEEP_2, CAT_COLORS),
   };
 }
+
+export type KittenFrames = ReturnType<typeof kittenFrames>;
 
 const CAT_SLEEP = [
   "................",
@@ -196,26 +256,81 @@ export const heartSprite = () => gridSprite(HEART, { o: INK, p: "#ff8fab", s: "#
 const SPARKLE = ["..w..", "..y..", "wyWyw", "..y..", "..w.."];
 export const sparkleSprite = () => gridSprite(SPARKLE, { w: "#fff3c4", y: "#ffd27a", W: "#ffffff" });
 
-export function recordPlayer(label: string, frame: number): HTMLCanvasElement {
-  const c = canvas(20, 10);
+export function rng(seed: number) {
+  let s = seed >>> 0;
+  return () => {
+    s = (s + 0x6d2b79f5) >>> 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+export function widen(src: HTMLCanvasElement, width: number, from: number, to: number): HTMLCanvasElement {
+  const c = canvas(width, src.height);
   const g = c.getContext("2d")!;
-  grid(g, [
-    "oooooooooooooooooooo",
-    "oyyyyyyyyyyyyyyyyyyo",
-    "oyyoooooooooyyyyyoyo",
-    "oyoKKKKKKKKKoyyyyoyo",
-    "oyoKKKKKKKKKoyyyoyyo",
-    "oyoKKKKKKKKKoyyoyyyo",
-    "oyyoooooooooyyyyyyyo",
-    "oooooooooooooooooooo",
-    "oWWWWWWWWWWWWWWWgWWo",
-    "oooooooooooooooooooo",
-  ], { o: INK, y: WOOD_LIGHT, W: WOOD, K: "#26263a", g: STEEL_LIGHT });
-  const a = frame % 2 === 0;
-  px(g, label, a ? 6 : 7, 4, 2, 1);
-  px(g, label, 7, a ? 3 : 5);
-  px(g, "#faf6ee", 7, 4);
+  const right = src.width - to;
+  g.drawImage(src, 0, 0, to, src.height, 0, 0, to, src.height);
+  for (let x = to; x < width - right; x += to - from) {
+    const w = Math.min(to - from, width - right - x);
+    g.drawImage(src, from, 0, w, src.height, x, 0, w, src.height);
+  }
+  g.drawImage(src, to, 0, right, src.height, width - right, 0, right, src.height);
   return c;
+}
+
+export function curtainWindow(curtain = ["#d0be9c", "#b99e86", "#9c786b", "#916662"]): HTMLCanvasElement {
+  const c = canvas(34, 26);
+  const g = c.getContext("2d")!;
+  const [light, mid, shade, dark] = curtain;
+  px(g, INK, 5, 2, 24, 21);
+  px(g, "#b5754d", 6, 3, 22, 19);
+  px(g, "#c78c59", 6, 3, 22, 1);
+  for (const [x, y] of [[8, 5], [18, 5], [8, 13], [18, 13]] as const) {
+    px(g, "#a85f46", x - 1, y - 1, 9, 1);
+    px(g, "#a85f46", x - 1, y, 1, 7);
+    px(g, "#d8d0e0", x, y, 8, 7);
+    px(g, "#f8f8f8", x + 5, y + 1, 1, 1);
+    px(g, "#f8f8f8", x + 4, y + 2, 1, 1);
+    px(g, "#f8f8f8", x + 6, y + 1, 1, 1);
+  }
+  px(g, INK, 3, 21, 28, 3);
+  px(g, "#c78c59", 4, 21, 26, 1);
+  px(g, "#b5754d", 4, 22, 26, 1);
+  px(g, INK, 1, 0, 32, 2);
+  px(g, "#808088", 1, 1, 32, 1);
+  px(g, "#ebe4f2", 0, 0, 2, 2);
+  px(g, "#ebe4f2", 32, 0, 2, 2);
+  const drape = (x0: number, flip: boolean) => {
+    for (let y = 2; y < 26; y++) {
+      const tie = y >= 13 && y <= 14;
+      const w = y < 13 ? 7 : y < 16 ? 5 : Math.min(8, 5 + Math.floor((y - 15) / 3));
+      for (let i = 0; i < w; i++) {
+        const x = flip ? x0 + 6 - i : x0 + i;
+        const edge = i === w - 1 || y === 25;
+        const col = tie ? (i % 2 ? "#ed931e" : "#f2b22b") : edge ? "#46465e" : [dark, light, mid, light, shade, mid, light, shade][i % 8];
+        px(g, col, x, y, 1, 1);
+      }
+    }
+  };
+  drape(0, false);
+  drape(27, true);
+  return c;
+}
+
+export function breakfastTray(): HTMLCanvasElement {
+  return gridSprite([
+    ".......oo.........",
+    "......oSSo........",
+    ".oo..oSSSSo.oooo..",
+    "otto..oSSo.obbbbo.",
+    "oTTo.ooooo.obBBbo.",
+    "oTTo.oyWWo..oooo..",
+    "ooooooWWWyooojjo.o",
+    "oggggggggggggggggo",
+    ".oooooooooooooooo.",
+  ], { o: INK, S: STEEL, t: "#f4d3a0", T: "#b3472a", g: STEEL_LIGHT, b: "#e0a560", B: "#f2c98a", y: "#ffd23f", W: "#fff6e8", j: "#c43d5a" });
 }
 
 export function waterTank(): HTMLCanvasElement {

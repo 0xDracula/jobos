@@ -50,7 +50,17 @@ function noise(c: AudioContext, seconds: number, filter: BiquadFilterType, freq:
   return { src, gain: g };
 }
 
-export type UiSound = "pop" | "needle" | "chime" | "paper";
+export type UiSound = "pop" | "needle" | "lift" | "crackle" | "chime" | "paper";
+
+function crackle(c: AudioContext, seconds: number, level: number) {
+  noise(c, seconds, "bandpass", 1800, 0.4, 0.02 * level, 0.05);
+  const pops = Math.round(seconds * 14);
+  for (let i = 0; i < pops; i++) {
+    const at = Math.random() * seconds * 1000;
+    const fade = 1 - at / (seconds * 1000);
+    setTimeout(() => noise(c, 0.01, "highpass", 2600 + Math.random() * 2000, 1, (0.03 + Math.random() * 0.07) * level * fade, 0.001), at);
+  }
+}
 
 const RECIPES: Record<UiSound, (c: AudioContext) => void> = {
   pop: (c) => tone(c, 620, 240, 0.22, 0.005, 0.09),
@@ -60,11 +70,15 @@ const RECIPES: Record<UiSound, (c: AudioContext) => void> = {
     tone(c, 1760, 1750, 0.05, 0.01, 0.9);
   },
   needle: (c) => {
-    noise(c, 0.04, "highpass", 2500, 0.7, 0.35, 0.002);
-    for (let i = 0; i < 9; i++) {
-      setTimeout(() => noise(c, 0.012, "highpass", 3000, 1, 0.04 + Math.random() * 0.08, 0.001), 60 + Math.random() * 450);
-    }
+    tone(c, 140, 70, 0.18, 0.003, 0.08);
+    noise(c, 0.04, "highpass", 2500, 0.7, 0.3, 0.002);
+    crackle(c, 1.8, 1);
   },
+  lift: (c) => {
+    noise(c, 0.025, "highpass", 3200, 0.8, 0.14, 0.002);
+    tone(c, 900, 600, 0.03, 0.002, 0.05);
+  },
+  crackle: (c) => crackle(c, 2.5, 1),
   paper: (c) => {
     const { gain } = noise(c, 0.32, "bandpass", 3200, 0.8, 0.18, 0.02);
     const t = c.currentTime;

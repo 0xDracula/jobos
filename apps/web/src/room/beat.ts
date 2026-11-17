@@ -4,6 +4,8 @@ import type { Track } from "@/lib/types";
 import { getEngine } from "@/player/engine";
 import { selectTrack, usePlayer } from "@/player/store";
 
+import { roomClock } from "./clock";
+
 export const beat = {
   pulse: 0,
   playing: 0,
@@ -35,7 +37,7 @@ export function tickBeat(dt: number, reducedMotion: boolean) {
   }
   const detail = queryClient.getQueryData<Track>(keys.track(track.id));
   const beats = detail?.audio?.beats;
-  const tempo = detail?.audio?.tempo_bpm ?? 0;
+  const tempo = detail?.audio?.tempo_bpm ?? roomClock.bpm ?? 0;
   beat.tempo = tempo;
   const ms = getEngine().currentTime() * 1000;
   let since = -1;

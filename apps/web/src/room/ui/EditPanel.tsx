@@ -1,12 +1,12 @@
 "use client";
 
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Eye, EyeOff, FlipHorizontal2, Repeat } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Eye, EyeOff, FlipHorizontal2, Heart, Repeat } from "lucide-react";
 
 import { Button, Chip, IconButton } from "@/components/ui";
 import { cn } from "@/lib/cn";
 
 import { saveRoomLayout } from "../data";
-import { ACCENT_COLORS, clampToZone, DECORATIONS, DEFAULT_LAYOUT, FLOOR_STYLES, placementOf, STYLE_LABELS, WALL_STYLES, type RoomLayout } from "../layout";
+import { ACCENT_AUTO, ACCENT_COLORS, clampToZone, DECORATIONS, DEFAULT_LAYOUT, FLOOR_STYLES, placementOf, STYLE_LABELS, WALL_STYLES, type RoomLayout } from "../layout";
 import { useRoom } from "../state";
 
 const STEP = 4;
@@ -26,11 +26,23 @@ function Styles({ label, styles, value, onPick }: { label: string; styles: reado
   );
 }
 
-function Swatches({ label, colors, value, onPick }: { label: string; colors: string[]; value: string; onPick: (c: string) => void }) {
+function Swatches({ label, colors, value, favorite, onPick }: { label: string; colors: string[]; value: string; favorite: string; onPick: (c: string) => void }) {
   return (
     <div className="flex items-center gap-2">
       <span className="w-16 shrink-0 text-sm font-bold text-muted">{label}</span>
       <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-1.5">
+        <button
+          type="button"
+          role="radio"
+          aria-checked={value === ACCENT_AUTO}
+          aria-label="Favorite color"
+          title="Favorite color"
+          onClick={() => onPick(ACCENT_AUTO)}
+          className={cn("grid size-8 place-items-center rounded-full border-2 shadow-soft", value === ACCENT_AUTO ? "border-accent-strong" : "border-white/80")}
+          style={{ background: favorite }}
+        >
+          <Heart aria-hidden className="size-3.5 fill-white text-white" />
+        </button>
         {colors.map((c) => (
           <button
             key={c}
@@ -48,7 +60,7 @@ function Swatches({ label, colors, value, onPick }: { label: string; colors: str
   );
 }
 
-export function EditPanel({ saved, unlocked }: { saved: RoomLayout; unlocked: Set<string> }) {
+export function EditPanel({ saved, unlocked, favoriteAccent }: { saved: RoomLayout; unlocked: Set<string>; favoriteAccent: string }) {
   const draft = useRoom((s) => s.draft) ?? saved;
   const selected = useRoom((s) => s.selected);
   const available = DECORATIONS.filter((d) => !d.unlock || unlocked.has(d.unlock));
@@ -83,7 +95,7 @@ export function EditPanel({ saved, unlocked }: { saved: RoomLayout; unlocked: Se
       <div className="flex items-center justify-between gap-2">
         <h2 className="font-display text-lg font-semibold">Edit room</h2>
         <div className="flex gap-1">
-          <Button size="sm" variant="ghost" onClick={() => useRoom.setState({ draft: structuredClone(DEFAULT_LAYOUT), selected: null })}>
+          <Button size="sm" variant="ghost" onClick={() => useRoom.setState({ draft: { ...structuredClone(DEFAULT_LAYOUT), room: current().room }, selected: null })}>
             Reset
           </Button>
           <Button size="sm" variant="ghost" onClick={() => finish(false)}>
@@ -142,9 +154,19 @@ export function EditPanel({ saved, unlocked }: { saved: RoomLayout; unlocked: Se
       )}
 
       <div className="grid gap-2">
-        <Styles label="Walls" styles={WALL_STYLES} value={draft.look.wall} onPick={(wall) => change({ look: { ...current().look, wall } })} />
-        <Styles label="Floor" styles={FLOOR_STYLES} value={draft.look.floor} onPick={(floor) => change({ look: { ...current().look, floor } })} />
-        <Swatches label="Accent" colors={ACCENT_COLORS} value={draft.look.accent} onPick={(accent) => change({ look: { ...current().look, accent } })} />
+        {draft.room === "rooftop" && (
+          <>
+            <Styles label="Walls" styles={WALL_STYLES} value={draft.look.wall} onPick={(wall) => change({ look: { ...current().look, wall } })} />
+            <Styles label="Floor" styles={FLOOR_STYLES} value={draft.look.floor} onPick={(floor) => change({ look: { ...current().look, floor } })} />
+          </>
+        )}
+        <Swatches
+          label="Accent"
+          colors={ACCENT_COLORS}
+          value={draft.look.accent}
+          favorite={favoriteAccent}
+          onPick={(accent) => change({ look: { ...current().look, accent } })}
+        />
       </div>
     </section>
   );

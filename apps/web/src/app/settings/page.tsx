@@ -3,6 +3,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
 
+import { AvatarEditor } from "@/avatar";
 import { AccountSettings } from "@/components/AccountSettings";
 import { ConfirmDialog } from "@/components/dialogs";
 import { Artwork } from "@/components/media";
@@ -152,6 +153,7 @@ export default function SettingsPage() {
     <>
       <PageTitle>Settings</PageTitle>
       <AccountSettings />
+      <AvatarEditor />
       <Section title="Appearance">
         <Row label="Theme">
           <Segmented<Theme>

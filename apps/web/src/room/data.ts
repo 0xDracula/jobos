@@ -1,12 +1,16 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
 
 import { api } from "@/lib/api";
+import { useFavoriteLists } from "@/lib/gift";
 import { queryClient } from "@/lib/queries";
+import { useMe } from "@/lib/session";
 import { toast } from "@/lib/toast";
 import type { City } from "@/lib/types";
 
+import { favoriteArt, type FavoriteArt } from "./favorites";
 import { parseLayout, type RoomLayout } from "./layout";
 
 export const roomKeys = {
@@ -83,12 +87,11 @@ export async function saveRoomLayout(layout: RoomLayout) {
   }
 }
 
-export type Favorites = { flower?: string; color?: string; snack?: string; drink?: string };
-
-export function useFavorites(): Favorites {
-  const q = useSettings();
-  const raw = q.data?.favorites;
-  return raw && typeof raw === "object" ? (raw as Favorites) : {};
+export function useFavoriteArt(): FavoriteArt {
+  const me = useMe();
+  const lists = useFavoriteLists();
+  const mine = lists.data?.find((l) => l.user_id === me.data?.id)?.items;
+  return useMemo(() => favoriteArt(mine), [mine]);
 }
 
 export type AmbientMix = { name: string; levels: Record<string, number> };

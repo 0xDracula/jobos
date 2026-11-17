@@ -1,6 +1,6 @@
 export const hotspotElements = new Map<string, HTMLElement>();
 
-export const roomView = { reveal: (id: string) => void id };
+export const roomView = { reveal: (id: string) => void id, revealDecoration: (id: string) => void id };
 
 export function placeHotspots(anchor: (id: string) => { x: number; y: number } | null) {
   for (const [id, el] of hotspotElements) {

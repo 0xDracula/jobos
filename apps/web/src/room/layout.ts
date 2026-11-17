@@ -24,14 +24,29 @@ export const DECORATIONS: Decoration[] = [
   { id: "bunting", label: "Bunting", zone: "roof", sprites: ["bunting"], unlock: "bunting", home: { x: 236, y: 130, flip: false } },
   { id: "bean_bag", label: "Bean bag", zone: "roof", sprites: ["bean_bag"], unlock: "bean_bag", home: { x: 290, y: 168, flip: false } },
   { id: "disco_ball", label: "Disco ball", zone: "roof", sprites: ["disco_ball"], unlock: "disco_ball", home: { x: 200, y: 166, flip: false } },
+  { id: "anniversary_cake", label: "Cake", zone: "roof", sprites: ["anniversary_cake"], unlock: "anniversary_cake", home: { x: 296, y: 154, flip: false } },
+  { id: "photo_garland", label: "Photo garland", zone: "inside", sprites: ["photo_garland"], unlock: "photo_garland", home: { x: 32, y: 130, flip: false } },
+  { id: "star_lantern", label: "Star lantern", zone: "roof", sprites: ["star_lantern"], unlock: "star_lantern", home: { x: 262, y: 130, flip: false } },
+  { id: "rose_bouquet", label: "Rose bouquet", zone: "inside", sprites: ["rose_bouquet"], unlock: "rose_bouquet", home: { x: 146, y: 168, flip: false } },
 ];
+
+export const HANGING_DECORATIONS = new Set(["hanging_plant", "photo_garland", "star_lantern", "bunting"]);
 
 export type ItemChange = { x?: number; y?: number; flip?: boolean; hidden?: boolean; variant?: number };
 
+export const ROOMS = ["rooftop", "cafe", "beach", "cabin"] as const;
+export type RoomChoice = (typeof ROOMS)[number];
+
+export const ACCENT_AUTO = "auto";
+export const DEFAULT_ACCENT = "#e88fa3";
+
 export type RoomLayout = {
+  room: RoomChoice;
   look: { wall: string; floor: string; accent: string };
   items: Record<string, ItemChange>;
 };
+
+export const resolveAccent = (accent: string, favorite: string | null | undefined) => (accent === ACCENT_AUTO ? (favorite ?? DEFAULT_ACCENT) : accent);
 
 export const WALL_STYLES = ["slate", "mint", "butter", "rose", "linen", "oak", "walnut", "cherry"] as const;
 export const FLOOR_STYLES = ["walnut", "oak", "cherry", "parquet", "tiles", "aqua", "brick"] as const;
@@ -53,22 +68,24 @@ export const STYLE_LABELS: Record<string, string> = {
 };
 
 export const DEFAULT_LAYOUT: RoomLayout = {
-  look: { wall: "slate", floor: "walnut", accent: ACCENT_COLORS[0] },
+  room: "rooftop",
+  look: { wall: "slate", floor: "walnut", accent: ACCENT_AUTO },
   items: {},
 };
 
 const HEX = /^#[0-9a-f]{6}$/i;
 
 export function parseLayout(raw: unknown): RoomLayout {
-  const out: RoomLayout = { look: { ...DEFAULT_LAYOUT.look }, items: {} };
+  const out: RoomLayout = { room: DEFAULT_LAYOUT.room, look: { ...DEFAULT_LAYOUT.look }, items: {} };
   if (!raw || typeof raw !== "object") return out;
-  const r = raw as { look?: Record<string, unknown>; items?: Record<string, unknown> };
+  const r = raw as { room?: unknown; look?: Record<string, unknown>; items?: Record<string, unknown> };
+  if (typeof r.room === "string" && (ROOMS as readonly string[]).includes(r.room)) out.room = r.room as RoomChoice;
   const wall = r.look?.wall;
   if (typeof wall === "string" && (WALL_STYLES as readonly string[]).includes(wall)) out.look.wall = wall;
   const floor = r.look?.floor;
   if (typeof floor === "string" && (FLOOR_STYLES as readonly string[]).includes(floor)) out.look.floor = floor;
   const accent = r.look?.accent;
-  if (typeof accent === "string" && HEX.test(accent)) out.look.accent = accent;
+  if (typeof accent === "string" && (HEX.test(accent) || accent === ACCENT_AUTO)) out.look.accent = accent;
   for (const d of DECORATIONS) {
     const c = r.items?.[d.id] as ItemChange | undefined;
     if (!c || typeof c !== "object") continue;

@@ -22,11 +22,16 @@ const ruqaa = Aref_Ruqaa({ subsets: ["arabic"], weight: ["400", "700"], variable
 
 const SPLASH: [number, number, number][] = [
   [375, 667, 2],
+  [414, 896, 2],
+  [375, 812, 3],
+  [414, 896, 3],
   [390, 844, 3],
   [393, 852, 3],
-  [414, 896, 2],
+  [402, 874, 3],
+  [420, 912, 3],
   [428, 926, 3],
   [430, 932, 3],
+  [440, 956, 3],
 ];
 
 export const metadata: Metadata = {
@@ -42,7 +47,7 @@ export const metadata: Metadata = {
     title: "Jobbos",
     statusBarStyle: "default",
     startupImage: SPLASH.map(([w, h, r]) => ({
-      url: `/splash/splash-${w * r}x${h * r}.png`,
+      url: `/icons/splash-${w * r}x${h * r}.png`,
       media: `(device-width: ${w}px) and (device-height: ${h}px) and (-webkit-device-pixel-ratio: ${r}) and (orientation: portrait)`,
     })),
   },
