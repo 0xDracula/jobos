@@ -1,6 +1,6 @@
 "use client";
 
-import { Command, House, Library, MessageCircleHeart, Search, Settings, Shield, WifiOff } from "lucide-react";
+import { House, Library, MessageCircleHeart, Search, Settings, Shield, WifiOff } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -18,7 +18,6 @@ import { startTogetherState } from "@/lib/together";
 import { startRadioWatch } from "@/player/radio";
 import { startTogetherSync } from "@/player/together";
 import { dismiss, useToasts } from "@/lib/toast";
-import { usePalette } from "@/player/shortcuts";
 import { usePlayer } from "@/player/store";
 
 import { CommandPalette } from "./CommandPalette";
@@ -78,15 +77,6 @@ function Sidebar() {
           {label}
         </Link>
       ))}
-      <button
-        type="button"
-        onClick={() => usePalette.setState({ open: true })}
-        className="flex min-h-11 items-center gap-3 rounded-button px-3 font-bold text-ink hover:bg-accent-soft/40"
-      >
-        <Command className="size-5" />
-        Commands
-        <kbd className="ms-auto rounded-md border border-line px-1.5 text-xs text-muted">Ctrl K</kbd>
-      </button>
       <h2 className="mt-6 px-3 pb-1 text-xs font-extrabold uppercase tracking-wider text-muted">Playlists</h2>
       <div className="no-scrollbar -mx-1 min-h-0 flex-1 overflow-y-auto px-1">
         {playlists.data?.map((p) => (

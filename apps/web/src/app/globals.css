@@ -162,20 +162,24 @@ body {
   line-height: 1.7;
 }
 
-.glass {
-  background: var(--surface);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
-  backdrop-filter: blur(20px) saturate(140%);
-  border: 1px solid var(--glass-border);
+@layer components {
+  .glass {
+    background: var(--surface);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    backdrop-filter: blur(20px) saturate(140%);
+    border: 1px solid var(--glass-border);
+  }
 }
 
 .tabular {
   font-variant-numeric: tabular-nums;
 }
 
-:focus-visible {
-  outline: 3px solid var(--accent);
-  outline-offset: 2px;
+@layer base {
+  :focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+  }
 }
 
 ::selection {
