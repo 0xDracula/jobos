@@ -308,21 +308,28 @@ export function recolorBooks(src: HTMLCanvasElement, colors: string[]): HTMLCanv
   if (!colors.length) return c;
   const img = g.getImageData(0, 0, c.width, c.height);
   const d = img.data;
-  for (let y = Math.floor(src.height * 0.55); y < Math.floor(src.height * 0.82); y++) {
+  const hexAt = (o: number) => "#" + [d[o], d[o + 1], d[o + 2]].map((v) => v.toString(16).padStart(2, "0")).join("");
+  const y0 = Math.floor(src.height * 0.55);
+  const y1 = Math.floor(src.height * 0.78);
+  const frame = new Set<string>();
+  for (let y = 0; y < c.height; y++) {
+    if (y >= y0 && y < y1) continue;
     for (let x = 0; x < c.width; x++) {
       const o = (y * c.width + x) * 4;
-      if (d[o + 3] < 200) continue;
-      const [r, gg, b] = [d[o], d[o + 1], d[o + 2]];
-      const max = Math.max(r, gg, b);
-      const min = Math.min(r, gg, b);
-      const wood = r > gg && gg > b && r - b > 50 && r - b < 140 && max > 150;
-      if (max - min < 40 || wood) continue;
-      const col = colors[Math.floor(x / 4) % colors.length];
-      const n = parseInt(col.slice(1), 16);
-      const shade = (r + gg + b) / 3 / 160;
-      d[o] = Math.min(255, ((n >> 16) & 255) * shade);
-      d[o + 1] = Math.min(255, ((n >> 8) & 255) * shade);
-      d[o + 2] = Math.min(255, (n & 255) * shade);
+      if (d[o + 3] >= 200) frame.add(hexAt(o));
+    }
+  }
+  for (let y = y0; y < y1; y++) {
+    for (let x = 0; x < c.width; x++) {
+      const o = (y * c.width + x) * 4;
+      if (d[o + 3] < 200 || frame.has(hexAt(o))) continue;
+      const col = colors[Math.floor(x / 2) % colors.length];
+      const lum = (d[o] * 0.3 + d[o + 1] * 0.59 + d[o + 2] * 0.11) / 255;
+      const out = lum > 0.55 ? lighten(col, Math.min(0.6, (lum - 0.55) * 1.4)) : darken(col, Math.min(0.5, (0.55 - lum) * 0.9));
+      const n = parseInt(out.slice(1), 16);
+      d[o] = (n >> 16) & 255;
+      d[o + 1] = (n >> 8) & 255;
+      d[o + 2] = n & 255;
     }
   }
   g.putImageData(img, 0, 0);

@@ -54,8 +54,8 @@ export const AVATARS = {
   me: { x: 96, y: 164 },
   other: { x: 176, y: 160 },
   together: [
-    { x: 11, y: 152 },
-    { x: 29, y: 152 },
+    { x: 12, y: 158 },
+    { x: 29, y: 158 },
   ],
 };
 

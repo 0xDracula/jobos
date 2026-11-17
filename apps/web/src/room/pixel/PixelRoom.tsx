@@ -25,7 +25,7 @@ export type PixelRoomProps = Omit<RoomInput, "highlight" | "selected"> & {
 
 const FRAME_MS = 1000 / 12;
 
-export const roomStats = { frames: 0 };
+export const roomStats = { frames: 0, light: "" };
 
 export default function PixelRoom(p: PixelRoomProps) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -72,6 +72,10 @@ export default function PixelRoom(p: PixelRoomProps) {
         playing: beat.playing,
       });
       roomStats.frames++;
+      if (process.env.NODE_ENV === "development") {
+        const l = r.lightNow();
+        roomStats.light = `${l.color} ${l.level.toFixed(2)} ${l.spread.toFixed(2)}`;
+      }
       placeHotspots((id) => r.anchor(id));
       syncSides.current();
     };

@@ -410,7 +410,7 @@ export class PixelRenderer {
   }
 
   private put(g: CanvasRenderingContext2D, s: HTMLCanvasElement | string | undefined, x: number, y: number, flip = false) {
-    this.kit.put(g, s, x, y, flip);
+    this.kit.put(g, typeof s === "string" ? this.sprite(s) : s, x, y, flip);
   }
 
   private wireY(x: number) {
@@ -567,7 +567,7 @@ export class PixelRenderer {
     if (input.holiday.includes("balloons")) on(this.sprite("balloons"), 232, 152, 152);
     if (input.milestoneDay) {
       on(this.sprite("balloons_pink"), 88, 134, 151);
-      on(this.sprite("balloons"), 293, 114, 120);
+      on(this.sprite("balloons"), 240, 128, 128);
     }
     items.sort((a, b) => a.bottom - b.bottom);
     for (const it of items) it.draw(g);
@@ -878,6 +878,10 @@ export class PixelRenderer {
     if (key === this.light.key) return;
     const now = this.currentLight(t);
     this.light = { from: still ? target : now, to: target, start: t, key };
+  }
+
+  lightNow(): RoomLight {
+    return this.currentLight(this.last);
   }
 
   private currentLight(t: number): RoomLight {
