@@ -401,6 +401,21 @@ export function setAmbientLevels(levels: Record<string, number>) {
   startAmbient(levels);
 }
 
+let beforeSleep: { on: boolean } | null = null;
+
+export function startSleepAmbient(levels: Record<string, number>) {
+  beforeSleep ??= { on: useAmbient.getState().on };
+  startAmbient(levels);
+}
+
+export function endSleepAmbient() {
+  const before = beforeSleep;
+  beforeSleep = null;
+  if (!before) return;
+  if (before.on) startAmbient();
+  else stopAmbient();
+}
+
 function watchSleep() {
   setInterval(() => {
     const s = usePlayer.getState();
@@ -411,6 +426,10 @@ function watchSleep() {
     if (left < 60) master.gain.setTargetAtTime(Math.max(0, left / 60), ctx.currentTime, 0.3);
   }, 1000);
   usePlayer.subscribe((s, prev) => {
-    if (prev.sleep && !s.sleep && !s.playing) stopAmbient(3);
+    if (!prev.sleep || s.sleep) return;
+    if (!s.playing) {
+      beforeSleep = null;
+      stopAmbient(3);
+    } else endSleepAmbient();
   });
 }

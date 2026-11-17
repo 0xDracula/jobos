@@ -2,6 +2,7 @@
 
 import { Moon } from "lucide-react";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { Button } from "@/components/ui";
 import { fmtTime } from "@/lib/format";
@@ -32,7 +33,7 @@ export function SleepOverlay() {
     stopAmbient();
     useRoom.setState({ sleepMode: false });
   };
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -46,11 +47,15 @@ export function SleepOverlay() {
           <Button variant="ghost" className="text-[#b9aec6] hover:bg-white/10" onClick={() => useRoom.setState({ sleepMode: false })}>
             Room
           </Button>
+          <Button variant="ghost" className="text-[#b9aec6] hover:bg-white/10" onClick={() => useRoom.setState({ sheet: "sleep" })}>
+            Settings
+          </Button>
           <Button variant="ghost" className="text-[#b9aec6] hover:bg-white/10" onClick={stop}>
             Stop
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

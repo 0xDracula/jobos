@@ -1,6 +1,7 @@
 import { QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api, ApiError } from "./api";
+import { uiSound } from "./sounds";
 import { toast } from "./toast";
 import type { Playlist, Track } from "./types";
 
@@ -82,6 +83,7 @@ export const likedSnapshot = (): ReadonlySet<string> =>
   queryClient.getQueryData<ReadonlySet<string>>(keys.likedIds) ?? EMPTY_SET;
 
 export async function setLiked(id: string, on: boolean): Promise<void> {
+  if (on) uiSound("pop");
   await queryClient.cancelQueries({ queryKey: keys.likedIds });
   const prev = queryClient.getQueryData<ReadonlySet<string>>(keys.likedIds);
   const next = new Set(prev);

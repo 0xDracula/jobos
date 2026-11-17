@@ -173,5 +173,5 @@ export function startTogetherSync(meId: string) {
     const prevKey = prev.queue[prev.index]?.uid;
     if (prevKey && prevKey === room.queue[room.index]?.key) command("skip", { key: prevKey });
   });
-  void queryClient.fetchQuery({ queryKey: togetherKey, queryFn: fetchTogether }).then(apply, () => undefined);
+  void queryClient.query({ queryKey: togetherKey, queryFn: fetchTogether }).then(apply, () => undefined);
 }

@@ -42,6 +42,7 @@ export type Prefs = {
   uiSounds: boolean;
   sleepPlaylist: string | null;
   sleepMinutes: number;
+  sleepAmbient: string | null;
   weekendPlaylist: string | null;
   ambient: Record<string, number>;
   volume: number;
@@ -61,6 +62,7 @@ export const DEFAULT_PREFS: Prefs = {
   uiSounds: false,
   sleepPlaylist: null,
   sleepMinutes: 30,
+  sleepAmbient: null,
   weekendPlaylist: null,
   ambient: {},
   volume: 1,

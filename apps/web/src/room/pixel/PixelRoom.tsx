@@ -3,7 +3,7 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-import { beat, tickBeat } from "../beat";
+import { beat, BEAT_HOLD_MS, tickBeat } from "../beat";
 import { placeHotspots, roomView } from "../hotspots";
 import { useRoom } from "../state";
 import { Kit } from "./kit";
@@ -30,6 +30,8 @@ export const roomStats = {
   paintMs: 0,
   light: "",
   pulse: 0,
+  onBeat: false,
+  room: "",
   probe: (x: number, y: number): [number, number, number] | null => (void x, void y, null),
 };
 
@@ -39,6 +41,7 @@ export default function PixelRoom(p: PixelRoomProps) {
   const props = useRef(p);
   props.current = p;
   const draw = useRef<() => void>(() => {});
+  const [loaded, setLoaded] = useState(false);
   const [sides, setSides] = useState({ room: false, roof: false });
   const syncSides = useRef(() => {});
   syncSides.current = () => {
@@ -77,6 +80,7 @@ export default function PixelRoom(p: PixelRoomProps) {
         pets: s.pets,
         pulse: beat.pulse,
         playing: beat.playing,
+        onBeat: beat.since < BEAT_HOLD_MS,
       });
       placeHotspots((id) => r.anchor(id));
       syncSides.current();
@@ -86,6 +90,8 @@ export default function PixelRoom(p: PixelRoomProps) {
         roomStats.light = `${l.color} ${l.level.toFixed(2)} ${l.spread.toFixed(2)}`;
         roomStats.paintMs += (performance.now() - began - roomStats.paintMs) * 0.1;
         roomStats.pulse = beat.pulse;
+        roomStats.onBeat = beat.since < BEAT_HOLD_MS;
+        roomStats.room = r.roomId;
         roomStats.probe = (x, y) => r.pixelAt(x, y);
       }
     };
@@ -119,6 +125,7 @@ export default function PixelRoom(p: PixelRoomProps) {
       renderer.current.resize(el.clientWidth, el.clientHeight, window.devicePixelRatio || 1, props.current.inset);
       paint(performance.now());
       props.current.onReady?.();
+      setLoaded(true);
       raf = requestAnimationFrame(loop);
     });
     return () => {
@@ -133,7 +140,7 @@ export default function PixelRoom(p: PixelRoomProps) {
   useEffect(() => {
     let dead = false;
     const r = renderer.current;
-    if (!r || r.roomId === p.room) return;
+    if (!loaded || !r || r.roomId === p.room) return;
     void loadRoomArt(p.room).then((art) => {
       if (dead || !renderer.current) return;
       renderer.current.setArt(art);
@@ -142,7 +149,7 @@ export default function PixelRoom(p: PixelRoomProps) {
     return () => {
       dead = true;
     };
-  }, [p.room]);
+  }, [p.room, loaded]);
 
   useEffect(() => {
     const r = renderer.current;

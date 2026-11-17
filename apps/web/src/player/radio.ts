@@ -41,17 +41,19 @@ async function batch(exclude: string[], recent: string[]): Promise<Track[]> {
   return r.tracks;
 }
 
-export async function startRadio(seed: RadioSeed) {
+export async function startRadio(seed: RadioSeed): Promise<boolean> {
   session = { seed, key: crypto.randomUUID(), skipped: new Set(), fetching: true, lastFetch: Date.now(), exhausted: false };
   try {
     const tracks = await batch(seed.type === "track" && seed.id ? [seed.id] : [], []);
     if (!tracks.length) {
       toast("Nothing to play");
-      return;
+      return false;
     }
     playTracks(tracks, 0, { type: "queue", id: RADIO_ID, name: `Radio · ${seed.name}` });
+    return usePlayer.getState().context?.id === RADIO_ID;
   } catch {
     toast("Radio unavailable");
+    return false;
   } finally {
     if (session) session.fetching = false;
   }

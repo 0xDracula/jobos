@@ -8,15 +8,15 @@ import { Dialog } from "@/components/dialogs";
 import { Button, Chip, IconButton, inputClass, Slider } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { usePrefs } from "@/lib/prefs";
-import { useLikes, usePlaylist, usePlaylists } from "@/lib/queries";
-import type { City, Track, Weather } from "@/lib/types";
-import { playTracks, setSleep } from "@/player/controls";
+import { usePlaylists } from "@/lib/queries";
+import type { City, Weather } from "@/lib/types";
 
 import { AMBIENT_SOUNDS, setAmbientLevel, setAmbientLevels, startAmbient, stopAmbient, useAmbient, type AmbientId } from "../ambient";
 import { METRIC_LABELS, PLANT_STAGES, plantStage, progressOf, type MilestoneDay, type Stats, type Unlockable } from "../calendar";
 import { saveAmbientMixes, useAmbientMixes, useHiddenNotes } from "../data";
 import { moonPhaseName, PHASE_LABELS, skyAt, type SkyState } from "../sky";
 import { roomNow } from "../clock";
+import { startSleepMode } from "../sleep";
 import { useRoom } from "../state";
 import { localTime, WEATHER_LABELS } from "./RoomView";
 
@@ -211,32 +211,22 @@ function NotesSheet() {
 
 const SLEEP_MINUTES = [15, 30, 45, 60];
 
+const CALM_MIX = "calm";
+
 function SleepSheet() {
   const prefs = usePrefs();
   const playlists = usePlaylists();
-  const chosen = usePlaylist(prefs.sleepPlaylist && prefs.sleepPlaylist !== "likes" ? prefs.sleepPlaylist : null);
-  const likes = useLikes("added");
-  const [ambient, setAmbient] = useState<AmbientId | "">("");
-  const source: Track[] | undefined = prefs.sleepPlaylist === "likes" ? likes.data : chosen.data?.tracks;
-  const start = () => {
-    if (!source?.length) return;
-    const name = prefs.sleepPlaylist === "likes" ? "Likes" : (chosen.data?.name ?? "Sleep");
-    playTracks(source, -1, { type: "playlist", id: chosen.data?.id, name }, { shuffle: true });
-    setSleep({ mode: "time", minutes: prefs.sleepMinutes, endsAt: Date.now() + prefs.sleepMinutes * 60_000 });
-    if (ambient) setAmbientLevels({ [ambient]: 0.5 });
-    useRoom.setState({ sheet: null, sleepMode: true });
-  };
   return (
     <div className="grid gap-5">
       <section className="grid gap-2">
         <h3 className="font-display text-lg font-semibold">Music</h3>
         <select
-          aria-label="Sleep playlist"
+          aria-label="Sleep music"
           className={inputClass}
-          value={prefs.sleepPlaylist ?? ""}
-          onChange={(e) => prefs.set({ sleepPlaylist: e.target.value || null })}
+          value={prefs.sleepPlaylist ?? CALM_MIX}
+          onChange={(e) => prefs.set({ sleepPlaylist: e.target.value === CALM_MIX ? null : e.target.value })}
         >
-          <option value="">Choose a playlist</option>
+          <option value={CALM_MIX}>Calm mix</option>
           <option value="likes">Likes</option>
           {playlists.data?.map((p) => (
             <option key={p.id} value={p.id}>
@@ -258,17 +248,17 @@ function SleepSheet() {
       <section className="grid gap-2">
         <h3 className="font-display text-lg font-semibold">Ambient sound</h3>
         <div className="flex flex-wrap gap-2">
-          <Chip selected={!ambient} onClick={() => setAmbient("")}>
+          <Chip selected={!prefs.sleepAmbient} onClick={() => prefs.set({ sleepAmbient: null })}>
             Off
           </Chip>
           {AMBIENT_SOUNDS.map((s) => (
-            <Chip key={s.id} selected={ambient === s.id} onClick={() => setAmbient(s.id)}>
+            <Chip key={s.id} selected={prefs.sleepAmbient === s.id} onClick={() => prefs.set({ sleepAmbient: s.id })}>
               {s.label}
             </Chip>
           ))}
         </div>
       </section>
-      <Button variant="primary" disabled={!source?.length} onClick={start}>
+      <Button variant="primary" onClick={() => void startSleepMode()}>
         Start sleep mode
       </Button>
     </div>

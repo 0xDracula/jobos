@@ -35,6 +35,7 @@ import { moodLight, NEUTRAL_LIGHT } from "../light";
 import type { KittenPose } from "../pixel/renderer";
 import { OBJECT_LABELS, ROOM_LABELS, type RoomId } from "../pixel/rooms/types";
 import { fallbackPlace, skyAt } from "../sky";
+import { startSleepMode } from "../sleep";
 import { openSheet, useRoom } from "../state";
 import { EditPanel } from "./EditPanel";
 import { LoadingKitten } from "./LoadingKitten";
@@ -279,15 +280,6 @@ export function RoomView() {
     };
   }, []);
 
-  useEffect(
-    () =>
-      usePlayer.subscribe((s, prev) => {
-        if (s.playing && !prev.playing) setTimeout(() => uiSound("needle"), reducedMotion ? 0 : 450);
-        if (!s.playing && prev.playing && s.index >= 0) uiSound("lift");
-      }),
-    [reducedMotion],
-  );
-
   const unlockables: Unlockable[] = config.data?.unlockables ?? UNLOCKABLES;
   const milestones = useMemo(() => config.data?.milestones ?? [], [config.data]);
   const hours = (stats.data?.listening_seconds ?? 0) / 3600;
@@ -477,7 +469,7 @@ export function RoomView() {
     { id: "telephone", label: "Chat", action: () => router.push("/chat/") },
     { id: "window", label: "Discover", action: () => router.push("/discover/") },
     { id: "lamp", label: "Lamp", opens: otherUser ? "Shared lamp" : undefined, action: () => void toggleLamp() },
-    { id: "bed", label: names.bed ?? "Bed", opens: "Sleep mode", action: () => openSheet("sleep") },
+    { id: "bed", label: names.bed ?? "Bed", opens: "Sleep mode", action: () => void startSleepMode() },
     { id: "tea", label: "Listen together", action: () => router.push("/together/") },
     {
       id: "kitten",
@@ -600,7 +592,7 @@ export function RoomView() {
               <MenuItem onSelect={() => openSheet("ambient")}>Ambient sounds</MenuItem>
               <MenuItem onSelect={() => openSheet("growth")}>Growth</MenuItem>
               <MenuItem onSelect={() => openSheet("notes")}>Found notes</MenuItem>
-              <MenuItem onSelect={() => openSheet("sleep")}>Sleep mode</MenuItem>
+              <MenuItem onSelect={() => void startSleepMode()}>Sleep mode</MenuItem>
               {weekend && playlistChip(weekendList.data, "Weekend playlist")}
               {holidayNow.length > 0 && playlistChip(holidayList.data, `${holidayNow[0].name} playlist`)}
             </MenuContent>

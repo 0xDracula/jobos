@@ -88,7 +88,13 @@ export type RoomInput = {
   reducedMotion: boolean;
 };
 
-export type FrameInput = { awake: boolean; pets: number; pulse: number; playing: number };
+export type FrameInput = {
+  awake: boolean;
+  pets: number;
+  pulse: number;
+  playing: number;
+  onBeat: boolean;
+};
 
 type Cache = { key: string; canvas: HTMLCanvasElement };
 
@@ -985,7 +991,7 @@ export class PixelRenderer {
         }
       }
       const base = S.KITTEN.awake;
-      const bob = f.pulse > 0.5 && !still ? 1 : 0;
+      const bob = f.onBeat && !still ? 1 : 0;
       if (kind === "stretch") {
         s = k01 < 0.18 || k01 > 0.82 ? k.stand : k.stretch;
         x = base.x - 3;
@@ -1019,7 +1025,7 @@ export class PixelRenderer {
       const listening = a.pose === "listening";
       const list = listening ? a.frames.standPhones : a.frames.stand;
       const s = list[frameAt(offset)] ?? list[0];
-      const nod = listening && f.pulse > 0.5 && !still ? 1 : 0;
+      const nod = listening && f.onBeat && !still ? 1 : 0;
       g.drawImage(s, x - this.cam.x, feet - 32 + nod - this.cam.y);
       this.avatarPos.set(a.id, { x, y: feet - 24, w: 16, h: 24 });
     };

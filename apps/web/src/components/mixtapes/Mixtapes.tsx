@@ -21,6 +21,7 @@ import { giftKeys, useMixtapes, type MixtapeSummary } from "@/lib/gift";
 import { keepsakeApi, useMixtape, type Mixtape, type MixtapeInput } from "@/lib/keepsakes";
 import { queryClient } from "@/lib/queries";
 import { useMe, useMembers } from "@/lib/session";
+import { uiSound } from "@/lib/sounds";
 import { toast } from "@/lib/toast";
 import type { Track } from "@/lib/types";
 import { playTracks } from "@/player/controls";
@@ -152,6 +153,7 @@ function Unwrap({ m, onOpen }: { m: Mixtape; onOpen: () => void }) {
   const [opening, setOpening] = useState(false);
   const open = async () => {
     setOpening(true);
+    uiSound("paper");
     try {
       await keepsakeApi.openMixtape(m.id);
       void queryClient.invalidateQueries({ queryKey: giftKeys.mixtapes });

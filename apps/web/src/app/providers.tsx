@@ -14,6 +14,7 @@ import { startPrefetch } from "@/player/prefetch";
 import { restoreLocal, startResume } from "@/player/resume";
 import { startMediaSession } from "@/player/session";
 import { startShortcuts } from "@/player/shortcuts";
+import { startPlayerSounds } from "@/player/sounds";
 
 export function Providers({ children }: { children: ReactNode }) {
   const theme = usePrefs((p) => p.theme);
@@ -23,7 +24,7 @@ export function Providers({ children }: { children: ReactNode }) {
     void usePrefs.persist.rehydrate();
     initOffline();
     getEngine();
-    const stops = [startMediaSession(), startResume(), startPrefetch(), startShortcuts(), startInstall()];
+    const stops = [startMediaSession(), startResume(), startPrefetch(), startShortcuts(), startInstall(), startPlayerSounds()];
     restoreLocal();
     void prefetchHidden();
     deviceId().catch(() => {});
