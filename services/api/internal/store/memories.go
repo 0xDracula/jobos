@@ -302,7 +302,8 @@ func pruneLoosePhotos(ctx context.Context, q querier, ids []uuid.UUID) error {
 		and not exists (select 1 from places x where x.photo_id = p.id)
 		and not exists (select 1 from glossary_entries g where g.photo_id = p.id)
 		and not exists (select 1 from story_chapter_photos c where c.photo_id = p.id)
-		and not exists (select 1 from photo_albums a where a.cover_photo_id = p.id)`, ids)
+		and not exists (select 1 from photo_albums a where a.cover_photo_id = p.id)
+		and not exists (select 1 from chat_messages c where c.kind = 'photo' and c.data->>'photo_id' = p.id::text)`, ids)
 	return err
 }
 

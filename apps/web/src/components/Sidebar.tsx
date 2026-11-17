@@ -7,6 +7,7 @@ import { useMemo } from "react";
 
 import { Avatar } from "@/avatar";
 import { cn } from "@/lib/cn";
+import { useProfile } from "@/lib/profiles";
 import { usePlaylists } from "@/lib/queries";
 import { openSessions, sessionTitle, sessionWhen, useSessions } from "@/lib/sessions";
 import { useIsAdmin, useMe, useMembers } from "@/lib/session";
@@ -14,6 +15,7 @@ import { usePresence } from "@/lib/social";
 import { useTogether } from "@/lib/together";
 
 import { Cover } from "./media";
+import { MoodChip } from "./profile/Mood";
 import { PixelIcon, type PixelIconName } from "./pixel/PixelIcon";
 import { SkyScene, seedOf } from "./sky/PageHero";
 
@@ -76,6 +78,7 @@ function PersonCard() {
   const presence = usePresence().data;
   const admin = useIsAdmin();
   const other = members?.find((u) => u.id !== me?.id);
+  const profile = useProfile(other?.id);
   if (!other) {
     return admin ? (
       <Link href="/admin/#people" className={card}>
@@ -105,6 +108,7 @@ function PersonCard() {
           {status}
           {p?.quiet ? " · Quiet" : ""}
         </span>
+        {profile?.mood && <MoodChip mood={profile.mood} className="mt-0.5 text-xs font-bold" />}
       </span>
     </Link>
   );

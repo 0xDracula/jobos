@@ -12,6 +12,8 @@ type Config struct {
 	ListenAddr                 string
 	MediaServiceURL            string
 	MediaRoot                  string
+	BackupDir                  string
+	BackupScript               string
 	MigrationsDir              string
 	WorkerToken                string
 	DevUI                      bool
@@ -34,6 +36,8 @@ func Load() (Config, error) {
 		ListenAddr:        getenv("LISTEN_ADDR", "127.0.0.1:8080"),
 		MediaServiceURL:   getenv("MEDIA_SERVICE_URL", "http://127.0.0.1:8001"),
 		MediaRoot:         os.Getenv("MEDIA_ROOT"),
+		BackupDir:         os.Getenv("BACKUP_DIR"),
+		BackupScript:      os.Getenv("BACKUP_SCRIPT"),
 		MigrationsDir:     os.Getenv("MIGRATIONS_DIR"),
 		WorkerToken:       os.Getenv("WORKER_TOKEN"),
 		DevUI:             os.Getenv("DEV_UI") == "1",

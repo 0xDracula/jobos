@@ -9,9 +9,9 @@ import { toast } from "@/lib/toast";
 import { Dialog } from "../dialogs";
 import { Button, IconButton } from "../ui";
 
-export function Panel({ title, action, children, className }: { title: string; action?: ReactNode; children: ReactNode; className?: string }) {
+export function Panel({ title, action, children, className, id }: { title: string; action?: ReactNode; children: ReactNode; className?: string; id?: string }) {
   return (
-    <section className={cn("mb-8", className)}>
+    <section id={id} className={cn("mb-8 scroll-mt-6", className)}>
       <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
         <h2 className="font-display text-xl font-semibold">{title}</h2>
         {action}

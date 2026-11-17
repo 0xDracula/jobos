@@ -41,7 +41,10 @@ export type MediaStatus = {
   [k: string]: unknown;
 };
 
+export type BackupStatus = { at: string; ok: boolean; message: string };
+
 export type AdminStatus = {
+  backup?: BackupStatus | null;
   media: MediaStatus | null;
   workers: Record<string, { last_claim_at: string; downloads_paused_until?: string }>;
   store: {

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -152,6 +153,7 @@ func run(log *slog.Logger) error {
 		for {
 			httpapi.SendCalendarReminders(ctx, deps, time.Now())
 			httpapi.SendSessionReminders(ctx, deps, time.Now())
+			httpapi.SendSwapReveal(ctx, deps, time.Now())
 			select {
 			case <-ctx.Done():
 				return
@@ -159,6 +161,24 @@ func run(log *slog.Logger) error {
 			}
 		}
 	}()
+	if cfg.BackupDir != "" {
+		script := cfg.BackupScript
+		if script == "" {
+			script = filepath.Join(filepath.Dir(filepath.Dir(cfg.MigrationsDir)), "tools", "backup.sh")
+		}
+		go func() {
+			tick := time.NewTicker(10 * time.Minute)
+			defer tick.Stop()
+			for {
+				httpapi.RunBackupNightly(ctx, deps, script, cfg.BackupDir, time.Now())
+				select {
+				case <-ctx.Done():
+					return
+				case <-tick.C:
+				}
+			}
+		}()
+	}
 	go func() {
 		<-ctx.Done()
 		shutdown, cancel := context.WithTimeout(context.Background(), 10*time.Second)

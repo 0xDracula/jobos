@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Play } from "lucide-react";
+import { Play, Send } from "lucide-react";
 import { useState } from "react";
 
 import { Artwork } from "@/components/media";
@@ -17,21 +17,84 @@ import { playTracks } from "@/player/controls";
 
 import { Dialog } from "./dialogs";
 
-function PickRow({ s, label }: { s: Swap; label: string }) {
+const REACTIONS = ["❤️", "😍", "😂", "🥹", "🔥", "🎧"];
+
+function Respond({ s }: { s: Swap }) {
+  const [reply, setReply] = useState("");
+  const react = async (emoji: string) => {
+    try {
+      await socialApi.reactSwap(s.week, s.user_id, emoji === s.reaction ? "" : emoji);
+      void queryClient.invalidateQueries({ queryKey: socialKeys.swaps });
+    } catch {
+      toast("Reaction not saved");
+    }
+  };
+  const send = async () => {
+    const body = reply.trim();
+    if (!body) return;
+    try {
+      await socialApi.replySwap(s.week, s.user_id, body);
+      setReply("");
+      toast("Reply sent to chat");
+    } catch {
+      toast("Reply not sent");
+    }
+  };
   return (
-    <div className="flex items-center gap-3 rounded-card bg-surface p-2">
+    <div className="grid gap-2 px-1 pb-1">
+      <div className="flex flex-wrap gap-1">
+        {REACTIONS.map((e) => (
+          <button
+            key={e}
+            type="button"
+            aria-label={`React ${e}`}
+            aria-pressed={s.reaction === e}
+            onClick={() => void react(e)}
+            className={`grid size-9 place-items-center rounded-full text-lg hover:bg-accent-soft/60 ${s.reaction === e ? "bg-accent-soft" : ""}`}
+          >
+            {e}
+          </button>
+        ))}
+      </div>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          void send();
+        }}
+        className="flex items-center gap-2"
+      >
+        <input dir="auto" value={reply} maxLength={1000} onChange={(e) => setReply(e.target.value)} placeholder="Reply" aria-label="Reply" className={inputClass} />
+        <IconButton label="Send reply" type="submit" disabled={!reply.trim()}>
+          <Send />
+        </IconButton>
+      </form>
+    </div>
+  );
+}
+
+function PickRow({ s, label, respond, reactedBy }: { s: Swap; label: string; respond?: boolean; reactedBy?: string }) {
+  return (
+    <div className="grid gap-2 rounded-card bg-surface p-2">
+    <div className="flex items-center gap-3">
       {s.track ? <Artwork src={s.track.artwork_thumb_url ?? s.track.artwork_url} className="size-12 shrink-0 rounded-[10px]" /> : <div className="size-12 shrink-0 rounded-[10px] bg-accent-soft" />}
       <div className="min-w-0 flex-1">
         <p className="text-xs font-extrabold uppercase tracking-wide text-muted">{label}</p>
         <p dir="auto" className="truncate font-bold">{s.track ? s.track.title : "Picked"}</p>
         {s.track && <p dir="auto" className="truncate text-sm text-muted">{s.track.artists.join(", ")}</p>}
         {s.note && <p dir="auto" className="mt-1 text-sm">{s.note}</p>}
+        {s.reaction && reactedBy && (
+          <p className="mt-1 text-sm font-bold text-muted">
+            {s.reaction} {reactedBy}
+          </p>
+        )}
       </div>
       {s.track && (
         <IconButton label={`Play ${s.track.title}`} onClick={() => playTracks([s.track as Track], 0, { type: "queue", name: "Song swap" })}>
           <Play />
         </IconButton>
       )}
+    </div>
+    {respond && s.track && <Respond s={s} />}
     </div>
   );
 }
@@ -66,6 +129,7 @@ export function SwapSheet({ open, onOpenChange }: { open: boolean; onOpenChange:
 
   const weeks = new Map<string, Swap[]>();
   for (const s of swaps.data?.history ?? []) weeks.set(s.week, [...(weeks.get(s.week) ?? []), s]);
+  const latestWeek = [...weeks.keys()][0];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange} title="Song swap" wide>
@@ -117,7 +181,13 @@ export function SwapSheet({ open, onOpenChange }: { open: boolean; onOpenChange:
               <div key={week} className="grid gap-2">
                 <p className="text-sm font-bold text-muted">{new Date(`${week}T12:00:00`).toLocaleDateString([], { month: "long", day: "numeric" })}</p>
                 {picks.map((s) => (
-                  <PickRow key={s.user_id} s={s} label={`${nameOf(s.user_id)}'s pick`} />
+                  <PickRow
+                    key={s.user_id}
+                    s={s}
+                    label={s.user_id === me?.id ? "Your pick" : `${nameOf(s.user_id)}'s pick`}
+                    respond={s.user_id !== me?.id && week === latestWeek}
+                    reactedBy={s.user_id === me?.id ? nameOf(picks.find((p) => p.user_id !== me?.id)?.user_id ?? "") : "You"}
+                  />
                 ))}
               </div>
             ))}

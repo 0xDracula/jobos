@@ -63,7 +63,7 @@ func (a *api) adminStatus(w http.ResponseWriter, r *http.Request) {
 		workers[k] = v
 	}
 	a.mu.Unlock()
-	writeJSON(w, http.StatusOK, map[string]any{"media": media, "workers": workers, "store": st})
+	writeJSON(w, http.StatusOK, map[string]any{"media": media, "workers": workers, "store": st, "backup": lastBackup(r.Context(), a.Deps)})
 }
 
 func (a *api) retryJob(w http.ResponseWriter, r *http.Request) {

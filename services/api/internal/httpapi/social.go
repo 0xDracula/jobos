@@ -154,12 +154,13 @@ func (a *api) presence(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	type person struct {
-		ID          uuid.UUID  `json:"id"`
-		DisplayName string     `json:"display_name"`
-		Online      *bool      `json:"online"`
-		LastSeen    *time.Time `json:"last_seen"`
-		Quiet       bool       `json:"quiet"`
-		Listening   *bool      `json:"listening"`
+		ID          uuid.UUID       `json:"id"`
+		DisplayName string          `json:"display_name"`
+		Online      *bool           `json:"online"`
+		LastSeen    *time.Time      `json:"last_seen"`
+		Quiet       bool            `json:"quiet"`
+		Listening   *bool           `json:"listening"`
+		Playing     *nowPlayingView `json:"playing,omitempty"`
 	}
 	now, err := a.Store.ListeningNow(ctx)
 	if err != nil {
@@ -176,9 +177,15 @@ func (a *api) presence(w http.ResponseWriter, r *http.Request) {
 			p.LastSeen = lastSeen[u.ID]
 		}
 		if canSee(modes, me, &u, "listening_status") {
-			_, playing := now[u.ID]
+			n, playing := now[u.ID]
 			playing = playing && a.Hub != nil && a.Hub.Online(u.ID)
 			p.Listening = &playing
+			if playing {
+				if t, err := a.Store.Track(ctx, n.TrackID); err == nil {
+					p.Playing = &nowPlayingView{TrackID: t.ID, Title: t.Title, Artists: t.Artists, ArtworkThumbURL: t.ArtworkThumbURL,
+						PositionMs: n.PositionMs, Device: n.DeviceName, At: n.UpdatedAt}
+				}
+			}
 		}
 		p.Quiet = a.quiet(ctx, u.ID)
 		people = append(people, p)
@@ -194,6 +201,16 @@ func (a *api) presence(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"people": people, "lamps": lamps, "unread": unread})
+}
+
+type nowPlayingView struct {
+	TrackID         uuid.UUID `json:"track_id"`
+	Title           string    `json:"title"`
+	Artists         []string  `json:"artists"`
+	ArtworkThumbURL *string   `json:"artwork_thumb_url"`
+	PositionMs      int32     `json:"position_ms"`
+	Device          string    `json:"device"`
+	At              time.Time `json:"at"`
 }
 
 func (a *api) quiet(ctx context.Context, userID uuid.UUID) bool {
@@ -264,6 +281,24 @@ func (a *api) chatMessages(w http.ResponseWriter, r *http.Request) {
 		}
 		return &id, true
 	}
+	around, ok := parse("around")
+	if !ok {
+		return
+	}
+	if around != nil {
+		msgs, err := a.Store.ChatAround(r.Context(), *around, intParam(r, "limit", 50, 200))
+		if err != nil {
+			a.serverError(w, "chat around", err)
+			return
+		}
+		reads, err := a.visibleReads(r.Context(), currentUser(r))
+		if err != nil {
+			a.serverError(w, "chat reads", err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"messages": msgs, "reads": reads})
+		return
+	}
 	before, ok := parse("before")
 	if !ok {
 		return
@@ -305,6 +340,7 @@ func (a *api) cardData(ctx context.Context, kind string, raw json.RawMessage) (j
 		TrackID uuid.UUID `json:"track_id"`
 		StartMs *int      `json:"start_ms,omitempty"`
 		Note    string    `json:"note,omitempty"`
+		Mood    string    `json:"mood,omitempty"`
 		Lines   []struct {
 			Text string `json:"text"`
 			Ms   *int   `json:"ms"`
@@ -331,6 +367,9 @@ func (a *api) cardData(ctx context.Context, kind string, raw json.RawMessage) (j
 	}
 	if d.Note != "" {
 		out["note"] = d.Note
+	}
+	if kind == "song" && moodKeys[d.Mood] {
+		out["mood"] = d.Mood
 	}
 	if kind == "lyric" {
 		out["lines"] = d.Lines
@@ -372,11 +411,26 @@ func (a *api) sendChat(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		in.Data = data
+	case "voice", "photo", "sticker":
+		if utf8.RuneCountInString(in.Body) > 1000 || (in.Kind != "photo" && in.Body != "") {
+			writeError(w, http.StatusBadRequest, "only a photo takes a caption, of 1000 characters at most")
+			return
+		}
+		data, problem := a.mediaData(r.Context(), uid(r), in.Kind, in.Data)
+		if problem != "" {
+			writeError(w, http.StatusBadRequest, problem)
+			return
+		}
+		in.Data = data
 	default:
-		writeError(w, http.StatusBadRequest, "kind must be text, song or lyric")
+		writeError(w, http.StatusBadRequest, "kind must be text, song, lyric, voice, photo or sticker")
 		return
 	}
-	m, created, err := a.Store.SendChat(r.Context(), uid(r), store.ChatInput{ClientKey: in.ClientKey, Kind: in.Kind, Body: in.Body, Data: in.Data, ReplyTo: in.ReplyTo})
+	a.postChat(w, r, store.ChatInput{ClientKey: in.ClientKey, Kind: in.Kind, Body: in.Body, Data: in.Data, ReplyTo: in.ReplyTo})
+}
+
+func (a *api) postChat(w http.ResponseWriter, r *http.Request, in store.ChatInput) {
+	m, created, err := a.Store.SendChat(r.Context(), uid(r), in)
 	if err != nil {
 		a.serverError(w, "send chat", err)
 		return
@@ -399,6 +453,17 @@ func chatPreview(m *store.ChatMessage) string {
 		return "Sent a song"
 	case "lyric":
 		return "Sent lyrics"
+	case "voice":
+		return "Voice note"
+	case "photo":
+		if m.Body == "" {
+			return "Photo"
+		}
+		return "Photo: " + truncateRunes(m.Body, 100)
+	case "sticker":
+		return "Sticker"
+	case "swap":
+		return "Song swap: " + truncateRunes(m.Body, 100)
 	}
 	if utf8.RuneCountInString(m.Body) > 120 {
 		return string([]rune(m.Body)[:120]) + "…"

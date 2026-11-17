@@ -12,6 +12,7 @@ import { soft } from "@/lib/motion";
 import { startRealtime } from "@/lib/realtime";
 import { isPublicPath, useMe, useMembers } from "@/lib/session";
 import { startSocial, usePresence } from "@/lib/social";
+import { startProfiles } from "@/lib/profiles";
 import { startGift } from "@/lib/gift";
 import { startTogetherState } from "@/lib/together";
 import { startSessionEvents } from "@/lib/sessions";
@@ -24,6 +25,7 @@ import { CommandPalette } from "./CommandPalette";
 import { Sidebar } from "./Sidebar";
 import { GlobalDialogs } from "./dialogs";
 import { KeepsakeDialogs } from "./KeepsakeDialogs";
+import { EffectLayer } from "./chat/Effects";
 import { LettersLayer } from "./letters/LettersLayer";
 import { TogetherBanner } from "./Together";
 import { PixelIcon } from "./pixel/PixelIcon";
@@ -166,6 +168,7 @@ function AuthGate({ children }: { children: ReactNode }) {
     startTogetherSync(me.data.id);
     startRadioWatch();
     startGift();
+    startProfiles();
   }, [me.data]);
   useEffect(() => {
     if (signedOut) toSignIn();
@@ -215,6 +218,7 @@ function appFrame(home: boolean, children: ReactNode) {
       <KeepsakeDialogs />
       <LettersLayer />
       <TogetherBanner />
+      <EffectLayer />
       <div id="live-region" aria-live="polite" className="sr-only" />
     </>
   );

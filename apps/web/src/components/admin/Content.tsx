@@ -16,6 +16,9 @@ import type { Track } from "@/lib/types";
 import { ConfirmDialog, Dialog } from "../dialogs";
 import { Button, Chip, Empty, Field, IconButton, inputClass } from "../ui";
 
+import { ChatAdmin } from "./ChatAdmin";
+import { ContentOverview } from "./ContentOverview";
+import { QuestionsAdmin } from "./Questions";
 import { Line, Panel, when } from "./parts";
 
 const SPOTS: Record<string, string> = {
@@ -137,6 +140,7 @@ function HiddenNotes() {
   const forName = (id: string | null) => (id ? (members.data?.find((u) => u.id === id)?.display_name ?? "One") : "Both");
   return (
     <Panel
+      id="hidden-notes"
       title="Hidden notes"
       action={
         <Button size="sm" variant="primary" onClick={() => setEditing("new")}>
@@ -207,6 +211,7 @@ function Holidays() {
     setEditing({ ...editing, decorations: editing.decorations.includes(id) ? editing.decorations.filter((d) => d !== id) : [...editing.decorations, id] });
   return (
     <Panel
+      id="holidays"
       title="Holidays"
       action={
         <Button size="sm" variant="primary" onClick={() => setEditing({ ...emptyHoliday })}>
@@ -378,9 +383,12 @@ function RoomSettingsAdmin() {
 export function Content() {
   return (
     <>
+      <ContentOverview />
       <OurSongAdmin />
+      <QuestionsAdmin />
       <HiddenNotes />
       <Holidays />
+      <ChatAdmin />
     </>
   );
 }

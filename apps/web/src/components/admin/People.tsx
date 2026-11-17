@@ -14,6 +14,7 @@ import { ConfirmDialog, Dialog } from "../dialogs";
 import { Artwork } from "../media";
 import { Button, Empty, Field, Segmented, inputClass } from "../ui";
 
+import { ListeningTimeline } from "./Listening";
 import { LinkDialog, Line, Panel, when } from "./parts";
 
 const SIGNALS: Record<string, string> = {
@@ -238,6 +239,7 @@ export function People() {
   return (
     <>
       <PlayingNow />
+      <ListeningTimeline />
       <Accounts />
       <Invites />
       <Visibility />

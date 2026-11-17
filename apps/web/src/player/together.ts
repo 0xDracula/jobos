@@ -34,6 +34,13 @@ export async function startFromQueue(): Promise<string | null> {
   await sessionApi.start(id);
   return id;
 }
+export async function listenAlong(trackId: string, positionMs: number): Promise<string> {
+  const { id } = await sessionApi.create({ title: "", scheduled_at: null, track_ids: [trackId] });
+  await sessionApi.start(id);
+  if (positionMs > 3000) command("seek", { position_ms: Math.round(positionMs) });
+  void sessionApi.invite(id).catch(() => {});
+  return id;
+}
 export const react = (emoji: string) => send("room.react", { emoji });
 export const joinSession = () => send("room.join");
 export const leaveSession = () => send("room.leave");

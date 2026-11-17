@@ -31,6 +31,8 @@ import (
 
 type Store interface {
 	SessionsStore
+	ChatStore
+	ProfilesStore
 	LettersStore
 	MemoriesStore
 	DatesStore
@@ -330,6 +332,8 @@ func New(d Deps) http.Handler {
 				r.Post("/ytdlp/update", a.updateYtdlpNow)
 				r.Post("/loudness/reprocess", a.reprocessLoudness)
 				a.registerWorldAdminRoutes(r)
+				a.registerChatAdminRoutes(r)
+				a.registerProfileAdminRoutes(r)
 				a.registerGiftAdminRoutes(r)
 				a.registerReviewRoutes(r)
 				r.Get("/placeholders", a.adminPlaceholders)
@@ -341,6 +345,8 @@ func New(d Deps) http.Handler {
 			a.registerGiftRoutes(r)
 			a.registerRadioRoutes(r)
 			a.registerSessionRoutes(r)
+			a.registerChatRoutes(r)
+			a.registerProfileRoutes(r)
 			a.registerLettersRoutes(r)
 			a.registerMemoriesRoutes(r)
 			a.registerDatesRoutes(r)

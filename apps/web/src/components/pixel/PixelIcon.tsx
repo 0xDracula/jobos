@@ -4,6 +4,7 @@ import { O, type Art } from "./art";
 import { DATE_ART } from "./icons/dates";
 import { LETTER_ART } from "./icons/letters";
 import { MEMORY_ART } from "./icons/memories";
+import { TOGETHER_ART } from "./icons/together";
 
 
 
@@ -54,7 +55,7 @@ const BASE_ART = {
   },
 } satisfies Record<string, Art>;
 
-const ART = { ...BASE_ART, ...LETTER_ART, ...MEMORY_ART, ...DATE_ART };
+const ART = { ...BASE_ART, ...LETTER_ART, ...MEMORY_ART, ...DATE_ART, ...TOGETHER_ART };
 
 export type PixelIconName = keyof typeof ART;
 

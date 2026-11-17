@@ -49,6 +49,8 @@ type ChatMessage struct {
 	EditedAt  *time.Time      `json:"edited_at"`
 	Deleted   bool            `json:"deleted"`
 	Reactions []Reaction      `json:"reactions"`
+	PinnedAt  *time.Time      `json:"pinned_at"`
+	PinnedBy  *uuid.UUID      `json:"pinned_by"`
 }
 
 type Reaction struct {
@@ -67,12 +69,12 @@ type ChatInput struct {
 const chatCols = `m.id, m.sender_id, m.client_key, m.kind, case when m.deleted_at is null then m.body else '' end,
 	case when m.deleted_at is null then m.data end, m.reply_to, m.created_at, m.edited_at, m.deleted_at is not null,
 	coalesce((select json_agg(json_build_object('user_id', r.user_id, 'emoji', r.emoji) order by r.created_at)
-		from chat_reactions r where r.message_id = m.id), '[]')`
+		from chat_reactions r where r.message_id = m.id), '[]'), m.pinned_at, m.pinned_by`
 
 func scanChat(row pgx.Row) (*ChatMessage, error) {
 	var m ChatMessage
 	var data, reactions []byte
-	err := row.Scan(&m.ID, &m.SenderID, &m.ClientKey, &m.Kind, &m.Body, &data, &m.ReplyTo, &m.CreatedAt, &m.EditedAt, &m.Deleted, &reactions)
+	err := row.Scan(&m.ID, &m.SenderID, &m.ClientKey, &m.Kind, &m.Body, &data, &m.ReplyTo, &m.CreatedAt, &m.EditedAt, &m.Deleted, &reactions, &m.PinnedAt, &m.PinnedBy)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -164,6 +166,7 @@ func (s *Store) DeleteChat(ctx context.Context, sender, id uuid.UUID) (*ChatMess
 		return nil, ErrNotFound
 	}
 	_, _ = s.pool.Exec(ctx, `delete from chat_reactions where message_id = $1`, id)
+	_, _ = s.pool.Exec(ctx, `update chat_messages set pinned_at = null, pinned_by = null where id = $1`, id)
 	return s.ChatMessage(ctx, id)
 }
 
@@ -315,6 +318,7 @@ type Swap struct {
 	Track     *TrackView `json:"track"`
 	Note      string     `json:"note"`
 	UpdatedAt time.Time  `json:"updated_at"`
+	Reaction  string     `json:"reaction"`
 }
 
 func (s *Store) SetSwap(ctx context.Context, week time.Time, userID, trackID uuid.UUID, note string) error {
@@ -325,7 +329,7 @@ func (s *Store) SetSwap(ctx context.Context, week time.Time, userID, trackID uui
 }
 
 func (s *Store) Swaps(ctx context.Context, from, to time.Time) ([]Swap, error) {
-	rows, err := s.pool.Query(ctx, `select to_char(week, 'YYYY-MM-DD'), user_id, track_id, note, updated_at from song_swaps
+	rows, err := s.pool.Query(ctx, `select to_char(week, 'YYYY-MM-DD'), user_id, track_id, note, updated_at, reaction from song_swaps
 		where week between $1 and $2 order by week desc, created_at`, from, to)
 	if err != nil {
 		return nil, err
@@ -337,7 +341,7 @@ func (s *Store) Swaps(ctx context.Context, from, to time.Time) ([]Swap, error) {
 	var raw []row
 	for rows.Next() {
 		var r row
-		if err := rows.Scan(&r.Week, &r.UserID, &r.trackID, &r.Note, &r.UpdatedAt); err != nil {
+		if err := rows.Scan(&r.Week, &r.UserID, &r.trackID, &r.Note, &r.UpdatedAt, &r.Reaction); err != nil {
 			rows.Close()
 			return nil, err
 		}

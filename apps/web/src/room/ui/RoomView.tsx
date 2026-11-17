@@ -12,6 +12,7 @@ import { lookOf, type AvatarLook } from "@/avatar/look";
 import type { AvatarFrames } from "@/avatar/types";
 import { ContinueHere } from "@/components/ContinueHere";
 import { SongOfTheDayHome } from "@/components/letters/SongOfTheDay";
+import { DailyQuestionHome } from "@/components/question/DailyQuestion";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui";
 import { ApiError } from "@/lib/api";
 import { cn } from "@/lib/cn";
@@ -640,6 +641,7 @@ export function RoomView() {
       <div className="pointer-events-none absolute inset-x-3 top-[calc(max(env(safe-area-inset-top),12px)+56px)] flex flex-col items-center gap-2 lg:top-20">
         <ContinueHere className="pointer-events-auto w-full max-w-xl" />
         <SongOfTheDayHome className="pointer-events-auto w-full max-w-xl" />
+        <DailyQuestionHome className="pointer-events-auto w-full max-w-xl" />
       </div>
 
       <RoomSheets sky={sky} place={place} weather={weather.data ?? null} other={other} otherWeather={otherWeather} metrics={metrics} unlocked={unlocked} unlockables={unlockables} milestones={milestones} />

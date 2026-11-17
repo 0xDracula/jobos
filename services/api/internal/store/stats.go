@@ -306,3 +306,36 @@ func (s *Store) FirstListen(ctx context.Context, userID uuid.UUID) (*time.Time, 
 	err := s.pool.QueryRow(ctx, `select min(created_at) from listening_events where user_id = $1`, userID).Scan(&at)
 	return at, err
 }
+
+type DayActivity struct {
+	UserID  uuid.UUID `json:"user_id"`
+	Day     string    `json:"day"`
+	Minutes int       `json:"minutes"`
+	Plays   int       `json:"plays"`
+	Skips   int       `json:"skips"`
+}
+
+func (s *Store) ActivityByDay(ctx context.Context, w Window, tz string) ([]DayActivity, error) {
+	rows, err := s.pool.Query(ctx, `select e.user_id, to_char((e.created_at at time zone $1)::date, 'YYYY-MM-DD'),
+			count(*) filter (where e.event = 'progress'), count(*) filter (where e.event = 'start'), count(*) filter (where e.event = 'skip')
+		from listening_events e where e.event in ('progress', 'start', 'skip') and ($2::timestamptz is null or e.created_at >= $2)
+			and ($3::timestamptz is null or e.created_at < $3)
+		group by 1, 2 order by 2`, tz, w.From, w.To)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, func(r pgx.CollectableRow) (DayActivity, error) {
+		var d DayActivity
+		return d, r.Scan(&d.UserID, &d.Day, &d.Minutes, &d.Plays, &d.Skips)
+	})
+}
+
+func (s *Store) MostSkipped(ctx context.Context, userID uuid.UUID, w Window, limit int) ([]PlayedTrack, error) {
+	rows, err := s.pool.Query(ctx, `select e.track_id, count(*) from listening_events e
+		where e.user_id = $1 and e.event = 'skip' and `+windowSQL+`
+		group by e.track_id order by count(*) desc, max(e.created_at) desc limit $4`, userID, w.From, w.To, limit)
+	if err != nil {
+		return nil, err
+	}
+	return s.playedTracks(ctx, rows)
+}

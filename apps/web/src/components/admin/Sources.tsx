@@ -79,6 +79,15 @@ export function Sources() {
         ))}
       </Panel>
 
+      <Panel title="Backups">
+        {q.data?.backup ? (
+          <Line label={q.data.backup.ok ? "Last backup" : "Last backup failed"} sub={q.data.backup.message}>
+            <span className="tabular text-sm font-bold text-muted">{when(q.data.backup.at)}</span>
+          </Line>
+        ) : (
+          <Line label="No backups" sub="BACKUP_DIR not set" />
+        )}
+      </Panel>
       <Panel title="Sources">
         {st?.sources.map((s) => (
           <Line key={s.source} label={label(s.source)} sub={s.last_error ? `${when(s.last_error_at)} · ${s.last_error.slice(0, 160)}` : undefined}>

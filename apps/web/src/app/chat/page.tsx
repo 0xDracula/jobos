@@ -1,10 +1,14 @@
 "use client";
 
-import { BellOff, Check, CheckCheck, Clock, Headphones, Lamp, Music2, Pencil, Play, Reply, RotateCcw, Send, Smile, Trash2, X } from "lucide-react";
+import { ArrowDown, BellOff, Check, CheckCheck, Clock, Headphones, Lamp, Music2, Pencil, Pin, PinOff, Play, Reply, RotateCcw, Search, Send, Smile, Trash2, X } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentProps } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 
 import { Avatar } from "@/avatar";
+import { PhotoButton, PhotoMessage, StickerButton, StickerMessage, VoiceButton, VoiceNote } from "@/components/chat/Media";
+import { ChatSearch, messageText, PinnedBar } from "@/components/chat/PinsSearch";
+import { MoodChip } from "@/components/profile/Mood";
 import { SwapSheet } from "@/components/SwapSheet";
 import { Artwork } from "@/components/media";
 import { PixelIcon } from "@/components/pixel/PixelIcon";
@@ -14,17 +18,20 @@ import { api, ApiError } from "@/lib/api";
 import { groupMessages } from "@/lib/chatGroups";
 import { sessionWhen } from "@/lib/sessions";
 import { cn } from "@/lib/cn";
+import { effectOf, jumboEmoji, playEffect } from "@/lib/effects";
 import { fmtTime, plural } from "@/lib/format";
+import { moodOf, useProfile } from "@/lib/profiles";
 import { keys, queryClient } from "@/lib/queries";
 import { useMe, useMembers } from "@/lib/session";
 import {
-  loadOlder, notifyTyping, retryMessage, sendMessage, socialApi, socialKeys, typing, useChat, usePresence,
-  type ChatMessage,
+  jumpTo, loadNewer, loadOlder, notifyTyping, retryMessage, sendMessage, showLatest, socialApi, socialKeys, typing, useChat, useChatEffects,
+  usePresence, type ChatMessage,
 } from "@/lib/social";
 import { toast } from "@/lib/toast";
 import { useTogether } from "@/lib/together";
 import { playTracks, seek } from "@/player/controls";
 import { selectTrack, usePlayer } from "@/player/store";
+import { joinSession, listenAlong } from "@/player/together";
 
 const QUICK = ["❤️", "😂", "😮", "😢", "🔥", "👍"];
 
@@ -55,7 +62,7 @@ function lastSeenText(iso: string | null): string {
 }
 
 function SongCard({ m, mine }: { m: ChatMessage; mine: boolean }) {
-  const d = m.data!;
+  const d = m.data! as Required<Pick<NonNullable<ChatMessage["data"]>, "track" | "track_id">> & NonNullable<ChatMessage["data"]>;
   return (
     <div className="flex items-center gap-3">
       <Artwork src={d.track.artwork_thumb_url ?? d.track.artwork_url} className="size-14 shrink-0 rounded-[10px]" />
@@ -63,8 +70,13 @@ function SongCard({ m, mine }: { m: ChatMessage; mine: boolean }) {
         <p dir="auto" className="truncate font-bold">{d.track.title}</p>
         <p dir="auto" className="truncate text-sm opacity-75">{d.track.artists.join(", ")}</p>
         {d.start_ms ? <p className="text-xs font-bold opacity-75">From {fmtTime(d.start_ms / 1000)}</p> : null}
+        {moodOf(d.mood) && (
+          <p className="text-xs font-bold opacity-75">
+            Re: {moodOf(d.mood)!.emoji} {moodOf(d.mood)!.label}
+          </p>
+        )}
       </div>
-      <IconButton label={`Play ${d.track.title}`} onClick={() => playCard(d.track_id, d.start_ms)} className={cn("bg-surface-solid/80", mine && "bg-white/60")}>
+      <IconButton label={`Play ${d.track.title}`} onClick={() => playCard(d.track_id, d.start_ms)} className={cn("bg-surface-solid/80", mine && "bg-white/70 text-[var(--chat-mine-ink)]")}>
         <Play />
       </IconButton>
     </div>
@@ -72,7 +84,7 @@ function SongCard({ m, mine }: { m: ChatMessage; mine: boolean }) {
 }
 
 function LyricCard({ m }: { m: ChatMessage }) {
-  const d = m.data!;
+  const d = m.data! as Required<Pick<NonNullable<ChatMessage["data"]>, "track" | "track_id">> & NonNullable<ChatMessage["data"]>;
   const first = d.lines?.find((l) => l.ms != null)?.ms ?? null;
   return (
     <button type="button" onClick={() => playCard(d.track_id, first)} className="grid w-full gap-2 text-start" aria-label={`Play ${d.track.title} from these lines`}>
@@ -87,6 +99,29 @@ function LyricCard({ m }: { m: ChatMessage }) {
         <Music2 className="size-3.5 shrink-0" /> {d.track.title} · {d.track.artists.join(", ")}
       </p>
     </button>
+  );
+}
+
+function SwapCard({ m, mine, nameOf, me }: { m: ChatMessage; mine: boolean; nameOf: (id: string) => string; me: string }) {
+  const d = m.data ?? {};
+  const t = d.track;
+  return (
+    <div className="flex items-center gap-3">
+      {t && <Artwork src={t.artwork_thumb_url ?? t.artwork_url} className="size-12 shrink-0 rounded-[10px]" />}
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-extrabold uppercase tracking-wider opacity-70">{!d.pick_by ? "Song swap" : d.pick_by === me ? "Your swap pick" : `${nameOf(d.pick_by)}'s swap pick`}</p>
+        {t && (
+          <p dir="auto" className="truncate font-bold">
+            {t.title} · {t.artists.join(", ")}
+          </p>
+        )}
+      </div>
+      {t && d.track_id && (
+        <IconButton label={`Play ${t.title}`} onClick={() => playCard(d.track_id!)} className={cn("bg-surface-solid/80", mine && "bg-white/70 text-[var(--chat-mine-ink)]")}>
+          <Play />
+        </IconButton>
+      )}
+    </div>
   );
 }
 
@@ -112,8 +147,9 @@ function SessionCard({ m }: { m: ChatMessage }) {
 }
 
 function Bubble({
-  m, mine, tail, replyTo, nameOf, onReply, onEdit, me,
+  m, mine, tail, replyTo, nameOf, onReply, onEdit, me, focused,
 }: {
+  focused: boolean;
   m: ChatMessage;
   mine: boolean;
   tail: boolean;
@@ -123,27 +159,32 @@ function Bubble({
   onEdit: () => void;
   me: string;
 }) {
-  const card = m.kind === "song" || m.kind === "lyric" || m.kind === "session";
+  const card = m.kind === "song" || m.kind === "lyric" || m.kind === "session" || m.kind === "swap" || m.kind === "voice";
+  const bare = !m.deleted && (m.kind === "sticker" || (m.kind === "text" && !replyTo && jumboEmoji(m.body)));
   const myReaction = m.reactions.find((r) => r.user_id === me)?.emoji ?? "";
   const react = (emoji: string) => socialApi.react(m.id, emoji === myReaction ? "" : emoji).catch(() => toast("Reaction not saved"));
   const edited = !!m.edited_at && !m.deleted;
   return (
-    <div className={cn("group flex max-w-full flex-col gap-1", mine ? "items-end" : "items-start")}>
+    <div data-message-id={m.id} className={cn("group flex max-w-full scroll-mt-24 flex-col gap-1", mine ? "items-end" : "items-start")}>
       <div
         className={cn(
-          "relative rounded-[18px] px-4 py-2.5",
-          mine
-            ? "bg-[var(--chat-mine)] text-[var(--chat-mine-ink)] shadow-[0_0_18px_var(--chat-mine-glow)]"
-            : "border border-[var(--chat-theirs-line)] bg-[var(--chat-theirs)] text-ink",
-          tail && (mine ? "rounded-br-[6px]" : "rounded-bl-[6px]"),
+          "relative max-w-full rounded-[18px] transition-shadow duration-500",
+          bare
+            ? "px-1"
+            : mine
+              ? "bg-[var(--chat-mine)] px-4 py-2.5 text-[var(--chat-mine-ink)] shadow-[0_0_18px_var(--chat-mine-glow)]"
+              : "border border-[var(--chat-theirs-line)] bg-[var(--chat-theirs)] px-4 py-2.5 text-ink",
+          m.kind === "photo" && !m.deleted && "p-1.5",
+          tail && !bare && (mine ? "rounded-br-[6px]" : "rounded-bl-[6px]"),
           card && "min-w-[240px]",
           m.status === "sending" && "opacity-60",
+          focused && "ring-4 ring-accent/70",
         )}
       >
         {replyTo && (
           <p dir="auto" className="mb-1.5 line-clamp-2 border-s-2 border-accent-strong/60 ps-2 text-sm opacity-75">
             <span className="font-bold">{nameOf(replyTo.sender_id)}: </span>
-            {replyTo.deleted ? "Deleted message" : replyTo.kind === "text" ? replyTo.body : (replyTo.data?.track?.title ?? replyTo.body)}
+            {messageText(replyTo)}
           </p>
         )}
         {m.deleted ? (
@@ -154,8 +195,28 @@ function Bubble({
           <LyricCard m={m} />
         ) : m.kind === "session" ? (
           <SessionCard m={m} />
+        ) : m.kind === "voice" ? (
+          <VoiceNote m={m} mine={mine} />
+        ) : m.kind === "photo" ? (
+          <>
+            <PhotoMessage m={m} />
+            {m.body && (
+              <p dir="auto" className="whitespace-pre-wrap break-words px-2.5 pb-1 pt-2 text-[16px] leading-relaxed">
+                {m.body}
+              </p>
+            )}
+          </>
+        ) : m.kind === "sticker" ? (
+          <StickerMessage m={m} />
+        ) : m.kind === "swap" ? (
+          <>
+            <SwapCard m={m} mine={mine} nameOf={nameOf} me={me} />
+            <p dir="auto" className="mt-2 whitespace-pre-wrap break-words border-t border-current/15 pt-2 text-[16px] leading-relaxed">
+              {m.body}
+            </p>
+          </>
         ) : (
-          <p dir="auto" className="whitespace-pre-wrap break-words text-[16px] leading-relaxed">
+          <p dir="auto" className={cn("whitespace-pre-wrap break-words leading-relaxed", bare ? "text-5xl leading-tight" : "text-[16px]")}>
             {m.body}
           </p>
         )}
@@ -185,6 +246,12 @@ function Bubble({
                   ))}
                 </div>
                 <MenuItem icon={<Reply />} onSelect={onReply}>Reply</MenuItem>
+                <MenuItem
+                  icon={m.pinned_at ? <PinOff /> : <Pin />}
+                  onSelect={() => socialApi.pin(m.id, !m.pinned_at).catch(() => toast(m.pinned_at ? "Message not unpinned" : "Message not pinned"))}
+                >
+                  {m.pinned_at ? "Unpin" : "Pin"}
+                </MenuItem>
                 {mine && m.kind === "text" && <MenuItem icon={<Pencil />} onSelect={onEdit}>Edit</MenuItem>}
                 {mine && (
                   <MenuItem icon={<Trash2 />} onSelect={() => socialApi.remove(m.id).catch(() => toast("Message not deleted"))}>
@@ -196,7 +263,7 @@ function Bubble({
           </div>
         )}
       </div>
-      {(m.reactions.length > 0 || m.status || edited) && (
+      {(m.reactions.length > 0 || m.status || edited || m.pinned_at) && (
         <div className={cn("flex items-center gap-2 px-1 text-xs font-bold text-[var(--chat-meta)]", ON_SKY)}>
           {m.reactions.length > 0 && (
             <span className="rounded-full border border-[var(--chat-theirs-line)] bg-[var(--chat-theirs)] px-2 py-0.5 [text-shadow:none]" aria-label="Reactions">
@@ -214,6 +281,11 @@ function Bubble({
           ) : edited ? (
             <span>Edited</span>
           ) : null}
+          {m.pinned_at && !m.status && (
+            <span className="flex items-center gap-1">
+              <Pin className="size-3.5" /> Pinned
+            </span>
+          )}
         </div>
       )}
     </div>
@@ -225,7 +297,8 @@ function ChatAction({ label, pressed, children, className, ...props }: Component
     <button
       type="button"
       aria-pressed={pressed}
-      className={cn("group grid w-14 justify-items-center gap-1 text-[11px] font-extrabold text-[var(--chat-meta)] disabled:opacity-40", ON_SKY, className)}
+      aria-label={label}
+      className={cn("group grid w-11 justify-items-center gap-1 text-[11px] font-extrabold text-[var(--chat-meta)] disabled:opacity-40 sm:w-14", ON_SKY, className)}
       {...props}
     >
       <span
@@ -236,12 +309,25 @@ function ChatAction({ label, pressed, children, className, ...props }: Component
       >
         {children}
       </span>
-      {label}
+      <span aria-hidden className="max-sm:hidden">
+        {label}
+      </span>
     </button>
   );
 }
 
 export default function ChatPage() {
+  return (
+    <Suspense>
+      <Chat />
+    </Suspense>
+  );
+}
+
+const EFFECTS_SEEN = "jobbos.chat.effects-seen";
+
+function Chat() {
+  const params = useSearchParams();
   const me = useMe().data;
   const members = useMembers();
   const presence = usePresence();
@@ -251,7 +337,11 @@ export default function ChatPage() {
   const [text, setText] = useState("");
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [editing, setEditing] = useState<ChatMessage | null>(null);
-  const [swapOpen, setSwapOpen] = useState(false);
+  const [swapOpen, setSwapOpen] = useState(params.get("swap") === "1");
+  const [searching, setSearching] = useState(false);
+  const [focusId, setFocusId] = useState<string | null>(null);
+  const effects = useChatEffects();
+  const bottomRef = useRef<HTMLDivElement>(null);
   const [, setTick] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
   const topRef = useRef<HTMLDivElement>(null);
@@ -262,12 +352,63 @@ export default function ChatPage() {
 
   const other = members.data?.find((u) => u.id !== me?.id) ?? null;
   const otherState = presence.data?.people.find((p) => p.id === other?.id);
+  const otherProfile = useProfile(other?.id);
   const myState = presence.data?.people.find((p) => p.id === me?.id);
   const nameOf = (id: string) => (id === me?.id ? "You" : (members.data?.find((u) => u.id === id)?.display_name ?? "Someone"));
   const messages = useMemo(() => chat.data?.messages ?? [], [chat.data]);
   const byId = useMemo(() => new Map(messages.map((m) => [m.id, m])), [messages]);
   const rows = useMemo(() => groupMessages(messages), [messages]);
   const together = !!room?.active && !!me && room.members.includes(me.id);
+  const hasNewer = !!chat.data?.hasNewer;
+
+  const jump = async (id: string) => {
+    setSearching(false);
+    try {
+      await jumpTo(id);
+    } catch {
+      toast("Message unavailable");
+      return;
+    }
+    atBottom.current = false;
+    setFocusId(id);
+  };
+  useEffect(() => {
+    if (!focusId) return;
+    const el = listRef.current?.querySelector(`[data-message-id="${focusId}"]`);
+    el?.scrollIntoView({ block: "center" });
+    const t = setTimeout(() => setFocusId(null), 1800);
+    return () => clearTimeout(t);
+  }, [focusId, messages.length]);
+
+  useEffect(() => {
+    const el = bottomRef.current;
+    if (!el || !hasNewer) return;
+    const io = new IntersectionObserver(([e]) => e.isIntersecting && void loadNewer());
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hasNewer]);
+
+  useEffect(() => {
+    if (!me || !effects.data || chat.isPending || hasNewer) return;
+    let seen = "";
+    try {
+      seen = localStorage.getItem(EFFECTS_SEEN) ?? "";
+    } catch {
+      return;
+    }
+    const newest = messages.at(-1)?.created_at ?? "";
+    if (seen) {
+      const fresh = messages.filter((m) => m.sender_id !== me.id && !m.deleted && m.created_at > seen && m.kind === "text");
+      const effect = fresh.map((m) => effectOf(m.body, effects.data)).filter(Boolean).at(-1);
+      if (effect) playEffect(effect);
+    }
+    if (newest && newest > seen) {
+      try {
+        localStorage.setItem(EFFECTS_SEEN, newest);
+      } catch {
+      }
+    }
+  }, [messages, effects.data, me, chat.isPending, hasNewer]);
   useEffect(() => {
     const fn = () => setTick((t) => t + 1);
     typing.listeners.add(fn);
@@ -324,10 +465,16 @@ export default function ChatPage() {
       }
       return;
     }
+    if (hasNewer) await showLatest();
     sendMessage("text", body, undefined, replyTo?.id ?? null);
     setText("");
     setReplyTo(null);
     atBottom.current = true;
+  };
+  const sentOther = () => {
+    setReplyTo(null);
+    atBottom.current = true;
+    if (hasNewer) void showLatest();
   };
 
   const toggleQuiet = () =>
@@ -347,6 +494,17 @@ export default function ChatPage() {
       .catch((err) => toast(err instanceof ApiError ? err.message : "Lamp not sent"));
 
   const status = otherState?.online ? "Online" : otherState?.last_seen ? lastSeenText(otherState.last_seen) : "";
+  const theirSong = !together ? otherState?.playing : null;
+  const joinThem = async () => {
+    if (room?.active) return joinSession();
+    if (!theirSong) return;
+    const elapsed = Date.now() - new Date(theirSong.at).getTime();
+    try {
+      await listenAlong(theirSong.track_id, theirSong.position_ms + Math.max(0, elapsed));
+    } catch {
+      toast("Listen together unavailable");
+    }
+  };
 
   return (
     <div className="fixed inset-x-0 top-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] flex flex-col lg:bottom-0 lg:left-64">
@@ -375,10 +533,29 @@ export default function ChatPage() {
               </span>
             )}
           </p>
+          {otherProfile?.mood && <MoodChip mood={otherProfile.mood} note className={cn("mt-0.5 max-w-full text-[13px] font-bold text-[var(--chat-meta)]", ON_SKY)} />}
+          {theirSong && (
+            <p className={cn("mt-0.5 flex items-center gap-1.5 text-[13px] font-bold text-[var(--chat-meta)]", ON_SKY)}>
+              <Music2 className="size-3.5 shrink-0" />
+              <span dir="auto" className="min-w-0 truncate">
+                {theirSong.title} · {theirSong.artists.join(", ")}
+              </span>
+              <button
+                type="button"
+                onClick={() => void joinThem()}
+                className="shrink-0 rounded-full bg-accent-strong px-2.5 py-0.5 text-xs font-extrabold text-on-accent [text-shadow:none]"
+              >
+                Join
+              </button>
+            </p>
+          )}
         </div>
         <div ref={actionsRef} className="flex shrink-0">
           <ChatAction label="Lamp" title={lampOn ? "Switch off their lamp" : "Thinking of you"} pressed={lampOn} onClick={sendLamp} disabled={!other}>
             <Lamp />
+          </ChatAction>
+          <ChatAction label="Search" title="Search messages" pressed={searching} onClick={() => setSearching((v) => !v)}>
+            <Search />
           </ChatAction>
           <ChatAction label="Swap" title="Song swap" onClick={() => setSwapOpen(true)}>
             <Music2 />
@@ -388,6 +565,9 @@ export default function ChatPage() {
           </ChatAction>
         </div>
       </header>
+      <div className="relative z-10 mx-auto w-full max-w-3xl px-4 pb-1 lg:px-8">
+        {searching ? <ChatSearch nameOf={nameOf} onJump={(id) => void jump(id)} onClose={() => setSearching(false)} /> : <PinnedBar onJump={(id) => void jump(id)} />}
+      </div>
 
       <div
         ref={listRef}
@@ -429,6 +609,7 @@ export default function ChatPage() {
                       tail={i === row.items.length - 1}
                       replyTo={m.reply_to ? byId.get(m.reply_to) : undefined}
                       nameOf={nameOf}
+                      focused={focusId === m.id}
                       onReply={() => {
                         setEditing(null);
                         setReplyTo(m);
@@ -462,8 +643,24 @@ export default function ChatPage() {
           {otherTyping && (
             <p className="self-start rounded-[18px] rounded-bl-[6px] border border-[var(--chat-theirs-line)] bg-[var(--chat-theirs)] px-4 py-2 text-sm font-bold text-muted">Typing…</p>
           )}
+          <div ref={bottomRef} className="h-px shrink-0" />
         </div>
       </div>
+      {hasNewer && (
+        <div className="pointer-events-none relative">
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => {
+              atBottom.current = true;
+              void showLatest();
+            }}
+            className="pointer-events-auto absolute bottom-3 left-1/2 -translate-x-1/2 shadow-soft"
+          >
+            <ArrowDown className="size-4" /> Latest
+          </Button>
+        </div>
+      )}
 
       <form
         onSubmit={(e) => {
@@ -492,7 +689,13 @@ export default function ChatPage() {
             </IconButton>
           </div>
         )}
-        <div className="flex items-end gap-2">
+        <div className="flex items-end gap-1.5">
+          {!editing && (
+            <span className="flex shrink-0 rounded-full bg-[var(--chat-input)]">
+              <StickerButton replyTo={replyTo?.id ?? null} onSent={sentOther} />
+              <PhotoButton replyTo={replyTo?.id ?? null} onSent={sentOther} />
+            </span>
+          )}
           <textarea
             id="chat-input"
             dir="auto"
@@ -514,9 +717,13 @@ export default function ChatPage() {
             className="max-h-40 min-h-11 flex-1 resize-none rounded-[22px] border-2 border-[var(--chat-theirs-line)] bg-[var(--chat-input)] px-4 py-2 text-[16px] text-ink outline-none placeholder:text-muted focus:border-accent"
           />
           <span className="shrink-0 rounded-full bg-[var(--chat-input)]">
-            <Button type="submit" variant="primary" className="size-11 rounded-full p-0" aria-label={editing ? "Save" : "Send"} disabled={!text.trim()}>
-              <Send className="size-5" />
-            </Button>
+            {text.trim() || editing ? (
+              <Button type="submit" variant="primary" className="size-11 rounded-full p-0" aria-label={editing ? "Save" : "Send"} disabled={!text.trim()}>
+                <Send className="size-5" />
+              </Button>
+            ) : (
+              <VoiceButton replyTo={replyTo?.id ?? null} onSent={sentOther} />
+            )}
           </span>
         </div>
       </form>
