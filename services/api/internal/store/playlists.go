@@ -29,6 +29,7 @@ type PlaylistSummary struct {
 	Description *string        `json:"description"`
 	OwnerID     *uuid.UUID     `json:"owner_id"`
 	CoverURL    *string        `json:"cover_url"`
+	RecipientID *uuid.UUID     `json:"recipient_id"`
 	Collage     []string       `json:"collage"`
 	Counts      PlaylistCounts `json:"counts"`
 }
@@ -39,7 +40,7 @@ type PlaylistView struct {
 }
 
 var playlistSummarySQL = `select p.id, p.name, p.kind, p.source_url, p.source_provider, p.sync_enabled, p.synced_at,
-		p.description, p.owner_id, (select ` + imageURLSQL("pc") + ` from media_assets pc where pc.id = p.cover_asset_id),
+		p.description, p.owner_id, p.recipient_id, (select ` + imageURLSQL("pc") + ` from media_assets pc where pc.id = p.cover_asset_id),
 		(select coalesce(array_agg(c.u order by c.pos), '{}') from (
 			select min(pi2.position) as pos, '/api/media/' || ma2.sha256 || '.300.jpg' as u
 			from playlist_items pi2 join tracks t2 on t2.id = pi2.track_id left join albums al2 on al2.id = t2.album_id
@@ -60,7 +61,7 @@ func scanPlaylistSummary(row pgx.Row) (PlaylistSummary, error) {
 	var p PlaylistSummary
 	c := &p.Counts
 	err := row.Scan(&p.ID, &p.Name, &p.Kind, &p.SourceURL, &p.Provider, &p.SyncEnabled, &p.SyncedAt,
-		&p.Description, &p.OwnerID, &p.CoverURL, &p.Collage, &c.Total, &c.Pending, &c.Matched, &c.Review, &c.Unmatched, &c.Cached)
+		&p.Description, &p.OwnerID, &p.RecipientID, &p.CoverURL, &p.Collage, &c.Total, &c.Pending, &c.Matched, &c.Review, &c.Unmatched, &c.Cached)
 	return p, err
 }
 
@@ -95,4 +96,12 @@ func (s *Store) Playlist(ctx context.Context, id uuid.UUID) (*PlaylistView, erro
 		return nil, err
 	}
 	return &PlaylistView{PlaylistSummary: summary, Tracks: tracks}, nil
+}
+
+func (s *Store) SetPlaylistRecipient(ctx context.Context, playlistID uuid.UUID, recipient *uuid.UUID) error {
+	tag, err := s.pool.Exec(ctx, `update playlists set recipient_id = $2, updated_at = now() where id = $1`, playlistID, recipient)
+	if err == nil && tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return err
 }

@@ -12,6 +12,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -80,6 +81,7 @@ type Store interface {
 	RemoveFromPlaylist(ctx context.Context, playlistID, trackID uuid.UUID) error
 	ReorderPlaylist(ctx context.Context, playlistID uuid.UUID, trackIDs []uuid.UUID) error
 	EnqueuePlaylistCover(ctx context.Context, playlistID uuid.UUID, path string) error
+	SetPlaylistRecipient(ctx context.Context, playlistID uuid.UUID, recipient *uuid.UUID) error
 	Album(ctx context.Context, id uuid.UUID) (*store.AlbumView, error)
 	Artist(ctx context.Context, userID, id uuid.UUID) (*store.ArtistView, error)
 	SearchLibrary(ctx context.Context, q string, limit int) ([]store.TrackView, error)
@@ -764,6 +766,11 @@ func (a *api) importPlaylist(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sum.Skipped = skipped
+	if sum.Created {
+		if err := a.fetchSpotifyCover(r.Context(), sum.PlaylistID, "https://open.spotify.com/playlist/"+playlistID); err != nil {
+			a.Log.Warn("spotify cover", "playlist", sum.PlaylistID, "err", err)
+		}
+	}
 	a.Log.Info("playlist imported", "playlist", sum.PlaylistID, "tracks", sum.Tracks, "added", sum.Added, "queued", sum.Queued)
 	status := http.StatusOK
 	if sum.Created {
@@ -778,6 +785,10 @@ func (a *api) listPlaylists(w http.ResponseWriter, r *http.Request) {
 		a.serverError(w, "list playlists", err)
 		return
 	}
+	me := uid(r)
+	sort.SliceStable(playlists, func(i, j int) bool {
+		return playlists[i].RecipientID != nil && *playlists[i].RecipientID == me && (playlists[j].RecipientID == nil || *playlists[j].RecipientID != me)
+	})
 	writeJSON(w, http.StatusOK, map[string]any{"playlists": playlists})
 }
 

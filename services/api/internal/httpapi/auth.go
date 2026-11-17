@@ -250,6 +250,9 @@ func (a *api) acceptInvite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.Store.Audit(r.Context(), &u.ID, "invite.accept", u.Username, nil)
+	if err := a.applyHerPlaylist(r.Context()); err != nil {
+		a.Log.Warn("her playlist", "err", err)
+	}
 	if err := a.startSession(w, r, u.ID); err != nil {
 		a.serverError(w, "start session", err)
 		return

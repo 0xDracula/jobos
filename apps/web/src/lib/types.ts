@@ -67,6 +67,7 @@ export type PlaylistSummary = {
   description: string | null;
   owner_id: string | null;
   cover_url: string | null;
+  recipient_id: string | null;
   collage: string[];
   counts: PlaylistCounts;
 };

@@ -105,6 +105,9 @@ export const adminApi = {
   updateNote: (id: string, n: NoteInput) => request<null>(`/api/admin/notes/${id}`, json("PUT", n)),
   deleteNote: (id: string) => request<null>(`/api/admin/notes/${id}`, { method: "DELETE" }),
   room: () => request<AdminRoom>("/api/admin/room"),
+  herPlaylist: () => request<{ playlist_id: string | null }>("/api/admin/her-playlist"),
+  setHerPlaylist: (playlistId: string) => request<{ playlist_id: string }>("/api/admin/her-playlist", json("PUT", { playlist_id: playlistId })),
+  spotifyCover: (playlistId: string) => request<null>(`/api/admin/playlists/${playlistId}/spotify-cover`, { method: "POST" }),
   setRoom: (body: { thresholds?: Record<string, number>; plant_stages?: number[]; milestone_start?: string; lamp_minutes?: number }) =>
     request<AdminRoom>("/api/admin/room", json("PUT", body)),
   holidays: () => request<{ holidays: Holiday[] }>("/api/admin/holidays"),

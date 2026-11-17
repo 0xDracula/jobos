@@ -61,6 +61,9 @@ func (a *api) registerGiftRoutes(r chi.Router) {
 func (a *api) registerGiftAdminRoutes(r chi.Router) {
 	r.Get("/room", a.adminRoom)
 	r.Put("/room", a.setAdminRoom)
+	r.Get("/her-playlist", a.herPlaylist)
+	r.Put("/her-playlist", a.setHerPlaylist)
+	r.Post("/playlists/{id}/spotify-cover", a.useSpotifyCover)
 	r.Get("/holidays", a.adminHolidays)
 	r.Put("/holidays", a.setHolidays)
 	r.Put("/our-song", a.setOurSong)
