@@ -147,6 +147,18 @@ func run(log *slog.Logger) error {
 		}
 	}()
 	go func() {
+		tick := time.NewTicker(5 * time.Minute)
+		defer tick.Stop()
+		for {
+			httpapi.SendCalendarReminders(ctx, deps, time.Now())
+			select {
+			case <-ctx.Done():
+				return
+			case <-tick.C:
+			}
+		}
+	}()
+	go func() {
 		<-ctx.Done()
 		shutdown, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()

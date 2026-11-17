@@ -1,0 +1,7 @@
+{
+  "notes": [
+    {"period": "month", "starts_on": "2026-11-01", "body": "Placeholder: a note for her November recap.", "placeholder": true},
+    {"period": "month", "starts_on": "2026-12-01", "body": "Placeholder: a note for her December recap.", "placeholder": true},
+    {"period": "year", "starts_on": "2026-12-03", "body": "Placeholder: your closing note for the first year.", "placeholder": true}
+  ]
+}
