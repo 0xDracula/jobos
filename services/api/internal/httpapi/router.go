@@ -96,6 +96,8 @@ type Store interface {
 	BackfillAnalysis(ctx context.Context) (int, error)
 	LastJobAt(ctx context.Context, kind string) (*time.Time, error)
 	ReprocessLoudness(ctx context.Context, limit int) (int, int, error)
+	BackfillEnrichment(ctx context.Context) (int, int, error)
+	AddTopTrack(ctx context.Context, artistID uuid.UUID, rank int) (uuid.UUID, error)
 	ClaimJob(ctx context.Context, queue, worker string, kinds []string) (*store.Job, error)
 	CompleteJob(ctx context.Context, id int64, result json.RawMessage) error
 	FailJob(ctx context.Context, id int64, message string) error
@@ -225,6 +227,7 @@ func New(d Deps) http.Handler {
 			r.Post("/playlists/{id}/cover", a.setPlaylistCover)
 			r.Get("/albums/{id}", a.album)
 			r.Get("/artists/{id}", a.artist)
+			r.Post("/artists/{id}/top/{rank}", a.addTopTrack)
 			r.Get("/library/search", a.searchLibrary)
 			r.Post("/tracks/batch", a.tracksByID)
 			r.Get("/me", a.me)
@@ -286,6 +289,7 @@ func New(d Deps) http.Handler {
 			r.Patch("/tracks/{id}/lyrics", a.lyricsOffset)
 			r.Post("/lyrics/backfill", a.backfillLyrics)
 			r.Post("/artwork/backfill", a.backfillEnrich)
+			r.Post("/enrichment/backfill", a.backfillEnrichment)
 			r.Get("/media/{file}", a.mediaFile)
 			r.Get("/playlists", a.listPlaylists)
 			r.Post("/playlists/import", a.importPlaylist)

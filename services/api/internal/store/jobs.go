@@ -208,6 +208,10 @@ func (s *Store) CompleteJob(ctx context.Context, id int64, result json.RawMessag
 		err = completeAnalysis(ctx, tx, payload, result)
 	case KindUpdateYtdlp:
 		err = completeYtdlpUpdate(result)
+	case KindEnrichArtist:
+		err = completeArtistEnrich(ctx, tx, payload, result)
+	case KindFetchTags:
+		err = completeTrackTags(ctx, tx, payload, result)
 	}
 	if err != nil {
 		return err
@@ -252,6 +256,9 @@ func completeDownload(ctx context.Context, tx pgx.Tx, payload, result []byte, pr
 		if _, err := enqueueEnrich(ctx, tx, p.TrackID, priority); err != nil {
 			return err
 		}
+		if err := enqueueTrackEnrichment(ctx, tx, p.TrackID); err != nil {
+			return err
+		}
 		var looked bool
 		if err := tx.QueryRow(ctx, `select exists (select 1 from lyrics where track_id = $1)`, p.TrackID).Scan(&looked); err != nil {
 			return err
@@ -284,6 +291,8 @@ func sourceKey(kind string, payload []byte) string {
 		return "deezer"
 	case KindUpdateYtdlp:
 		return "ytdlp"
+	case KindEnrichArtist, KindFetchTags:
+		return "enrichment"
 	}
 	return ""
 }

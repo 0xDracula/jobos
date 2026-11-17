@@ -7,6 +7,8 @@ MEDIA_ROOT = Path(os.environ.get("MEDIA_ROOT", ".data/media")).resolve()
 YTDLP_COOKIES = os.environ.get("YTDLP_COOKIES") or None
 FFMPEG = os.environ.get("FFMPEG", "ffmpeg")
 FFPROBE = os.environ.get("FFPROBE", "ffprobe")
+MUSICBRAINZ_CONTACT = os.environ.get("MUSICBRAINZ_CONTACT", "").strip() or None
+LASTFM_API_KEY = os.environ.get("LASTFM_API_KEY", "").strip() or None
 
 TARGET_LUFS = -14.0
 TARGET_TRUE_PEAK = -1.0

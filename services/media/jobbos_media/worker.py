@@ -9,7 +9,7 @@ from pathlib import Path
 
 import httpx
 
-from . import analysis, config, enrich, ingest, lyrics, match, ytdlp_update
+from . import analysis, artists, config, enrich, ingest, lyrics, match, ytdlp_update
 
 log = logging.getLogger("jobbos.worker")
 
@@ -86,6 +86,14 @@ def handle_analyze(payload: dict) -> dict:
     return analysis.analyze(media_path(payload["path"]), payload.get("source_lufs"))
 
 
+def handle_enrich_artist(payload: dict) -> dict:
+    return artists.enrich_artist(payload)
+
+
+def handle_fetch_tags(payload: dict) -> dict:
+    return artists.fetch_track_tags(payload)
+
+
 def handle_update_ytdlp(payload: dict) -> dict:
     return ytdlp_update.update()
 
@@ -99,6 +107,8 @@ HANDLERS = {
     "process_upload": handle_upload,
     "process_cover": handle_cover,
     "update_ytdlp": handle_update_ytdlp,
+    "enrich_artist": handle_enrich_artist,
+    "fetch_tags": handle_fetch_tags,
 }
 
 
@@ -115,6 +125,12 @@ def describe(kind: str, payload: dict, result: dict) -> str:
     if kind in ("download_track", "process_upload"):
         a = result["asset"]
         return f"{a['output_lufs']} LUFS, {a['output_true_peak_db']} dBTP, {a['bitrate'] // 1000} kbps {a['path']}"
+    if kind == "enrich_artist":
+        found = [k for k in ("deezer_id", "mbid", "bio", "image") if result[k]]
+        return (f"{payload['name']!r}: {', '.join(found) or 'nothing'}, {len(result['tags'])} tags, "
+                f"{len(result['related'])} similar, {len(result['top_tracks'])} top tracks")
+    if kind == "fetch_tags":
+        return f"{len(result['tags'])} tags {payload['title']!r}"
     if kind == "update_ytdlp":
         return f"yt-dlp {result['result']}: {result['previous']} -> {result['version']}"
     if kind == "analyze_audio":
