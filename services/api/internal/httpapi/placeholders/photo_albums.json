@@ -1,0 +1,26 @@
+{
+  "albums": [
+    {
+      "name": "Placeholder: an album of a day out",
+      "description": "Placeholder: what this album holds.",
+      "song": true,
+      "photos": [
+        { "image": "park-bench.png", "caption": "Placeholder: photo caption" },
+        { "image": "flowers-vase.png", "caption": "Placeholder: photo caption" },
+        { "image": "sunset-roofs.png", "caption": "Placeholder: photo caption" },
+        { "image": "cairo-tower.png", "caption": "Placeholder: photo caption" }
+      ]
+    },
+    {
+      "name": "Placeholder: an album of a trip",
+      "description": "Placeholder: where you went and when.",
+      "song": true,
+      "photos": [
+        { "image": "desert-camel.png", "caption": "Placeholder: photo caption" },
+        { "image": "pyramids-stars.png", "caption": "Placeholder: photo caption" },
+        { "image": "beach-umbrella.png", "caption": "Placeholder: photo caption" },
+        { "image": "train-window.png", "caption": "Placeholder: photo caption" }
+      ]
+    }
+  ]
+}
