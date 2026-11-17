@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import html
 import re
+import time
 from functools import lru_cache
 from urllib.parse import quote
 
@@ -31,6 +32,21 @@ _TAG_RE = re.compile(r"<[^>]+>")
 @lru_cache(maxsize=1)
 def _http() -> httpx.Client:
     return httpx.Client(headers={"User-Agent": mb.user_agent()}, timeout=30, follow_redirects=True)
+
+
+wiki_pacer = mb.Pacer(1.0)
+WIKI_TRIES = 4
+
+
+def wiki_get(url: str, params: dict | None = None) -> httpx.Response:
+    for _ in range(WIKI_TRIES):
+        wiki_pacer.wait()
+        r = _http().get(url, params=params)
+        if r.status_code != 429:
+            return r
+        retry = r.headers.get("Retry-After", "")
+        time.sleep(min(float(retry), 30.0) if retry.isdigit() else 5.0)
+    return r
 
 
 
@@ -128,7 +144,7 @@ def short(text: str, limit: int = BIO_CHARS) -> str:
 
 
 def wikipedia_summary(lang: str, title: str) -> dict | None:
-    r = _http().get(WIKIPEDIA_URL.format(lang=lang, title=quote(title.replace(" ", "_"), safe="")))
+    r = wiki_get(WIKIPEDIA_URL.format(lang=lang, title=quote(title.replace(" ", "_"), safe="")))
     if r.status_code == 404:
         return None
     r.raise_for_status()
@@ -140,7 +156,7 @@ def wikipedia_summary(lang: str, title: str) -> dict | None:
 
 
 def wikidata_titles(qid: str) -> dict[str, str]:
-    r = _http().get(WIKIDATA_URL, params={"action": "wbgetentities", "ids": qid, "props": "sitelinks",
+    r = wiki_get(WIKIDATA_URL, params={"action": "wbgetentities", "ids": qid, "props": "sitelinks",
                                           "sitefilter": "enwiki|arwiki", "format": "json"})
     r.raise_for_status()
     links = ((r.json().get("entities") or {}).get(qid) or {}).get("sitelinks") or {}

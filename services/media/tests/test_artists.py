@@ -240,5 +240,17 @@ def test_fetch_track_tags_uses_the_recording_with_a_similar_title(monkeypatch):
     assert artists.fetch_track_tags({"track_id": "t", "title": "x", "artists": [], "isrc": None}) == {"recording_mbid": None, "tags": []}
 
 
+def test_wikimedia_429_is_waited_out(monkeypatch):
+    client = FakeClient([FakeResponse(429, headers={"Retry-After": "4"}), FakeResponse(200, {"type": "standard"})])
+    slept = []
+    monkeypatch.setattr(artists, "_http", lambda: client)
+    monkeypatch.setattr(artists, "wiki_pacer", mb.Pacer(0))
+    monkeypatch.setattr(artists.time, "sleep", slept.append)
+    r = artists.wiki_get("https://en.wikipedia.org/api/rest_v1/page/summary/Cairokee")
+    assert r.status_code == 200 and slept == [4.0] and len(client.calls) == 2
+    monkeypatch.setattr(artists, "_http", lambda: FakeClient([FakeResponse(429)] * artists.WIKI_TRIES))
+    assert artists.wiki_get("https://en.wikipedia.org/x").status_code == 429
+
+
 def test_deezer_placeholder_pictures_are_dropped():
     assert enrich._real("https://cdn-images.dzcdn.net/images/artist//500x500.jpg") is None
