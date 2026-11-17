@@ -33,7 +33,7 @@ const EVENTS: [string, string, boolean][] = [
   ["messages", "Messages", true],
   ["letters", "Unlocked letters", true],
   ["mixtapes", "Mixtapes", true],
-  ["dates", "Listening dates", true],
+  ["dates", "Calendar", true],
   ["dedications", "Dedications", false],
   ["swaps", "Song swaps", false],
   ["lamp", "Lamp", false],
