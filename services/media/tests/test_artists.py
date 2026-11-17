@@ -240,6 +240,19 @@ def test_fetch_track_tags_uses_the_recording_with_a_similar_title(monkeypatch):
     assert artists.fetch_track_tags({"track_id": "t", "title": "x", "artists": [], "isrc": None}) == {"recording_mbid": None, "tags": []}
 
 
+def test_musician_check_needs_a_word_for_music():
+    company = page("Al Fajer Group, based in Dubai, United Arab Emirates, is a nationally owned holding company.", "")
+    assert not artists.about_a_musician(company)
+    for text, description in [
+        ("Autostrad is a Jordanian indie band from Amman.", ""),
+        ("X is a Jordanian indie rock group formed in 2007.", ""),
+        ("Y is a musical group from Cairo.", ""),
+        ("Kadim Al Sahir is an Iraqi singer.", "Iraqi singer"),
+        ("فرقة روك أردنية.", ""),
+    ]:
+        assert artists.about_a_musician(page(text, description)), text
+
+
 def test_wikimedia_429_is_waited_out(monkeypatch):
     client = FakeClient([FakeResponse(429, headers={"Retry-After": "4"}), FakeResponse(200, {"type": "standard"})])
     slept = []

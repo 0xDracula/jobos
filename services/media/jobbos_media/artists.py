@@ -19,8 +19,9 @@ TOP_LIMIT = 10
 TAG_LIMIT = 12
 BIO_CHARS = 600
 MUSICIAN_RE = re.compile(
-    r"\b(?:band|singer|rapper|musician|songwriter|composer|vocalist|guitarist|pianist|oudist|violinist|"
-    r"drummer|dj|duo|trio|music(?:al)? (?:group|project|collective|ensemble)|group|ensemble|orchestra)s?\b"
+    r"\b(?:band|singer|rapper|musician|songwriter|composer|vocalist|guitarist|pianist|oudist|violinist|drummer|dj|"
+    r"duo|trio|orchestra|(?:music(?:al)?|rock|pop|folk|jazz|rap|hip hop|indie|metal|punk|electronic|vocal) "
+    r"(?:group|project|collective|ensemble))s?\b"
     r"|مغن|مطرب|فرق[ةه]|موسيق|ملحن|عازف|رابر|منشد",
     re.IGNORECASE,
 )
