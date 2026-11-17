@@ -64,7 +64,7 @@ export function TogetherBanner() {
             <div className="pointer-events-auto flex items-center gap-2 rounded-full border-2 border-panel-line bg-panel py-1.5 pe-1.5 ps-3 shadow-soft">
               <Headphones aria-hidden className="size-4 shrink-0 text-accent-strong" />
               <Link href={`/together/?id=${room.session_id}`} className="max-w-[55vw] truncate text-sm font-bold">
-                {inside ? (names.length ? `${title} · with ${names.join(", ")}` : title) : `${names.join(", ") || "Someone"} · ${title}`}
+                {names.length ? (inside ? `${title} · with ${names.join(", ")}` : `${names.join(", ")} · ${title}`) : title}
               </Link>
               {inside ? (
                 <Button size="sm" variant="ghost" onClick={leaveSession} aria-label="Leave">

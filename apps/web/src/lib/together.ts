@@ -26,7 +26,9 @@ export type TogetherState = {
 
 export const togetherKey = ["together"] as const;
 
-export const fetchTogether = async () => (await request<{ room: TogetherState; server_ts: number }>("/api/together")).room;
+const normalize = (s: TogetherState): TogetherState => ({ ...s, members: s.members ?? [], queue: s.queue ?? [] });
+
+export const fetchTogether = async () => normalize((await request<{ room: TogetherState; server_ts: number }>("/api/together")).room);
 
 export const useTogether = () => useQuery({ queryKey: togetherKey, queryFn: fetchTogether, staleTime: Infinity });
 
@@ -42,7 +44,7 @@ export function startTogetherState() {
   wired = true;
   on<TogetherState>("room.state", (e) => {
     const cur = queryClient.getQueryData<TogetherState>(togetherKey);
-    if (!cur || e.data.version >= cur.version || !e.data.active) queryClient.setQueryData(togetherKey, e.data);
+    if (!cur || e.data.version >= cur.version || !e.data.active) queryClient.setQueryData(togetherKey, normalize(e.data));
   });
   on("realtime.open", () => void queryClient.invalidateQueries({ queryKey: togetherKey }));
 }

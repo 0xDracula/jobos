@@ -71,7 +71,14 @@ func (t *together) accrue(now int64) {
 func (a *api) together() roomState {
 	a.room.mu.Lock()
 	defer a.room.mu.Unlock()
-	return a.room.state
+	st := a.room.state
+	if st.Members == nil {
+		st.Members = []uuid.UUID{}
+	}
+	if st.Queue == nil {
+		st.Queue = []queueItem{}
+	}
+	return st
 }
 
 func (a *api) publishRoom(ctx context.Context) {
@@ -193,7 +200,7 @@ func (a *api) restoreLive() {
 	a.goLive(sess, sess.CreatedBy)
 	a.room.mu.Lock()
 	st := &a.room.state
-	st.Members = nil
+	st.Members = []uuid.UUID{}
 	st.Playing = false
 	for i, q := range st.Queue {
 		if sess.CurrentKey != nil && q.Key == *sess.CurrentKey {
