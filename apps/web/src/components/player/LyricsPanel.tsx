@@ -99,7 +99,7 @@ function Lines({ trackId, lines, offset, synced }: { trackId: string; lines: Car
     if (!synced || selected || Date.now() - userScrolled.current < 4000) return;
     const el = box.current?.querySelector<HTMLElement>(`[data-line="${Math.max(0, active)}"]`);
     if (!el || !box.current) return;
-    const top = el.offsetTop - box.current.clientHeight / 2 + el.clientHeight / 2;
+    const top = active < 0 ? 0 : Math.max(0, el.offsetTop - box.current.clientHeight * 0.3);
     box.current.scrollTo({ top, behavior: reduced ? "auto" : "smooth" });
   }, [active, reduced, synced, selected]);
 
@@ -186,8 +186,8 @@ function Lines({ trackId, lines, offset, synced }: { trackId: string; lines: Car
         onWheel={markUser}
         onTouchMove={markUser}
         className={cn(
-          "relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-1",
-          synced ? "py-[38%] [mask-image:linear-gradient(transparent,black_14%,black_86%,transparent)] lg:py-[30%]" : "py-6",
+          "no-scrollbar relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-1",
+          synced ? "pt-4 [mask-image:linear-gradient(transparent,black_6%,black_80%,transparent)]" : "py-6",
         )}
       >
         {lines.map((line, i) => {
@@ -208,18 +208,25 @@ function Lines({ trackId, lines, offset, synced }: { trackId: string; lines: Car
                 onContextMenu={onContextMenu(i)}
                 onClick={() => onClick(i)}
                 className={cn(
-                  "block w-full select-none rounded-button px-3 py-2 text-start font-extrabold leading-snug transition-[opacity,color,background-color] duration-300 [-webkit-touch-callout:none]",
-                  synced ? "text-[26px] lg:text-[32px]" : "min-h-4 py-1 text-xl lg:text-2xl",
-                  isSel && "bg-accent-soft/80",
-                  !synced || selected ? "text-ink" : i === active ? "text-ink" : i < active ? "text-ink opacity-35" : "text-ink opacity-50 hover:opacity-80",
+                  "block w-full select-none rounded-[14px] px-3 py-2 text-start font-extrabold transition-[opacity,background-color] duration-300 [-webkit-touch-callout:none]",
+                  synced ? "text-[clamp(22px,2.1vw,30px)] leading-[1.32] tracking-[-0.01em] [text-wrap:balance]" : "min-h-4 py-1 text-xl leading-relaxed lg:text-[22px]",
+                  isSel && "bg-[var(--player-chip)]",
+                  !synced || selected
+                    ? "text-ink"
+                    : i === active || (active < 0 && i === 0)
+                      ? "text-ink"
+                      : i < active
+                        ? "text-ink opacity-35"
+                        : "text-ink opacity-55 hover:opacity-85",
                 )}
               >
-                {line.text || (synced ? "♪" : " ")}
+                {line.text || (synced ? <Gap current={i === active} /> : " ")}
               </button>
               {lineNotes?.map((n) => <LineNote key={n.id} note={n} />)}
             </div>
           );
         })}
+        {synced && <div aria-hidden className="h-[62%] shrink-0" />}
       </div>
       {selected && (
         <div role="toolbar" aria-label="Selected lines" className="flex flex-wrap items-center justify-center gap-2 border-t border-line px-2 pt-3">
@@ -251,6 +258,20 @@ function Lines({ trackId, lines, offset, synced }: { trackId: string; lines: Car
         }}
       />
     </>
+  );
+}
+
+function Gap({ current }: { current: boolean }) {
+  return (
+    <span aria-label="Instrumental" className="flex justify-center gap-2 py-2">
+      {[0, 1, 2].map((d) => (
+        <span
+          key={d}
+          className={cn("size-2.5 rounded-full bg-current", current ? "animate-[gap-dot_1.2s_ease-in-out_infinite]" : "opacity-60")}
+          style={{ animationDelay: `${d * 0.18}s` }}
+        />
+      ))}
+    </span>
   );
 }
 

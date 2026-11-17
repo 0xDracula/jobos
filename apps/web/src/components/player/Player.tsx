@@ -1,17 +1,18 @@
 "use client";
 
 import { ChevronDown, ListMusic, MicVocal, SlidersHorizontal, X } from "lucide-react";
-import { AnimatePresence, LayoutGroup, motion, useDragControls } from "motion/react";
+import { AnimatePresence, motion, useDragControls, type Transition } from "motion/react";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, type CSSProperties } from "react";
 import { useShallow } from "zustand/react/shallow";
 
 import { cn } from "@/lib/cn";
 import { fmtTime } from "@/lib/format";
-import { gentle, soft } from "@/lib/motion";
+import { fade, soft } from "@/lib/motion";
 import { EFFECT_LABELS, EQ_PRESET_LABELS, usePrefs } from "@/lib/prefs";
 import { useTrackDetail } from "@/lib/queries";
 import { useAlbumColors } from "@/lib/theme";
+import { useDesktop } from "@/lib/useMedia";
 import type { Track } from "@/lib/types";
 import { collapse, expand, togglePanel } from "@/player/controls";
 import { selectCurrent, usePlayer, type Panel, type PlayContext, type QueueItem } from "@/player/store";
@@ -85,9 +86,7 @@ export function PlayerDock() {
     if (usePlayer.getState().expanded) collapse();
   }, [pathname]);
   return (
-    <LayoutGroup id="player">
-      <AnimatePresence initial={false}>{loaded && (expanded ? <NowPlaying key="full" /> : <MiniPlayer key="mini" />)}</AnimatePresence>
-    </LayoutGroup>
+    <AnimatePresence initial={false}>{loaded && (expanded ? <NowPlaying key="full" /> : <MiniPlayer key="mini" />)}</AnimatePresence>
   );
 }
 
@@ -99,8 +98,10 @@ function MiniPlayer() {
   if (!item || !track) return null;
   return (
     <motion.div
-      layoutId="player-surface"
-      transition={gentle}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, transition: { duration: 0.12 } }}
+      transition={fade}
       onPanEnd={(_, info) => {
         if (info.offset.y < -30 || info.velocity.y < -400) expand();
       }}
@@ -116,16 +117,16 @@ function MiniPlayer() {
           aria-label={`Expand player, ${track.title}`}
           className="flex min-w-0 flex-1 items-center gap-3 rounded-button text-start lg:max-w-72 lg:flex-none lg:basis-72"
         >
-          <motion.div layoutId="player-artwork" transition={gentle} style={{ borderRadius: 12 }} className="relative size-12 shrink-0 overflow-hidden shadow-soft">
+          <div className="relative size-12 shrink-0 overflow-hidden rounded-[12px] shadow-soft">
             <SwapArtwork uid={item.uid} src={track.artwork_thumb_url} />
-          </motion.div>
+          </div>
           <span className="min-w-0">
-            <motion.span layoutId="player-title" transition={gentle} className="flex items-center gap-2">
+            <span className="flex items-center gap-2">
               <span dir="auto" className="truncate font-bold">
                 {track.title}
               </span>
               <LevelMeter playing={playing} className="shrink-0 text-tint" />
-            </motion.span>
+            </span>
             <span dir="auto" className="block truncate text-sm font-semibold text-muted">
               {track.artists.join(", ")}
             </span>
@@ -206,12 +207,45 @@ function PanelBody({ panel, trackId }: { panel: Exclude<Panel, null>; trackId: s
   return <LyricsPanel trackId={trackId} />;
 }
 
+const OPEN: Transition = { type: "tween", duration: 0.34, ease: [0.22, 1, 0.36, 1] };
+const CLOSE: Transition = { type: "tween", duration: 0.22, ease: [0.4, 0, 1, 1] };
+const SHEET = { initial: { y: "100%" }, animate: { y: 0, transition: OPEN }, exit: { y: "100%", transition: CLOSE } };
+const LIFT = {
+  initial: { opacity: 0, y: 18, scale: 0.985 },
+  animate: { opacity: 1, y: 0, scale: 1, transition: OPEN },
+  exit: { opacity: 0, y: 12, scale: 0.99, transition: CLOSE },
+};
+
+function PanelTabs({ active, className }: { active: Exclude<Panel, null>; className?: string }) {
+  return (
+    <div role="tablist" aria-label="Player panels" className={cn("flex items-center gap-1 rounded-full bg-[var(--player-chip)] p-1", className)}>
+      {PANELS.map(([key, label, Icon]) => (
+        <button
+          key={key}
+          type="button"
+          role="tab"
+          aria-selected={active === key}
+          onClick={() => usePlayer.setState({ panel: key })}
+          className={cn(
+            "inline-flex h-9 items-center gap-2 rounded-full px-4 text-sm font-bold transition-colors",
+            active === key ? "bg-ink text-bg" : "text-ink/80 hover:text-ink",
+          )}
+        >
+          <Icon className="size-4" />
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function NowPlaying() {
   const { item, track } = useCurrent();
   const { panel, duration, context, expanded } = usePlayer(
     useShallow((s) => ({ panel: s.panel, duration: s.duration, context: s.context, expanded: s.expanded })),
   );
-  const { accent, wash } = useAlbumColors(track?.palette);
+  const { accent } = useAlbumColors(track?.palette);
+  const desktop = useDesktop();
   const dragControls = useDragControls();
   const collapseButton = useRef<HTMLButtonElement>(null);
 
@@ -231,157 +265,125 @@ function NowPlaying() {
 
   if (!item || !track) return null;
   const desktopPanel = panel ?? "lyrics";
-  const background = wash
-    ? `linear-gradient(180deg, color-mix(in oklab, ${wash} 46%, var(--bg)) 0%, color-mix(in oklab, ${wash} 16%, var(--bg)) 55%, var(--bg) 100%)`
-    : "var(--bg)";
+  const art = track.artwork_thumb_url ?? track.artwork_url;
 
   return (
-    <>
-      <motion.div
-        aria-hidden
-        className={cn("fixed inset-0 z-50 hidden bg-[#1e1b3a]/30 backdrop-blur-sm lg:block", !expanded && "pointer-events-none")}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={collapse}
-      />
-      <motion.section
-        layoutId="player-surface"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Now playing"
-        transition={gentle}
-        drag="y"
-        dragControls={dragControls}
-        dragListener={false}
-        dragConstraints={{ top: 0, bottom: 0 }}
-        dragElastic={{ top: 0.06, bottom: 0.75 }}
-        onDragEnd={(_, info) => {
-          if (info.offset.y > 70 || info.velocity.y > 600) collapse();
-        }}
-        style={{ borderRadius: 32, background, ...tintStyle(accent) }}
-        className={cn("fixed inset-0 z-50 flex flex-col overflow-hidden shadow-soft lg:inset-6 lg:mx-auto lg:max-w-6xl", !expanded && "pointer-events-none")}
-      >
-        <motion.header
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="flex items-center gap-2 px-3 pt-[max(env(safe-area-inset-top),10px)] lg:px-6 lg:pt-5"
-        >
-          <IconButton ref={collapseButton} label="Collapse player" aria-expanded onClick={collapse}>
-            <ChevronDown />
-          </IconButton>
-          <div className="min-w-0 flex-1 text-center">
-            {context && (
-              <>
-                <div className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-muted">{CONTEXT_LABELS[context.type]}</div>
-                <div dir="auto" className="truncate text-sm font-bold">
-                  {context.name}
-                </div>
-              </>
-            )}
-          </div>
-          <TrackMenu track={track} className="size-11" />
-        </motion.header>
+    <motion.section
+      role="dialog"
+      aria-modal="true"
+      aria-label="Now playing"
+      variants={desktop ? LIFT : SHEET}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+      drag={desktop ? false : "y"}
+      dragControls={dragControls}
+      dragListener={false}
+      dragConstraints={{ top: 0, bottom: 0 }}
+      dragElastic={{ top: 0.04, bottom: 0.7 }}
+      onDragEnd={(_, info) => {
+        if (info.offset.y > 90 || info.velocity.y > 600) collapse();
+      }}
+      style={tintStyle(accent)}
+      className={cn("fixed inset-0 z-50 flex flex-col overflow-hidden bg-bg", !expanded && "pointer-events-none")}
+    >
+      <div aria-hidden className="absolute inset-0 overflow-hidden">
+        {art && <div className="absolute -inset-[12%] scale-110 bg-cover bg-center opacity-80 blur-[72px] saturate-[1.4]" style={{ backgroundImage: `url(${art})` }} />}
+        <div className="absolute inset-0 bg-[image:var(--player-scrim)]" />
+      </div>
 
-        <div className="relative grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-12 lg:px-10 lg:pb-8">
-          <div className={cn("flex min-h-0 flex-col px-6 pb-[max(env(safe-area-inset-bottom),18px)] lg:px-0 lg:pb-0", panel && "max-lg:hidden")}>
-            <div
-              className="grid min-h-0 flex-1 place-items-center py-3 [container-type:size] [touch-action:none]"
-              onPointerDown={(e) => dragControls.start(e)}
-            >
-              <motion.div
-                layoutId="player-artwork"
-                transition={gentle}
-                style={{ borderRadius: 28, width: "min(100cqw, 100cqh, 560px)", height: "min(100cqw, 100cqh, 560px)" }}
-                className="relative overflow-hidden shadow-soft"
-              >
-                <SwapArtwork uid={item.uid} src={track.artwork_url ?? track.artwork_thumb_url} eager />
-              </motion.div>
-            </div>
-            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={soft} className="grid grid-cols-1 gap-4">
-              <div className="flex items-center gap-3">
-                <div className="min-w-0 flex-1">
-                  <motion.div layoutId="player-title" transition={gentle} dir="auto" className="truncate font-display text-[26px] font-semibold leading-tight">
-                    {track.title}
-                  </motion.div>
-                  <div dir="auto" className="truncate text-[17px] font-bold text-muted">
-                    {track.artists.join(", ")}
-                  </div>
-                </div>
-                <DedicationMark track={track} className="size-11" />
-                <LikeButton trackId={track.id} />
+      <header className="relative flex items-center gap-3 px-3 pt-[max(env(safe-area-inset-top),10px)] lg:px-8 lg:pt-6">
+        <IconButton ref={collapseButton} label="Collapse player" aria-expanded onClick={collapse}>
+          <ChevronDown />
+        </IconButton>
+        <div className="min-w-0 flex-1 max-lg:text-center lg:flex-none lg:basis-72">
+          {context && (
+            <>
+              <div className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-muted">{CONTEXT_LABELS[context.type]}</div>
+              <div dir="auto" className="truncate text-sm font-bold">
+                {context.name}
               </div>
-              <SongNotes track={track} />
-              <Waveform peaks={track.audio?.waveform} duration={duration} />
-              <div className="flex items-center justify-between">
-                <ShuffleButton />
-                <PrevButton size="lg" />
-                <PlayButton size="lg" />
-                <NextButton size="lg" />
-                <RepeatButton />
-              </div>
-              <ActiveSound />
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1 lg:hidden">
-                  {PANELS.map(([key, label, Icon]) => (
-                    <IconButton key={key} label={label} onClick={() => togglePanel(key)}>
-                      <Icon />
-                    </IconButton>
-                  ))}
-                </div>
-                <VolumeControl className="ms-auto" />
-              </div>
-            </motion.div>
-          </div>
-
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className={cn("min-h-0 flex-col max-lg:px-4 max-lg:pb-[max(env(safe-area-inset-bottom),12px)] lg:flex", panel ? "flex" : "hidden")}
-          >
-            <div role="tablist" aria-label="Player panels" className="mb-3 flex items-center gap-1">
-              {PANELS.map(([key, label, Icon]) => (
-                <button
-                  key={key}
-                  type="button"
-                  role="tab"
-                  aria-selected={desktopPanel === key}
-                  onClick={() => usePlayer.setState({ panel: key })}
-                  className={cn(
-                    "inline-flex min-h-10 items-center gap-2 rounded-full px-4 text-sm font-bold transition-colors",
-                    desktopPanel === key ? "bg-ink text-bg" : "text-ink hover:bg-accent-soft/50",
-                  )}
-                >
-                  <Icon className="size-4" />
-                  {label}
-                </button>
-              ))}
-              <IconButton label="Close panel" size="sm" className="ms-auto lg:hidden" onClick={() => usePlayer.setState({ panel: null })}>
-                <X />
-              </IconButton>
-            </div>
-            <div className="flex min-h-0 flex-1 flex-col">
-              <PanelBody panel={desktopPanel} trackId={track.id} />
-            </div>
-            {panel && (
-              <div className="mt-2 flex items-center gap-3 rounded-card bg-surface-solid/60 p-2 lg:hidden">
-                <div className="relative size-11 shrink-0 overflow-hidden rounded-chip">
-                  <Artwork src={track.artwork_thumb_url} className="size-full" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div dir="auto" className="truncate font-bold">
-                    {track.title}
-                  </div>
-                  <ProgressLine duration={duration} className="mt-1.5 rounded-full" />
-                </div>
-                <PlayButton size="sm" />
-              </div>
-            )}
-          </motion.div>
+            </>
+          )}
         </div>
-      </motion.section>
-    </>
+        <PanelTabs active={desktopPanel} className="mx-auto hidden lg:flex" />
+        <div className="flex justify-end lg:basis-72">
+          <TrackMenu track={track} className="size-11" />
+        </div>
+      </header>
+
+      <div className="relative mx-auto grid min-h-0 w-full max-w-[1240px] flex-1 grid-cols-1 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:gap-16 lg:px-12 lg:pb-10 lg:pt-6">
+        <div className={cn("flex min-h-0 flex-col px-6 pb-[max(env(safe-area-inset-bottom),18px)] lg:justify-center lg:px-0 lg:pb-0", panel && "max-lg:hidden")}>
+          <div className="grid min-h-0 flex-1 place-items-center py-4 [container-type:size] [touch-action:none] lg:max-h-[520px]" onPointerDown={(e) => dragControls.start(e)}>
+            <div
+              style={{ width: "min(100cqw, 100cqh, 480px)", height: "min(100cqw, 100cqh, 480px)" }}
+              className="relative overflow-hidden rounded-[18px] shadow-[0_18px_50px_rgba(0,0,0,0.35)]"
+            >
+              <SwapArtwork uid={item.uid} src={track.artwork_url ?? track.artwork_thumb_url} eager />
+            </div>
+          </div>
+          <div className="mx-auto grid w-full max-w-[480px] grid-cols-1 gap-4">
+            <div className="flex items-center gap-3">
+              <div className="min-w-0 flex-1">
+                <div dir="auto" className="truncate font-display text-[26px] font-semibold leading-tight">
+                  {track.title}
+                </div>
+                <div dir="auto" className="truncate text-[17px] font-bold text-muted">
+                  {track.artists.join(", ")}
+                </div>
+              </div>
+              <DedicationMark track={track} className="size-11" />
+              <LikeButton trackId={track.id} />
+            </div>
+            <SongNotes track={track} />
+            <Waveform peaks={track.audio?.waveform} duration={duration} />
+            <div className="flex items-center justify-between">
+              <ShuffleButton />
+              <PrevButton size="lg" />
+              <PlayButton size="lg" />
+              <NextButton size="lg" />
+              <RepeatButton />
+            </div>
+            <ActiveSound />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1 lg:hidden">
+                {PANELS.map(([key, label, Icon]) => (
+                  <IconButton key={key} label={label} onClick={() => togglePanel(key)}>
+                    <Icon />
+                  </IconButton>
+                ))}
+              </div>
+              <VolumeControl className="ms-auto" />
+            </div>
+          </div>
+        </div>
+
+        <div className={cn("min-h-0 flex-col max-lg:px-4 max-lg:pb-[max(env(safe-area-inset-bottom),12px)] lg:flex", panel ? "flex" : "hidden")}>
+          <div className="mb-3 flex items-center gap-2 lg:hidden">
+            <PanelTabs active={desktopPanel} />
+            <IconButton label="Close panel" size="sm" className="ms-auto" onClick={() => usePlayer.setState({ panel: null })}>
+              <X />
+            </IconButton>
+          </div>
+          <div className="flex min-h-0 flex-1 flex-col">
+            <PanelBody panel={desktopPanel} trackId={track.id} />
+          </div>
+          {panel && (
+            <div className="mt-2 flex items-center gap-3 rounded-card bg-[var(--player-chip)] p-2 lg:hidden">
+              <div className="relative size-11 shrink-0 overflow-hidden rounded-chip">
+                <Artwork src={track.artwork_thumb_url} className="size-full" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div dir="auto" className="truncate font-bold">
+                  {track.title}
+                </div>
+                <ProgressLine duration={duration} className="mt-1.5 rounded-full" />
+              </div>
+              <PlayButton size="sm" />
+            </div>
+          )}
+        </div>
+      </div>
+    </motion.section>
   );
 }
