@@ -1,8 +1,10 @@
 "use client";
 
 import { BellOff, Check, CheckCheck, Clock, Lamp, Music2, Pencil, Play, Reply, RotateCcw, Send, Smile, Trash2, X } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
+import { Avatar } from "@/avatar";
 import { SwapSheet } from "@/components/SwapSheet";
 import { Artwork } from "@/components/media";
 import { Button, IconButton, Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui";
@@ -283,6 +285,11 @@ export default function ChatPage() {
   return (
     <div className="-mx-4 -mt-6 flex h-[calc(100dvh-10.5rem-env(safe-area-inset-bottom))] flex-col lg:-mx-10 lg:-mt-10 lg:h-[calc(100dvh-7rem)]">
       <header className="flex items-center gap-3 border-b border-line px-4 py-3 lg:px-6">
+        {other && (
+          <Link href={`/profile/?id=${other.id}`} aria-label={other.display_name} className="shrink-0 rounded-full bg-accent-soft/60">
+            <Avatar userId={other.id} size={44} pose={otherState?.listening ? "listening" : "idle"} />
+          </Link>
+        )}
         <div className="min-w-0 flex-1">
           <h1 dir="auto" className="truncate font-display text-xl font-semibold">{other?.display_name ?? "Chat"}</h1>
           <p className="flex items-center gap-1.5 truncate text-sm font-semibold text-muted">
