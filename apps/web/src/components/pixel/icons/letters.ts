@@ -1,3 +1,72 @@
-import type { Art } from "../art";
+import { O, type Art } from "../art";
 
-export const LETTER_ART = {} satisfies Record<string, Art>;
+export const LETTER_ART = {
+  envelope: {
+    rows: [
+      "............",
+      "oooooooooooo",
+      "owlwwwwwwlwo",
+      "owwlwwwwlwwo",
+      "owwwlwwlwwwo",
+      "owwwwppwwwwo",
+      "owwwppppwwwo",
+      "owwwwppwwwwo",
+      "owwwwwwwwwwo",
+      "oooooooooooo",
+      "............",
+      "............",
+    ],
+    pal: { o: O, w: "#fff4e8", l: "#d8c3a5", p: "#e88fa3" },
+  },
+  jar: {
+    rows: [
+      "............",
+      "...oooooo...",
+      "...okkkko...",
+      "..oooooooo..",
+      ".oggggggggo.",
+      ".owgggggggo.",
+      ".owgpyggggo.",
+      ".ogpyyllpgo.",
+      ".oyyllppyyo.",
+      ".oppyyllyyo.",
+      "..oooooooo..",
+      "............",
+    ],
+    pal: { o: O, k: "#d0705f", g: "#dfeef9", w: "#ffffff", p: "#f7c6d0", y: "#fde68a", l: "#d9cdf6" },
+  },
+  songday: {
+    rows: [
+      "...o....o...",
+      ".oooooooooo.",
+      ".orrrrrrrro.",
+      ".oooooooooo.",
+      ".owwwwwwwwo.",
+      ".owwwwwnnwo.",
+      ".owwwwwnwwo.",
+      ".owwwwwnwwo.",
+      ".owwnnnnwwo.",
+      ".owwnnnwwwo.",
+      ".oooooooooo.",
+      "............",
+    ],
+    pal: { o: O, r: "#e88fa3", w: "#fff4e8", n: "#a8445e" },
+  },
+  promise: {
+    rows: [
+      "....oooo....",
+      "...o....o...",
+      "...o....o...",
+      "...o....o...",
+      ".oooooooooo.",
+      ".oyyyyyyyyo.",
+      ".oyppyppyyo.",
+      ".oypppppyyo.",
+      ".oyypppyyyo.",
+      ".oyyypyyyyo.",
+      ".oooooooooo.",
+      "............",
+    ],
+    pal: { o: O, y: "#ffd98a", p: "#e88fa3" },
+  },
+} satisfies Record<string, Art>;
