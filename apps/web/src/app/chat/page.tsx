@@ -1,14 +1,16 @@
 "use client";
 
-import { BellOff, Check, CheckCheck, Clock, Lamp, Music2, Pencil, Play, Reply, RotateCcw, Send, Smile, Trash2, X } from "lucide-react";
+import { BellOff, Check, CheckCheck, Clock, Headphones, Lamp, Music2, Pencil, Play, Reply, RotateCcw, Send, Smile, Trash2, X } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 
 import { Avatar } from "@/avatar";
 import { SwapSheet } from "@/components/SwapSheet";
 import { Artwork } from "@/components/media";
+import { seedOf, SkyScene, type Clear } from "@/components/sky/PageHero";
 import { Button, IconButton, Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
+import { groupMessages } from "@/lib/chatGroups";
 import { cn } from "@/lib/cn";
 import { fmtTime } from "@/lib/format";
 import { keys, queryClient } from "@/lib/queries";
@@ -18,9 +20,17 @@ import {
   type ChatMessage,
 } from "@/lib/social";
 import { toast } from "@/lib/toast";
+import { useTogether } from "@/lib/together";
 import { playTracks, seek } from "@/player/controls";
+import { selectTrack, usePlayer } from "@/player/store";
 
 const QUICK = ["❤️", "😂", "😮", "😢", "🔥", "👍"];
+
+const SKY_SEED = seedOf("chat");
+
+const ON_SKY = "[text-shadow:0_1px_8px_var(--chat-shadow)]";
+
+const timeOf = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 
 async function playCard(id: string, ms?: number | null) {
   try {
@@ -79,10 +89,11 @@ function LyricCard({ m }: { m: ChatMessage }) {
 }
 
 function Bubble({
-  m, mine, replyTo, nameOf, onReply, onEdit, me,
+  m, mine, tail, replyTo, nameOf, onReply, onEdit, me,
 }: {
   m: ChatMessage;
   mine: boolean;
+  tail: boolean;
   replyTo: ChatMessage | undefined;
   nameOf: (id: string) => string;
   onReply: () => void;
@@ -92,12 +103,16 @@ function Bubble({
   const card = m.kind === "song" || m.kind === "lyric";
   const myReaction = m.reactions.find((r) => r.user_id === me)?.emoji ?? "";
   const react = (emoji: string) => socialApi.react(m.id, emoji === myReaction ? "" : emoji).catch(() => toast("Reaction not saved"));
+  const edited = !!m.edited_at && !m.deleted;
   return (
-    <div className={cn("group flex max-w-[85%] flex-col gap-1", mine ? "items-end self-end" : "items-start self-start")}>
+    <div className={cn("group flex max-w-full flex-col gap-1", mine ? "items-end" : "items-start")}>
       <div
         className={cn(
-          "relative rounded-[20px] px-4 py-2.5 shadow-[0_2px_10px_rgba(59,47,63,0.08)]",
-          mine ? "rounded-br-[6px] bg-accent-soft text-ink" : "rounded-bl-[6px] bg-surface-solid text-ink",
+          "relative rounded-[18px] px-4 py-2.5",
+          mine
+            ? "bg-[var(--chat-mine)] text-[var(--chat-mine-ink)] shadow-[0_0_18px_var(--chat-mine-glow)]"
+            : "border border-[var(--chat-theirs-line)] bg-[var(--chat-theirs)] text-ink",
+          tail && (mine ? "rounded-br-[6px]" : "rounded-bl-[6px]"),
           card && "min-w-[240px]",
           m.status === "sending" && "opacity-60",
         )}
@@ -120,14 +135,14 @@ function Bubble({
           </p>
         )}
         {m.data?.note && !m.deleted && (
-          <p dir="auto" className="mt-2 whitespace-pre-wrap border-t border-line pt-2 text-[15px]">
+          <p dir="auto" className="mt-2 whitespace-pre-wrap border-t border-current/15 pt-2 text-[15px]">
             {m.data.note}
           </p>
         )}
         {!m.deleted && !m.status && (
           <div className={cn("absolute top-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100", mine ? "-start-10" : "-end-10")}>
             <Menu modal={false}>
-              <MenuTrigger aria-label="Message actions" className="grid size-8 place-items-center rounded-full bg-surface-solid text-muted shadow-soft">
+              <MenuTrigger aria-label="Message actions" className="grid size-8 place-items-center rounded-full border border-[var(--chat-theirs-line)] bg-[var(--chat-theirs)] text-muted">
                 <Smile className="size-4" />
               </MenuTrigger>
               <MenuContent align={mine ? "end" : "start"}>
@@ -156,28 +171,48 @@ function Bubble({
           </div>
         )}
       </div>
-      <div className="flex items-center gap-2 px-1 text-xs font-semibold text-muted">
-        {m.reactions.length > 0 && (
-          <span className="rounded-full bg-surface-solid px-2 py-0.5 shadow-soft" aria-label="Reactions">
-            {m.reactions.map((r) => r.emoji).join(" ")}
-          </span>
-        )}
-        {m.status === "failed" ? (
-          <button type="button" onClick={() => retryMessage(m.client_key)} className="flex items-center gap-1 font-bold text-danger">
-            <RotateCcw className="size-3.5" /> Not sent · Retry
-          </button>
-        ) : m.status === "sending" ? (
-          <span className="flex items-center gap-1">
-            <Clock className="size-3.5" /> Sending
-          </span>
-        ) : (
-          <span>
-            {new Date(m.created_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
-            {m.edited_at && !m.deleted ? " · Edited" : ""}
-          </span>
-        )}
-      </div>
+      {(m.reactions.length > 0 || m.status || edited) && (
+        <div className={cn("flex items-center gap-2 px-1 text-xs font-bold text-[var(--chat-meta)]", ON_SKY)}>
+          {m.reactions.length > 0 && (
+            <span className="rounded-full border border-[var(--chat-theirs-line)] bg-[var(--chat-theirs)] px-2 py-0.5 [text-shadow:none]" aria-label="Reactions">
+              {m.reactions.map((r) => r.emoji).join(" ")}
+            </span>
+          )}
+          {m.status === "failed" ? (
+            <button type="button" onClick={() => retryMessage(m.client_key)} className="flex items-center gap-1 font-bold text-danger">
+              <RotateCcw className="size-3.5" /> Not sent · Retry
+            </button>
+          ) : m.status === "sending" ? (
+            <span className="flex items-center gap-1">
+              <Clock className="size-3.5" /> Sending
+            </span>
+          ) : edited ? (
+            <span>Edited</span>
+          ) : null}
+        </div>
+      )}
     </div>
+  );
+}
+
+function ChatAction({ label, pressed, children, className, ...props }: ComponentProps<"button"> & { label: string; pressed?: boolean }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={pressed}
+      className={cn("group grid w-14 justify-items-center gap-1 text-[11px] font-extrabold text-[var(--chat-meta)] disabled:opacity-40", ON_SKY, className)}
+      {...props}
+    >
+      <span
+        className={cn(
+          "grid size-10 place-items-center rounded-full bg-[var(--chat-action)] text-ink transition-colors group-hover:bg-accent-soft/60 [&>svg]:size-5",
+          pressed && "bg-[var(--chat-mine)] text-[var(--chat-mine-ink)] shadow-[0_0_14px_var(--chat-mine-glow)] group-hover:bg-[var(--chat-mine)]",
+        )}
+      >
+        {children}
+      </span>
+      {label}
+    </button>
   );
 }
 
@@ -186,6 +221,8 @@ export default function ChatPage() {
   const members = useMembers();
   const presence = usePresence();
   const chat = useChat();
+  const track = usePlayer(selectTrack);
+  const room = useTogether().data;
   const [text, setText] = useState("");
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [editing, setEditing] = useState<ChatMessage | null>(null);
@@ -193,7 +230,10 @@ export default function ChatPage() {
   const [, setTick] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
   const topRef = useRef<HTMLDivElement>(null);
+  const headRef = useRef<HTMLDivElement>(null);
+  const actionsRef = useRef<HTMLDivElement>(null);
   const atBottom = useRef(true);
+  const clear = useMemo<Clear>(() => ({ all: [headRef, actionsRef], clouds: [] }), []);
 
   const other = members.data?.find((u) => u.id !== me?.id) ?? null;
   const otherState = presence.data?.people.find((p) => p.id === other?.id);
@@ -201,7 +241,8 @@ export default function ChatPage() {
   const nameOf = (id: string) => (id === me?.id ? "You" : (members.data?.find((u) => u.id === id)?.display_name ?? "Someone"));
   const messages = useMemo(() => chat.data?.messages ?? [], [chat.data]);
   const byId = useMemo(() => new Map(messages.map((m) => [m.id, m])), [messages]);
-
+  const rows = useMemo(() => groupMessages(messages), [messages]);
+  const together = !!room?.active && !!me && room.members.includes(me.id);
   useEffect(() => {
     const fn = () => setTick((t) => t + 1);
     typing.listeners.add(fn);
@@ -283,18 +324,26 @@ export default function ChatPage() {
   const status = otherState?.online ? "Online" : otherState?.last_seen ? lastSeenText(otherState.last_seen) : "";
 
   return (
-    <div className="-mx-4 -mt-6 flex h-[calc(100dvh-10.5rem-env(safe-area-inset-bottom))] flex-col lg:-mx-10 lg:-mt-10 lg:h-[calc(100dvh-7rem)]">
-      <header className="flex items-center gap-3 border-b border-line px-4 py-3 lg:px-6">
+    <div className="fixed inset-x-0 top-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] flex flex-col lg:bottom-0 lg:left-64">
+      <SkyScene seed={SKY_SEED} clear={clear} />
+      <header className="relative flex items-center gap-3 px-4 pb-2 pt-[max(env(safe-area-inset-top),14px)] lg:px-8 lg:pt-6">
         {other && (
-          <Link href={`/profile/?id=${other.id}`} aria-label={other.display_name} className="shrink-0 rounded-full bg-accent-soft/60">
+          <Link href={`/profile/?id=${other.id}`} aria-label={other.display_name} className="shrink-0 rounded-full bg-[var(--chat-action)]">
             <Avatar userId={other.id} size={44} pose={otherState?.listening ? "listening" : "idle"} />
           </Link>
         )}
-        <div className="min-w-0 flex-1">
-          <h1 dir="auto" className="truncate font-display text-xl font-semibold">{other?.display_name ?? "Chat"}</h1>
-          <p className="flex items-center gap-1.5 truncate text-sm font-semibold text-muted">
-            {otherState?.online && <span aria-hidden className="size-2 rounded-full bg-sage" />}
+        <div ref={headRef} className="min-w-0 flex-1">
+          <h1 dir="auto" className={cn("truncate font-display text-[22px] font-semibold leading-tight text-ink", ON_SKY)}>
+            {other?.display_name ?? "Chat"}
+          </h1>
+          <p className={cn("flex items-center gap-1.5 truncate text-[13px] font-bold text-[var(--chat-meta)]", ON_SKY)}>
+            {otherState?.online && <span aria-hidden className="size-2 shrink-0 rounded-full bg-sage" />}
             {otherTyping ? "Typing…" : status}
+            {together && (
+              <Link href="/together/" className="flex items-center gap-1">
+                <Headphones className="size-3.5" /> Listening together
+              </Link>
+            )}
             {otherState?.quiet && (
               <span className="flex items-center gap-1">
                 <BellOff className="size-3.5" /> Quiet mode
@@ -302,15 +351,17 @@ export default function ChatPage() {
             )}
           </p>
         </div>
-        <IconButton label={lampOn ? "Switch off their lamp" : "Thinking of you"} active={lampOn} onClick={sendLamp} disabled={!other}>
-          <Lamp />
-        </IconButton>
-        <IconButton label="Song swap" onClick={() => setSwapOpen(true)}>
-          <Music2 />
-        </IconButton>
-        <IconButton label={myState?.quiet ? "Quiet mode on" : "Quiet mode off"} active={!!myState?.quiet} onClick={toggleQuiet}>
-          <BellOff />
-        </IconButton>
+        <div ref={actionsRef} className="flex shrink-0">
+          <ChatAction label="Lamp" title={lampOn ? "Switch off their lamp" : "Thinking of you"} pressed={lampOn} onClick={sendLamp} disabled={!other}>
+            <Lamp />
+          </ChatAction>
+          <ChatAction label="Swap" title="Song swap" onClick={() => setSwapOpen(true)}>
+            <Music2 />
+          </ChatAction>
+          <ChatAction label="Quiet" title={myState?.quiet ? "Quiet mode on" : "Quiet mode off"} pressed={!!myState?.quiet} onClick={toggleQuiet}>
+            <BellOff />
+          </ChatAction>
+        </div>
       </header>
 
       <div
@@ -319,41 +370,74 @@ export default function ChatPage() {
           const el = e.currentTarget;
           atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
         }}
-        className="chat-paper flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-4 lg:px-6"
+        className="relative flex flex-1 flex-col overflow-y-auto"
       >
-        <div ref={topRef} className="h-px shrink-0" />
-        {chat.isPending && <p className="m-auto font-semibold text-muted">Loading</p>}
-        {!chat.isPending && messages.length === 0 && <p className="m-auto font-semibold text-muted">No messages yet</p>}
-        {messages.map((m) => (
-          <Bubble
-            key={m.id}
-            m={m}
-            me={me?.id ?? ""}
-            mine={m.sender_id === me?.id}
-            replyTo={m.reply_to ? byId.get(m.reply_to) : undefined}
-            nameOf={nameOf}
-            onReply={() => {
-              setEditing(null);
-              setReplyTo(m);
-            }}
-            onEdit={() => {
-              setReplyTo(null);
-              setEditing(m);
-              setText(m.body);
-            }}
-          />
-        ))}
-        {seen && (
-          <p className="-mt-2 flex items-center gap-1 self-end px-1 text-xs font-bold text-muted">
-            <CheckCheck className="size-3.5" /> Seen
-          </p>
-        )}
-        {!seen && lastMine && (
-          <p className="-mt-2 flex items-center gap-1 self-end px-1 text-xs font-bold text-muted">
-            <Check className="size-3.5" /> Sent
-          </p>
-        )}
-        {otherTyping && <p className="self-start rounded-full bg-surface-solid px-4 py-2 text-sm font-bold text-muted shadow-soft">Typing…</p>}
+        <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-1.5 px-4 py-3 lg:px-8">
+          <div ref={topRef} className="h-px shrink-0" />
+          {chat.isPending && <p className={cn("m-auto font-bold text-[var(--chat-meta)]", ON_SKY)}>Loading</p>}
+          {!chat.isPending && messages.length === 0 && <p className={cn("m-auto font-bold text-[var(--chat-meta)]", ON_SKY)}>No messages yet</p>}
+          {rows.map((row) => {
+            if (row.kind === "day") {
+              return (
+                <p key={row.key} className={cn("my-2 self-center font-hand text-xl text-[var(--chat-date)]", ON_SKY)}>
+                  {row.label}
+                </p>
+              );
+            }
+            const mine = row.sender === me?.id;
+            const last = row.items[row.items.length - 1];
+            const receipt = mine && !!lastMine && row.items.some((m) => m.id === lastMine.id);
+            return (
+              <div key={row.key} className={cn("flex items-end gap-2", mine ? "justify-end" : "justify-start")}>
+                {!mine && (
+                  <span className="mb-5 shrink-0 overflow-hidden rounded-full bg-[var(--chat-action)]">
+                    <Avatar userId={row.sender} size={28} />
+                  </span>
+                )}
+                <div className={cn("flex min-w-0 max-w-[82%] flex-col gap-1", mine ? "items-end" : "items-start")}>
+                  {row.items.map((m, i) => (
+                    <Bubble
+                      key={m.id}
+                      m={m}
+                      me={me?.id ?? ""}
+                      mine={mine}
+                      tail={i === row.items.length - 1}
+                      replyTo={m.reply_to ? byId.get(m.reply_to) : undefined}
+                      nameOf={nameOf}
+                      onReply={() => {
+                        setEditing(null);
+                        setReplyTo(m);
+                      }}
+                      onEdit={() => {
+                        setReplyTo(null);
+                        setEditing(m);
+                        setText(m.body);
+                      }}
+                    />
+                  ))}
+                  <p className={cn("flex items-center gap-1 px-1 text-[11px] font-bold text-[var(--chat-meta)]", ON_SKY)}>
+                    {timeOf(last.created_at)}
+                    {receipt &&
+                      (seen ? (
+                        <>
+                          {" · "}
+                          <CheckCheck className="size-3.5" /> Seen
+                        </>
+                      ) : (
+                        <>
+                          {" · "}
+                          <Check className="size-3.5" /> Sent
+                        </>
+                      ))}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+          {otherTyping && (
+            <p className="self-start rounded-[18px] rounded-bl-[6px] border border-[var(--chat-theirs-line)] bg-[var(--chat-theirs)] px-4 py-2 text-sm font-bold text-muted">Typing…</p>
+          )}
+        </div>
       </div>
 
       <form
@@ -361,10 +445,10 @@ export default function ChatPage() {
           e.preventDefault();
           void submit();
         }}
-        className="border-t border-line px-3 py-3 lg:px-6"
+        className="relative mx-auto w-full max-w-3xl px-3 pb-3 pt-2 lg:px-8 lg:pb-6"
       >
         {(replyTo || editing) && (
-          <div className="mb-2 flex items-center gap-2 rounded-button bg-surface-solid px-3 py-2 text-sm">
+          <div className="mb-2 flex items-center gap-2 rounded-[14px] border border-[var(--chat-theirs-line)] bg-[var(--chat-theirs)] px-3 py-2 text-sm">
             {editing ? <Pencil className="size-4 shrink-0" /> : <Reply className="size-4 shrink-0" />}
             <p dir="auto" className="min-w-0 flex-1 truncate">
               <span className="font-bold">{editing ? "Editing" : `Reply to ${nameOf(replyTo!.sender_id)}`}: </span>
@@ -402,13 +486,16 @@ export default function ChatPage() {
                 void submit();
               }
             }}
-            className="max-h-40 min-h-11 flex-1 resize-none rounded-[22px] border border-line bg-surface-solid px-4 py-2.5 text-[16px] outline-none focus:border-accent"
+            className="max-h-40 min-h-11 flex-1 resize-none rounded-[22px] border-2 border-[var(--chat-theirs-line)] bg-[var(--chat-input)] px-4 py-2 text-[16px] text-ink outline-none placeholder:text-muted focus:border-accent"
           />
-          <Button type="submit" variant="primary" className="size-11 rounded-full p-0" aria-label={editing ? "Save" : "Send"} disabled={!text.trim()}>
-            <Send className="size-5" />
-          </Button>
+          <span className="shrink-0 rounded-full bg-[var(--chat-input)]">
+            <Button type="submit" variant="primary" className="size-11 rounded-full p-0" aria-label={editing ? "Save" : "Send"} disabled={!text.trim()}>
+              <Send className="size-5" />
+            </Button>
+          </span>
         </div>
       </form>
+      {track && <div aria-hidden className="h-[calc(0.6rem+74px)] shrink-0 lg:h-[calc(1rem+78px)]" />}
       <SwapSheet open={swapOpen} onOpenChange={setSwapOpen} />
     </div>
   );

@@ -2,6 +2,7 @@
 
 import { Headphones, LogOut } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 import { useMe, useMembers } from "@/lib/session";
 import { useTogether } from "@/lib/together";
@@ -13,7 +14,8 @@ export function TogetherBanner() {
   const me = useMe().data;
   const members = useMembers();
   const room = useTogether().data;
-  if (!me || !room?.active) return null;
+  const pathname = usePathname();
+  if (!me || !room?.active || pathname.startsWith("/chat")) return null;
   const inside = room.members.includes(me.id);
   const others = room.members.filter((id) => id !== me.id);
   const names = others.map((id) => members.data?.find((u) => u.id === id)?.display_name ?? "").filter(Boolean);

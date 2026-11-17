@@ -150,7 +150,7 @@ function drawCity(canvas: HTMLCanvasElement, p: Palette, seed: number, clear: Bo
   }
 }
 
-type Clear = { all: RefObject<HTMLElement | null>[]; clouds: RefObject<HTMLElement | null>[] };
+export type Clear = { all: RefObject<HTMLElement | null>[]; clouds: RefObject<HTMLElement | null>[] };
 
 const NO_CLEAR: Clear = { all: [], clouds: [] };
 
@@ -206,7 +206,7 @@ export function SkyToggle({ className }: { className?: string }) {
   );
 }
 
-function seedOf(text: string) {
+export function seedOf(text: string) {
   let h = 2166136261;
   for (const c of text) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
   return h >>> 0;
@@ -259,18 +259,22 @@ export function PageHero({ title, meta, children, actions }: { title: ReactNode;
   );
 }
 
-export function SkyBackdrop() {
+export function SkyScene({ seed, clear, fixed = false }: { seed: number; clear?: Clear; fixed?: boolean }) {
   const theme = useResolvedTheme();
   return (
-    <div aria-hidden className="fixed inset-0 -z-10 overflow-hidden">
+    <div aria-hidden className={cn(fixed ? "fixed -z-10" : "absolute", "inset-0 overflow-hidden")}>
       <div className={cn("absolute inset-0 transition-opacity duration-700", theme === "night" ? "opacity-100" : "opacity-0")}>
         <div className="absolute inset-0 bg-[linear-gradient(180deg,#0d0f2b_0%,#1a1a44_70%,#24214f_100%)]" />
-        <City theme="night" seed={20261203} />
+        <City theme="night" seed={seed} clear={clear} />
       </div>
       <div className={cn("absolute inset-0 transition-opacity duration-700", theme === "day" ? "opacity-100" : "opacity-0")}>
         <div className="absolute inset-0 bg-[linear-gradient(180deg,#9fcbee_0%,#cfe3f3_45%,#f9dccb_82%,#fbe8dc_100%)]" />
-        <City theme="day" seed={20261203} />
+        <City theme="day" seed={seed} clear={clear} />
       </div>
     </div>
   );
+}
+
+export function SkyBackdrop() {
+  return <SkyScene seed={20261203} fixed />;
 }

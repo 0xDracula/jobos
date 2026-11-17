@@ -23,6 +23,16 @@
   --plank-shade: #8d6644;
   --panel: #ffffff;
   --panel-line: rgba(59, 47, 63, 0.1);
+  --chat-theirs: #ffffff;
+  --chat-theirs-line: #d9d3ec;
+  --chat-mine: #ffe3a6;
+  --chat-mine-ink: #4a3410;
+  --chat-mine-glow: rgba(255, 190, 90, 0.35);
+  --chat-meta: #4f4466;
+  --chat-date: #8a4f12;
+  --chat-shadow: #d4e6f4;
+  --chat-action: rgba(255, 255, 255, 0.55);
+  --chat-input: #ffffff;
   --sidebar: rgba(255, 250, 246, 0.72);
   --wash-a: color-mix(in oklab, var(--accent-soft) 60%, transparent);
   --wash-b: color-mix(in oklab, var(--lavender) 30%, transparent);
@@ -49,6 +59,16 @@
     --plank-shade: #3b2a22;
     --panel: #25224f;
     --panel-line: rgba(245, 238, 248, 0.08);
+    --chat-theirs: #2b2862;
+    --chat-theirs-line: #4a4590;
+    --chat-mine: #ffcf7a;
+    --chat-mine-ink: #3a2a10;
+    --chat-mine-glow: rgba(255, 207, 122, 0.3);
+    --chat-meta: #cfc6ea;
+    --chat-date: #ffe3a6;
+    --chat-shadow: #0d0f2b;
+    --chat-action: rgba(255, 255, 255, 0.08);
+    --chat-input: #1c1a3d;
     --sidebar: #16153a;
     --wash-a: color-mix(in oklab, #2b2766 55%, transparent);
     --wash-b: transparent;
@@ -75,6 +95,16 @@
   --plank-shade: #3b2a22;
   --panel: #25224f;
   --panel-line: rgba(245, 238, 248, 0.08);
+  --chat-theirs: #2b2862;
+  --chat-theirs-line: #4a4590;
+  --chat-mine: #ffcf7a;
+  --chat-mine-ink: #3a2a10;
+  --chat-mine-glow: rgba(255, 207, 122, 0.3);
+  --chat-meta: #cfc6ea;
+  --chat-date: #ffe3a6;
+  --chat-shadow: #0d0f2b;
+  --chat-action: rgba(255, 255, 255, 0.08);
+  --chat-input: #1c1a3d;
   --sidebar: #16153a;
   --wash-a: color-mix(in oklab, #2b2766 55%, transparent);
   --wash-b: transparent;
@@ -228,12 +258,4 @@ body {
 .row-auto {
   content-visibility: auto;
   contain-intrinsic-size: auto 64px;
-}
-
-.chat-paper {
-  background-color: var(--bg);
-  background-image:
-    radial-gradient(circle at 20% 10%, color-mix(in srgb, var(--accent-soft) 35%, transparent), transparent 40%),
-    radial-gradient(circle at 85% 80%, color-mix(in srgb, var(--lavender) 30%, transparent), transparent 45%),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.23 0 0 0 0 0.18 0 0 0 0 0.25 0 0 0 0.06 0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
 }
