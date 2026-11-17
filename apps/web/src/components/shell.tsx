@@ -24,6 +24,7 @@ import { usePlayer } from "@/player/store";
 import { CommandPalette } from "./CommandPalette";
 import { GlobalDialogs } from "./dialogs";
 import { KeepsakeDialogs } from "./KeepsakeDialogs";
+import { LettersLayer } from "./letters/LettersLayer";
 import { TogetherBanner } from "./Together";
 import { Cover } from "./media";
 import { PixelIcon } from "./pixel/PixelIcon";
@@ -261,6 +262,7 @@ function appFrame(home: boolean, children: ReactNode) {
       <CommandPalette />
       <GlobalDialogs />
       <KeepsakeDialogs />
+      <LettersLayer />
       <TogetherBanner />
       <div id="live-region" aria-live="polite" className="sr-only" />
     </>

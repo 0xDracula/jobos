@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Loading } from "@/components/common";
 import { PageHero } from "@/components/sky/PageHero";
 import { ConfirmDialog, Dialog } from "@/components/dialogs";
+import { Handwriting } from "@/components/letters/Handwriting";
 import { Artwork } from "@/components/media";
 import { Button, Empty, IconButton, inputClass } from "@/components/ui";
 import { keepsakeApi, keepsakeKeys, useAllNotes, type SongNote } from "@/lib/keepsakes";
@@ -43,9 +44,9 @@ export default function NotesPage() {
                   {n.line_text}
                 </p>
               )}
-              <p dir="auto" className="mt-1 whitespace-pre-wrap font-hand text-xl leading-snug">
+              <Handwriting authorId={n.author_id} className="mt-1 whitespace-pre-wrap text-xl leading-snug">
                 {n.body}
-              </p>
+              </Handwriting>
               <p className="mt-1 text-xs font-bold text-muted">
                 {name(n.author_id)} · {new Date(n.created_at).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })}
               </p>

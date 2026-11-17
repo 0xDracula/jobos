@@ -5,6 +5,7 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import { AvatarEditor } from "@/avatar";
 import { AccountSettings } from "@/components/AccountSettings";
+import { ReplayWelcome } from "@/components/letters/LettersLayer";
 import { PageHero } from "@/components/sky/PageHero";
 import { ConfirmDialog } from "@/components/dialogs";
 import { Artwork } from "@/components/media";
@@ -140,6 +141,7 @@ function App() {
           <span className="font-bold text-muted">Browser menu → Install</span>
         )}
       </Row>
+      <Row label="Welcome letter"><ReplayWelcome /></Row>
     </Section>
   );
 }

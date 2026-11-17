@@ -7,8 +7,9 @@ import { cn } from "@/lib/cn";
 import { fmtMs } from "@/lib/format";
 import { keepsakeApi, keepsakeKeys, useDedicatedIds, type VoiceClip } from "@/lib/keepsakes";
 import { queryClient } from "@/lib/queries";
+import { meKey } from "@/lib/session";
 import { toast } from "@/lib/toast";
-import type { Track } from "@/lib/types";
+import type { Track, User } from "@/lib/types";
 import { pause, play, playTracks, seek } from "@/player/controls";
 import { selectTrack, usePlayer } from "@/player/store";
 
@@ -22,7 +23,8 @@ let clipAudio: HTMLAudioElement | null = null;
 export async function playDedication(track: Track) {
   try {
     const list = (await keepsakeApi.trackDedications(track.id)).dedications.filter((d) => d.clip.status === "ready" && d.clip.url);
-    const d = list[0];
+    const me = queryClient.getQueryData<User>(meKey)?.id;
+    const d = list.find((x) => x.author_id !== me) ?? list[0];
     if (!d?.clip.url) {
       toast("Dedication not ready");
       return;
