@@ -4,8 +4,10 @@ import (
 	"errors"
 	"net/http"
 	"path/filepath"
+	"strconv"
 	"strings"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
 	"jobbos/api/internal/store"
@@ -173,6 +175,56 @@ func (a *api) artist(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, view)
+}
+
+func (a *api) addTopTrack(w http.ResponseWriter, r *http.Request) {
+	id, ok := trackParam(w, r, "id")
+	if !ok {
+		return
+	}
+	rank, err := strconv.Atoi(chi.URLParam(r, "rank"))
+	if err != nil || rank < 1 {
+		writeError(w, http.StatusNotFound, "top song not found")
+		return
+	}
+	trackID, err := a.Store.AddTopTrack(r.Context(), id, rank)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "top song not found")
+		return
+	}
+	if err != nil {
+		a.serverError(w, "add top song", err)
+		return
+	}
+	view, err := a.Store.Track(r.Context(), trackID)
+	if err != nil {
+		a.serverError(w, "load track", err)
+		return
+	}
+	if view.Audio != nil || view.StreamURL != nil {
+		writeJSON(w, http.StatusOK, view)
+		return
+	}
+	switch {
+	case view.Source != nil:
+		err = a.enqueueDownload(r.Context(), view.ID, view.Source.ID, view.Source.Provider, view.Source.ExternalID)
+	case view.MatchStatus != nil && *view.MatchStatus == "pending":
+		err = a.Store.EnqueueMatch(r.Context(), view.ID, store.PriorityInteractive)
+	}
+	if err != nil {
+		a.serverError(w, "enqueue", err)
+		return
+	}
+	writeJSON(w, http.StatusAccepted, view)
+}
+
+func (a *api) backfillEnrichment(w http.ResponseWriter, r *http.Request) {
+	artists, tracks, err := a.Store.BackfillEnrichment(r.Context())
+	if err != nil {
+		a.serverError(w, "backfill enrichment", err)
+		return
+	}
+	writeJSON(w, http.StatusAccepted, map[string]int{"artists": artists, "tracks": tracks})
 }
 
 func (a *api) tracksByID(w http.ResponseWriter, r *http.Request) {

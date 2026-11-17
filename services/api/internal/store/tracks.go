@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/google/uuid"
@@ -32,7 +33,10 @@ type SourceTrack struct {
 	DurationMs *int32      `json:"duration_ms"`
 	Thumbnail  *string     `json:"thumbnail"`
 	Explicit   bool        `json:"explicit"`
+	ISRC       string      `json:"isrc,omitempty"`
 }
+
+var isrcRE = regexp.MustCompile(`^[A-Z]{2}[A-Z0-9]{3}[0-9]{7}$`)
 
 func (t SourceTrack) Validate() error {
 	switch {
@@ -42,6 +46,8 @@ func (t SourceTrack) Validate() error {
 		return errors.New("external_id is required (512 characters at most)")
 	case t.Title == "" || len(t.Title) > 500:
 		return errors.New("title is required (500 characters at most)")
+	case t.ISRC != "" && !isrcRE.MatchString(t.ISRC):
+		return errors.New("isrc must be a 12-character ISRC")
 	}
 	return nil
 }
@@ -80,9 +86,9 @@ func addTrackFromSourceTx(ctx context.Context, tx pgx.Tx, in SourceTrack) (track
 		albumID = &id
 	}
 	trackID = newID()
-	if _, err = tx.Exec(ctx, `insert into tracks (id, title, album_id, duration_ms, explicit, artwork_url, match_status)
-		values ($1, $2, $3, $4, $5, $6, 'chosen')`,
-		trackID, in.Title, albumID, in.DurationMs, in.Explicit, in.Thumbnail); err != nil {
+	if _, err = tx.Exec(ctx, `insert into tracks (id, title, album_id, duration_ms, explicit, artwork_url, isrc, match_status)
+		values ($1, $2, $3, $4, $5, $6, $7, 'chosen')`,
+		trackID, in.Title, albumID, in.DurationMs, in.Explicit, in.Thumbnail, nonEmpty(in.ISRC)); err != nil {
 		return
 	}
 	for i, a := range in.Artists {
@@ -161,6 +167,14 @@ type AudioView struct {
 	Waveform     json.RawMessage `json:"waveform,omitempty"`
 	TempoBPM     *float32        `json:"tempo_bpm,omitempty"`
 	Beats        json.RawMessage `json:"beats,omitempty"`
+	*AudioAnalysis
+}
+
+type AudioAnalysis struct {
+	Energy       *float32 `json:"energy"`
+	Valence      *float32 `json:"valence"`
+	Danceability *float32 `json:"danceability"`
+	Key          *string  `json:"key"`
 }
 
 type SourceView struct {
@@ -273,7 +287,7 @@ func (s *Store) Track(ctx context.Context, id uuid.UUID) (*TrackView, error) {
 	if err != nil {
 		return nil, err
 	}
-	return v, s.trackBeats(ctx, v)
+	return v, s.trackAnalysis(ctx, v)
 }
 
 func (s *Store) trackViews(ctx context.Context, suffix string, args ...any) ([]TrackView, error) {

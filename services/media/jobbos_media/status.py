@@ -7,7 +7,7 @@ from pathlib import Path
 
 import httpx
 
-from . import config
+from . import config, ytdlp_update
 
 PYPI_TTL_S = 3600
 _latest: dict[str, tuple[float, str | None]] = {}
@@ -58,10 +58,17 @@ def cookies(path: str | None) -> dict:
 
 
 def status() -> dict:
-    ytdlp = _version("yt-dlp")
+    ytdlp = ytdlp_update.running_version()
     latest = latest_on_pypi("yt-dlp")
     return {
-        "yt_dlp": {"version": ytdlp, "released": release_date(ytdlp), "latest": latest, "update_available": bool(latest and ytdlp and latest != ytdlp)},
+        "yt_dlp": {
+            "version": ytdlp,
+            "released": release_date(ytdlp),
+            "latest": latest,
+            "update_available": bool(latest and ytdlp and ytdlp_update.newer(latest, ytdlp)),
+            "bundled": ytdlp_update.bundled_version(),
+            "installed": ytdlp_update.installed(),
+        },
         "ytmusicapi": {"version": _version("ytmusicapi")},
         "cookies": cookies(config.YTDLP_COOKIES),
         "po_token_provider": {"version": _version("bgutil-ytdlp-pot-provider")},

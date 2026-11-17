@@ -218,6 +218,9 @@ func TestPhaseTwoEndpointsValidateInput(t *testing.T) {
 		{http.MethodPut, "/api/hidden/album/01a1e546-b14e-73a9-826b-81452848e479", "", http.StatusNotFound},
 		{http.MethodGet, "/api/library/search?q=", "", http.StatusBadRequest},
 		{http.MethodGet, "/api/albums/nope", "", http.StatusNotFound},
+		{http.MethodPost, "/api/artists/nope/top/1", "", http.StatusNotFound},
+		{http.MethodPost, "/api/artists/01a1e546-b14e-73a9-826b-81452848e479/top/0", "", http.StatusNotFound},
+		{http.MethodPost, "/api/artists/01a1e546-b14e-73a9-826b-81452848e479/top/x", "", http.StatusNotFound},
 	}
 	for _, c := range cases {
 		rec := httptest.NewRecorder()

@@ -9,7 +9,7 @@ import httpx
 import yt_dlp
 
 from .search import _client as ytmusic_client
-from .search import large_artwork
+from .search import clean_isrc, large_artwork
 
 USER_AGENT = "Jobbos/0.1 (private music player)"
 SPOTIFY_RE = re.compile(r"^https?://open\.spotify\.com/(?:intl-[a-z-]+/)?(track|album|playlist)/([0-9A-Za-z]{22})(?:[/?#]|$)")
@@ -108,6 +108,7 @@ def soundcloud_set(url: str) -> dict:
             "duration_ms": int(e["duration"] * 1000) if e.get("duration") else None,
             "thumbnail": e.get("thumbnail"),
             "explicit": False,
+            "isrc": clean_isrc(e.get("isrc")),
         }
         for e in full
         if e.get("title")
@@ -214,6 +215,7 @@ def recording_from_info(info: dict, url: str, host: str) -> dict:
         "duration_ms": int(info["duration"] * 1000) if info.get("duration") else None,
         "thumbnail": info.get("thumbnail"),
         "explicit": False,
+        "isrc": clean_isrc(info.get("isrc")),
     }
 
 

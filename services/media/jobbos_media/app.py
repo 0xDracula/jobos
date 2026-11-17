@@ -1,10 +1,62 @@
-from fastapi import FastAPI, HTTPException, Query
+import logging
+import threading
+import time
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, HTTPException, Query, Request
 from yt_dlp import version as ytdlp_version
 
-from . import ingest, links, status
+from . import ingest, links, status, ytdlp_update
 from . import search as search_module
 
-app = FastAPI(title="Jobbos media service")
+log = logging.getLogger("jobbos.media")
+RESTART_CHECK_S = 30.0
+
+
+class InFlight:
+    def __init__(self) -> None:
+        self.lock = threading.Lock()
+        self.count = 0
+
+    def __enter__(self) -> None:
+        with self.lock:
+            self.count += 1
+
+    def __exit__(self, *_: object) -> None:
+        with self.lock:
+            self.count -= 1
+
+    def idle(self) -> bool:
+        with self.lock:
+            return self.count == 0
+
+
+in_flight = InFlight()
+
+
+def restart_when_idle(stop: threading.Event, interval: float = RESTART_CHECK_S) -> None:
+    while not stop.wait(interval):
+        if ytdlp_update.changed() and in_flight.idle():
+            time.sleep(1.0)
+            if in_flight.idle():
+                ytdlp_update.restart()
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    stop = threading.Event()
+    threading.Thread(target=restart_when_idle, args=(stop,), daemon=True, name="ytdlp-restart").start()
+    yield
+    stop.set()
+
+
+app = FastAPI(title="Jobbos media service", lifespan=lifespan)
+
+
+@app.middleware("http")
+async def count_requests(request: Request, call_next):
+    with in_flight:
+        return await call_next(request)
 
 
 @app.get("/health")
@@ -35,6 +87,17 @@ def search(
         return {"results": search_module.search_all(q, limit, sources.split(",") if sources else None)}
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"search failed: {e}") from e
+
+
+@app.get("/radio")
+def radio(
+    video_id: str = Query(pattern="^[A-Za-z0-9_-]{11}$"),
+    limit: int = Query(25, ge=1, le=100),
+) -> dict:
+    try:
+        return {"results": search_module.radio(video_id, limit)}
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"radio failed: {e}") from e
 
 
 @app.get("/link")

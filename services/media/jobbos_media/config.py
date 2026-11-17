@@ -7,10 +7,22 @@ MEDIA_ROOT = Path(os.environ.get("MEDIA_ROOT", ".data/media")).resolve()
 YTDLP_COOKIES = os.environ.get("YTDLP_COOKIES") or None
 FFMPEG = os.environ.get("FFMPEG", "ffmpeg")
 FFPROBE = os.environ.get("FFPROBE", "ffprobe")
+MUSICBRAINZ_CONTACT = os.environ.get("MUSICBRAINZ_CONTACT", "").strip() or None
+LASTFM_API_KEY = os.environ.get("LASTFM_API_KEY", "").strip() or None
 
 TARGET_LUFS = -14.0
 TARGET_TRUE_PEAK = -1.0
-ENCODE_TRUE_PEAK = -2.0
-EXTRA_ATTENUATION_DB = (1.0, 2.0, 3.0)
+MAX_GAIN_DB = 30.0
+LOUDNESS_TOLERANCE = 0.5
+SAMPLE_RATE = 44_100
 AAC_BITRATE = 192_000
+AAC_OPTIONS = ("-aac_pns", "0", "-aac_is", "0")
+ENCODES = (
+    (-2.0, "fast", AAC_BITRATE),
+    (-3.0, "fast", AAC_BITRATE),
+    (-2.0, "twoloop", 256_000),
+    (-3.0, "twoloop", 256_000),
+    (-4.0, "fast", AAC_BITRATE),
+    (-5.0, "fast", AAC_BITRATE),
+)
 WAVEFORM_POINTS = 256

@@ -9,7 +9,7 @@ from pathlib import Path
 
 import httpx
 
-from . import analysis, config, enrich, ingest, lyrics, match
+from . import analysis, artists, config, enrich, ingest, lyrics, match, ytdlp_update
 
 log = logging.getLogger("jobbos.worker")
 
@@ -87,7 +87,19 @@ def handle_cover(payload: dict) -> dict:
 
 
 def handle_analyze(payload: dict) -> dict:
-    return analysis.analyze(media_path(payload["path"]))
+    return analysis.analyze(media_path(payload["path"]), payload.get("source_lufs"))
+
+
+def handle_enrich_artist(payload: dict) -> dict:
+    return artists.enrich_artist(payload)
+
+
+def handle_fetch_tags(payload: dict) -> dict:
+    return artists.fetch_track_tags(payload)
+
+
+def handle_update_ytdlp(payload: dict) -> dict:
+    return ytdlp_update.update()
 
 
 HANDLERS = {
@@ -99,6 +111,9 @@ HANDLERS = {
     "process_upload": handle_upload,
     "process_cover": handle_cover,
     "process_clip": handle_clip,
+    "update_ytdlp": handle_update_ytdlp,
+    "enrich_artist": handle_enrich_artist,
+    "fetch_tags": handle_fetch_tags,
 }
 
 
@@ -112,6 +127,19 @@ def describe(kind: str, payload: dict, result: dict) -> str:
     if kind == "enrich_metadata":
         art = result["artwork_source"] or "-"
         return f"artwork {art}, artist image {'yes' if result['artist_image'] else '-'} {payload['title']!r}"
+    if kind in ("download_track", "process_upload"):
+        a = result["asset"]
+        return f"{a['output_lufs']} LUFS, {a['output_true_peak_db']} dBTP, {a['bitrate'] // 1000} kbps {a['path']}"
+    if kind == "enrich_artist":
+        found = [k for k in ("deezer_id", "mbid", "bio", "image") if result[k]]
+        return (f"{payload['name']!r}: {', '.join(found) or 'nothing'}, {len(result['tags'])} tags, "
+                f"{len(result['related'])} similar, {len(result['top_tracks'])} top tracks")
+    if kind == "fetch_tags":
+        return f"{len(result['tags'])} tags {payload['title']!r}"
+    if kind == "update_ytdlp":
+        return f"yt-dlp {result['result']}: {result['previous']} -> {result['version']}"
+    if kind == "analyze_audio":
+        return f"{result['tempo_bpm']} BPM, {result['musical_key']}, energy {result['energy']} {payload['path']}"
     return "done"
 
 
@@ -143,6 +171,8 @@ def main() -> None:
                 time.sleep(5)
                 continue
             if r.status_code == 204:
+                if ytdlp_update.changed():
+                    ytdlp_update.restart()
                 time.sleep(2)
                 continue
             if r.status_code != 200:
@@ -166,6 +196,8 @@ def main() -> None:
                     log.warning("could not report job %s as failed", job["id"])
                 if job["kind"] == "download_track" and downloads.record(ok=False):
                     log.warning("%d downloads failed in a row; pausing downloads for 15 minutes", downloads.failures)
+            if ytdlp_update.changed():
+                ytdlp_update.restart()
 
 
 if __name__ == "__main__":

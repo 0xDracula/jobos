@@ -135,3 +135,13 @@ def test_same_title_by_another_artist_is_unmatched():
 
 def test_v_and_p_read_as_arabic_f_and_b():
     assert skeleton("Vatareen") == skeleton("فتارين")
+
+
+def test_isrc_match_adds_its_term():
+    source = Recording("Wahdy", ["Cairokee"], 294_000, isrc="QMDA62664608")
+    upload = Recording("Wahdy", ["Cairokee"], 294_000, official=True)
+    same = Recording("Wahdy", ["Cairokee"], 294_000, official=True, isrc="qmda62664608")
+    other = Recording("Wahdy", ["Cairokee"], 294_000, official=True, isrc="QMDA62664699")
+    assert round(score(source, same) - score(source, upload), 4) == 0.10
+    assert score(source, other) == score(source, upload)
+    assert score(Recording("Wahdy", ["Cairokee"], 294_000), same) == score(source, upload)

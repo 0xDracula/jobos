@@ -39,6 +39,7 @@ def rank(source: matching.Recording, candidates: list[dict]) -> list[dict]:
             title=c["title"],
             artists=[a["name"] for a in c.get("artists") or []],
             duration_ms=c.get("duration_ms"),
+            isrc=c.get("isrc"),
             official=bool(c.get("official")),
         )
         scored.append({**c, "score": matching.score(source, recording)})

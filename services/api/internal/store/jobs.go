@@ -143,8 +143,7 @@ type AssetResult struct {
 	Palette          json.RawMessage `json:"palette"`
 	OutputLUFS       *float64        `json:"output_lufs"`
 	OutputTruePeakDB *float64        `json:"output_true_peak_db"`
-	TempoBPM         *float64        `json:"tempo_bpm"`
-	Beats            json.RawMessage `json:"beats"`
+	AnalysisFields
 }
 
 type DownloadResult struct {
@@ -165,7 +164,7 @@ func (a AssetResult) Validate() error {
 	case a.Bytes <= 0:
 		return errors.New("empty file")
 	}
-	return nil
+	return a.AnalysisFields.Validate()
 }
 
 func safePrefix(s string, from, to int) string {
@@ -209,6 +208,12 @@ func (s *Store) CompleteJob(ctx context.Context, id int64, result json.RawMessag
 		err = completeAnalysis(ctx, tx, payload, result)
 	case KindProcessClip:
 		err = completeClip(ctx, tx, payload, result)
+	case KindUpdateYtdlp:
+		err = completeYtdlpUpdate(result)
+	case KindEnrichArtist:
+		err = completeArtistEnrich(ctx, tx, payload, result)
+	case KindFetchTags:
+		err = completeTrackTags(ctx, tx, payload, result)
 	}
 	if err != nil {
 		return err
@@ -253,6 +258,9 @@ func completeDownload(ctx context.Context, tx pgx.Tx, payload, result []byte, pr
 		if _, err := enqueueEnrich(ctx, tx, p.TrackID, priority); err != nil {
 			return err
 		}
+		if err := enqueueTrackEnrichment(ctx, tx, p.TrackID); err != nil {
+			return err
+		}
 		var looked bool
 		if err := tx.QueryRow(ctx, `select exists (select 1 from lyrics where track_id = $1)`, p.TrackID).Scan(&looked); err != nil {
 			return err
@@ -283,6 +291,10 @@ func sourceKey(kind string, payload []byte) string {
 		return "lyrics"
 	case KindEnrichMetadata:
 		return "deezer"
+	case KindUpdateYtdlp:
+		return "ytdlp"
+	case KindEnrichArtist, KindFetchTags:
+		return "enrichment"
 	}
 	return ""
 }
@@ -306,18 +318,26 @@ func insertAsset(ctx context.Context, tx pgx.Tx, a AssetResult) (uuid.UUID, erro
 		return raw
 	}
 	var id uuid.UUID
+	const newer = `coalesce(excluded.analysis_version, 0) >= coalesce(media_assets.analysis_version, 0)`
 	err := tx.QueryRow(ctx, `insert into media_assets
 			(id, sha256, kind, path, mime, bytes, duration_ms, bitrate, loudness_lufs, true_peak_db, gain_db, waveform,
-			 width, height, palette, output_lufs, output_true_peak_db, tempo_bpm, beats)
-		values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+			 width, height, palette, output_lufs, output_true_peak_db, tempo_bpm, beats,
+			 energy, valence, danceability, musical_key, analysis_version)
+		values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
 		on conflict (sha256) do update set path = excluded.path,
 			width = coalesce(excluded.width, media_assets.width), height = coalesce(excluded.height, media_assets.height),
 			palette = coalesce(excluded.palette, media_assets.palette),
-			tempo_bpm = coalesce(excluded.tempo_bpm, media_assets.tempo_bpm), beats = coalesce(excluded.beats, media_assets.beats)
+			tempo_bpm = coalesce(excluded.tempo_bpm, media_assets.tempo_bpm), beats = coalesce(excluded.beats, media_assets.beats),
+			energy = case when `+newer+` then excluded.energy else media_assets.energy end,
+			valence = case when `+newer+` then excluded.valence else media_assets.valence end,
+			danceability = case when `+newer+` then excluded.danceability else media_assets.danceability end,
+			musical_key = case when `+newer+` then excluded.musical_key else media_assets.musical_key end,
+			analysis_version = greatest(excluded.analysis_version, media_assets.analysis_version)
 		returning id`,
 		newID(), a.SHA256, a.Kind, a.Path, a.Mime, a.Bytes, a.DurationMs, a.Bitrate,
 		a.LoudnessLUFS, a.TruePeakDB, a.GainDB, jsonOrNil(a.Waveform), a.Width, a.Height, jsonOrNil(a.Palette),
-		a.OutputLUFS, a.OutputTruePeakDB, a.TempoBPM, jsonOrNil(a.Beats)).Scan(&id)
+		a.OutputLUFS, a.OutputTruePeakDB, a.TempoBPM, jsonOrNil(a.Beats),
+		a.Energy, a.Valence, a.Danceability, a.MusicalKey, a.AnalysisVersion).Scan(&id)
 	return id, err
 }
 

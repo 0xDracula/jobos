@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import re
 import shutil
 import subprocess
@@ -14,7 +13,6 @@ import yt_dlp
 
 from . import analysis, config
 
-_LOUDNORM = f"loudnorm=I={config.TARGET_LUFS}:TP={config.ENCODE_TRUE_PEAK}:LRA=11"
 _SUMMARY_RE = re.compile(r"Summary:.*?\bI:\s+(-?(?:[\d.]+|inf)) LUFS.*?Peak:\s+(-?(?:[\d.]+|inf)) dBFS", re.S)
 
 
@@ -86,25 +84,31 @@ def _ffmpeg(*args: str) -> subprocess.CompletedProcess:
 
 
 def measure_loudness(path: Path) -> dict:
-    proc = _ffmpeg("-i", str(path), "-af", f"{_LOUDNORM}:print_format=json", "-f", "null", "-")
-    match = re.search(r"\{[^{}]*\"input_i\"[^{}]*\}", proc.stderr.decode(errors="replace"), re.S)
-    if not match:
-        raise RuntimeError("loudness measurement failed")
-    data = json.loads(match.group(0))
-    return {k: float(data[k]) for k in ("input_i", "input_tp", "input_lra", "input_thresh", "target_offset")}
+    level = measure_output(path)
+    return {"input_i": level["lufs"], "input_tp": level["true_peak_db"]}
 
 
-def encode(src: Path, dst: Path, measured: dict, cut_db: float = 0.0) -> None:
-    af = (
-        f"{_LOUDNORM}:measured_I={measured['input_i']}:measured_TP={measured['input_tp']}"
-        f":measured_LRA={measured['input_lra']}:measured_thresh={measured['input_thresh']}"
-        f":offset={measured['target_offset']}:linear=true"
+def gain_db(measured: dict) -> float:
+    loudness = measured["input_i"]
+    if not -70.0 < loudness < 10.0:
+        return 0.0
+    return round(min(config.TARGET_LUFS - loudness, config.MAX_GAIN_DB), 2)
+
+
+def level_filter(gain: float, ceiling_db: float) -> str:
+    up = 4 * config.SAMPLE_RATE
+    limit = 10 ** (ceiling_db / 20)
+    return (
+        f"volume={gain:.2f}dB,aresample={up}:resampler=soxr:precision=28,"
+        f"alimiter=limit={limit:.6f}:attack=5:release=50:level=false:latency=true,"
+        f"aresample={config.SAMPLE_RATE}:resampler=soxr:precision=28"
     )
-    if cut_db:
-        af += f",volume=-{cut_db}dB"
+
+
+def encode(src: Path, dst: Path, gain: float, ceiling_db: float, coder: str = "fast", bitrate: int = config.AAC_BITRATE) -> None:
     _ffmpeg(
-        "-y", "-i", str(src), "-vn", "-af", af, "-ar", "44100",
-        "-c:a", "aac", "-b:a", str(config.AAC_BITRATE), "-movflags", "+faststart", str(dst),
+        "-y", "-i", str(src), "-vn", "-af", level_filter(gain, ceiling_db), "-ar", str(config.SAMPLE_RATE),
+        "-c:a", "aac", "-aac_coder", coder, *config.AAC_OPTIONS, "-b:a", str(bitrate), "-movflags", "+faststart", str(dst),
     )
 
 
@@ -118,18 +122,30 @@ def measure_output(path: Path) -> dict:
 
 
 def encode_within_peak(src: Path, workdir: Path, measured: dict) -> tuple[Path, dict]:
-    out = workdir / "out.m4a"
-    encode(src, out, measured)
-    level = measure_output(out)
-    for cut in config.EXTRA_ATTENUATION_DB:
+    gain = gain_db(measured)
+    made_up = gain == 0.0
+    best: tuple[Path, dict] | None = None
+    encodes = 0
+    for attempt, (ceiling, coder, bitrate) in enumerate(config.ENCODES, 1):
+        out = workdir / f"out-{attempt}.m4a"
+        encode(src, out, gain, ceiling, coder, bitrate)
+        encodes += 1
+        level = {**measure_output(out), "bitrate": bitrate}
+        shortfall = config.TARGET_LUFS - level["lufs"]
+        if not made_up and shortfall > config.LOUDNESS_TOLERANCE and gain < config.MAX_GAIN_DB:
+            made_up = True
+            gain = round(min(gain + shortfall, config.MAX_GAIN_DB), 2)
+            encode(src, out, gain, ceiling, coder, bitrate)
+            encodes += 1
+            level = {**measure_output(out), "bitrate": bitrate}
+        if best is None or level["true_peak_db"] < best[1]["true_peak_db"]:
+            kept = workdir / f"best-{attempt}.m4a"
+            out.replace(kept)
+            best = (kept, level)
         if level["true_peak_db"] <= config.TARGET_TRUE_PEAK:
             break
-        alt = workdir / f"out-{cut:g}.m4a"
-        encode(src, alt, measured, cut)
-        alt_level = measure_output(alt)
-        if alt_level["true_peak_db"] < level["true_peak_db"]:
-            out, level = alt, alt_level
-    return out, level
+    out, level = best
+    return out, {**level, "attempts": encodes}
 
 
 def duration_ms(path: Path) -> int:
@@ -185,20 +201,19 @@ def process(src: Path, workdir: Path) -> dict:
     out, level = encode_within_peak(src, workdir, measured)
     length = duration_ms(out)
     peaks = waveform(out)
-    beats = analysis.safe_analyze(out)
+    features = analysis.safe_analyze(out, measured["input_i"])
     stored = store(out)
     return {
         **stored,
         "kind": "audio",
         "mime": "audio/mp4",
         "duration_ms": length,
-        "bitrate": config.AAC_BITRATE,
+        "bitrate": level["bitrate"],
         "loudness_lufs": measured["input_i"],
         "true_peak_db": measured["input_tp"],
         "gain_db": round(level["lufs"] - measured["input_i"], 2),
         "output_lufs": level["lufs"],
         "output_true_peak_db": level["true_peak_db"],
         "waveform": peaks,
-        "tempo_bpm": beats["tempo_bpm"],
-        "beats": beats["beats"],
+        **features,
     }
