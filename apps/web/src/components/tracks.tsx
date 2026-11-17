@@ -35,6 +35,9 @@ import { playable, selectCurrent, usePlayer, type PlayContext } from "@/player/s
 
 import { DedicationMark } from "./Dedications";
 import { openAddToPlaylist, openVersions, providerLabel } from "./dialogs";
+import { DateMenuItems } from "./trackMenu/dates";
+import { LetterMenuItems } from "./trackMenu/letters";
+import { MemoryMenuItems } from "./trackMenu/memories";
 import { openDedication, openSongNote } from "./KeepsakeDialogs";
 import { Artwork, LevelMeter } from "./media";
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuSub, MenuSubContent, MenuSubTrigger, MenuTrigger, Spinner } from "./ui";
@@ -136,6 +139,9 @@ export function TrackMenu({
         <MenuItem icon={<Mic />} onSelect={() => openDedication(track)}>
           Dedication
         </MenuItem>
+        <LetterMenuItems track={track} />
+        <MemoryMenuItems track={track} />
+        <DateMenuItems track={track} />
         <MenuSeparator />
         {offline === "offline" ? (
           <MenuItem icon={<Trash />} onSelect={() => void removeDownload(track.id)}>
