@@ -1,12 +1,13 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 
 import { json, request } from "./api";
-import { msUntil, type LetterKind } from "./paper";
+import { groupReceived, msUntil, type LetterKind } from "./paper";
 import { queryClient } from "./queries";
 import { on } from "./realtime";
+import { useMe } from "./session";
 import type { Track } from "./types";
 
 export type { LetterKind } from "./paper";
@@ -190,6 +191,16 @@ export const lettersKeys = {
 };
 
 export const useLetters = () => useQuery({ queryKey: lettersKeys.letters, queryFn: lettersApi.letters, staleTime: 60_000 });
+
+export function useLetterCounts(): { unopened: number; sealed: number; next: Letter | null } {
+  const me = useMe().data?.id ?? "";
+  const q = useLetters();
+  return useMemo(() => {
+    const g = groupReceived(q.data?.letters ?? [], me);
+    const unopened = [...g.letters, ...g.openWhen].filter((l) => !l.opened_at);
+    return { unopened: unopened.length, sealed: g.sealed.length, next: unopened[0] ?? null };
+  }, [q.data, me]);
+}
 
 export function useHomeZone(): string {
   const tz = useLetters().data?.time_zone;
