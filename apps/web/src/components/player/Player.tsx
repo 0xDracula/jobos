@@ -2,6 +2,7 @@
 
 import { ChevronDown, ListMusic, MicVocal, SlidersHorizontal, X } from "lucide-react";
 import { AnimatePresence, LayoutGroup, motion, useDragControls } from "motion/react";
+import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, type CSSProperties } from "react";
 import { useShallow } from "zustand/react/shallow";
 
@@ -79,6 +80,10 @@ function SwapArtwork({ uid, src, eager }: { uid: string; src: string | null; eag
 export function PlayerDock() {
   const expanded = usePlayer((s) => s.expanded);
   const loaded = usePlayer((s) => s.index >= 0);
+  const pathname = usePathname();
+  useEffect(() => {
+    if (usePlayer.getState().expanded) collapse();
+  }, [pathname]);
   return (
     <LayoutGroup id="player">
       <AnimatePresence initial={false}>{loaded && (expanded ? <NowPlaying key="full" /> : <MiniPlayer key="mini" />)}</AnimatePresence>
