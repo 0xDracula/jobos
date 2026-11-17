@@ -211,6 +211,28 @@ func (a *api) setting(ctx context.Context, key string, into any) bool {
 	return json.Unmarshal(raw, into) == nil
 }
 
+var defaultPlantStages = []float64{0, 1, 5, 20, 60}
+
+func validPlantStages(s []float64) bool {
+	if len(s) != len(defaultPlantStages) || s[0] != 0 {
+		return false
+	}
+	for i := 1; i < len(s); i++ {
+		if s[i] <= s[i-1] || s[i] > 100000 {
+			return false
+		}
+	}
+	return true
+}
+
+func (a *api) plantStages(ctx context.Context) []float64 {
+	var s []float64
+	if a.setting(ctx, "plant_stages", &s) && validPlantStages(s) {
+		return s
+	}
+	return defaultPlantStages
+}
+
 func (a *api) unlockables(ctx context.Context) []Unlockable {
 	list := append([]Unlockable(nil), defaultUnlockables...)
 	var thresholds map[string]int
@@ -290,6 +312,7 @@ func (a *api) roomConfig(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"unlockables":  unlocks,
+		"plant_stages": a.plantStages(ctx),
 		"milestones":   ms,
 		"holidays":     a.holidays(ctx),
 		"lamp_minutes": a.lampMinutes(ctx),
@@ -300,6 +323,7 @@ func (a *api) adminRoom(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	writeJSON(w, http.StatusOK, map[string]any{
 		"unlockables":     a.unlockables(ctx),
+		"plant_stages":    a.plantStages(ctx),
 		"milestone_start": a.milestoneStart(ctx).Format("2006-01-02"),
 		"milestones":      milestoneDates(a.milestoneStart(ctx), time.Now().In(a.homeTZ()), time.Now().In(a.homeTZ())),
 		"lamp_minutes":    a.lampMinutes(ctx),
@@ -309,6 +333,7 @@ func (a *api) adminRoom(w http.ResponseWriter, r *http.Request) {
 func (a *api) setAdminRoom(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Thresholds     map[string]int `json:"thresholds"`
+		PlantStages    []float64      `json:"plant_stages"`
 		MilestoneStart *string        `json:"milestone_start"`
 		LampMinutes    *int           `json:"lamp_minutes"`
 	}
@@ -330,6 +355,17 @@ func (a *api) setAdminRoom(w http.ResponseWriter, r *http.Request) {
 		raw, _ := json.Marshal(in.Thresholds)
 		if err := a.Store.SetAppSetting(ctx, "unlock_thresholds", raw); err != nil {
 			a.serverError(w, "save thresholds", err)
+			return
+		}
+	}
+	if in.PlantStages != nil {
+		if !validPlantStages(in.PlantStages) {
+			writeError(w, http.StatusBadRequest, "plant stages must start at 0 and increase")
+			return
+		}
+		raw, _ := json.Marshal(in.PlantStages)
+		if err := a.Store.SetAppSetting(ctx, "plant_stages", raw); err != nil {
+			a.serverError(w, "save plant stages", err)
 			return
 		}
 	}

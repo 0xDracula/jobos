@@ -32,3 +32,21 @@ func TestMilestonesFromStart(t *testing.T) {
 		t.Errorf("last milestone after 2 years: %+v, want 3_years upcoming", last)
 	}
 }
+
+func TestValidPlantStages(t *testing.T) {
+	for _, c := range []struct {
+		stages []float64
+		ok     bool
+	}{
+		{[]float64{0, 1, 5, 20, 60}, true},
+		{[]float64{0, 0.5, 2, 8, 30}, true},
+		{[]float64{1, 2, 5, 20, 60}, false},
+		{[]float64{0, 5, 5, 20, 60}, false},
+		{[]float64{0, 1, 5, 20}, false},
+		{[]float64{0, 1, 5, 20, 200000}, false},
+	} {
+		if got := validPlantStages(c.stages); got != c.ok {
+			t.Errorf("validPlantStages(%v) = %v, want %v", c.stages, got, c.ok)
+		}
+	}
+}

@@ -17,7 +17,14 @@ export function weekendMorning(date: Date): number {
   return Math.max(0, Math.min(1, (h - 6.5) / 0.75, 11.5 - h));
 }
 
-export const PLANT_STAGES = [0, 1, 5, 20, 60] as const;
+export const DEFAULT_PLANT_STAGES: readonly number[] = [0, 1, 5, 20, 60];
+
+export let PLANT_STAGES: readonly number[] = DEFAULT_PLANT_STAGES;
+
+export function setPlantStages(stages: readonly number[] | null | undefined) {
+  const valid = !!stages && stages.length === DEFAULT_PLANT_STAGES.length && stages[0] === 0 && stages.every((h, i) => i === 0 || h > stages[i - 1]);
+  PLANT_STAGES = valid ? stages : DEFAULT_PLANT_STAGES;
+}
 
 export function plantStage(hours: number): number {
   let stage = 0;

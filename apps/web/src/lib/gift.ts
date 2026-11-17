@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { json, request } from "./api";
 import { queryClient } from "./queries";
 import { on } from "./realtime";
+import { setPlantStages } from "@/room/calendar";
 import type { CardTrack } from "./social";
 
 export type StarKind = "card" | "dedication" | "mixtape" | "swap" | "note";
@@ -51,6 +52,7 @@ export type Holiday = {
 
 export type RoomConfig = {
   unlockables: Unlockable[];
+  plant_stages?: number[];
   milestones: Milestone[];
   holidays: Holiday[];
   lamp_minutes: number;
@@ -72,7 +74,11 @@ export const giftApi = {
   stars: () => request<{ stars: Star[] }>("/api/stars"),
   favorites: () => request<{ lists: FavoriteList[] }>("/api/favorites"),
   setFavorites: (items: FavoriteItems) => request<FavoriteList>("/api/favorites", json("PUT", items)),
-  roomConfig: () => request<RoomConfig>("/api/room/config"),
+  roomConfig: async () => {
+    const config = await request<RoomConfig>("/api/room/config");
+    setPlantStages(config.plant_stages);
+    return config;
+  },
   mixtapes: () => request<{ mixtapes: MixtapeSummary[] }>("/api/mixtapes"),
   setAvatar: (look: Record<string, unknown>) => request<null>("/api/me/avatar", json("PUT", look)),
 };

@@ -278,11 +278,13 @@ function Holidays() {
 function RoomSettingsAdmin() {
   const q = useQuery({ queryKey: adminKeys.room, queryFn: adminApi.room });
   const [thresholds, setThresholds] = useState<Record<string, string>>({});
+  const [stages, setStages] = useState<string[]>([]);
   const [start, setStart] = useState("");
   const [lamp, setLamp] = useState("");
   useEffect(() => {
     if (!q.data) return;
     setThresholds(Object.fromEntries(q.data.unlockables.filter((u) => u.metric !== "milestone").map((u) => [u.id, String(u.threshold)])));
+    setStages(q.data.plant_stages.slice(1).map(String));
     setStart(q.data.milestone_start);
     setLamp(String(q.data.lamp_minutes));
   }, [q.data]);
@@ -290,6 +292,7 @@ function RoomSettingsAdmin() {
     try {
       const r = await adminApi.setRoom({
         thresholds: Object.fromEntries(Object.entries(thresholds).map(([k, v]) => [k, Math.max(1, Math.round(Number(v) || 1))])),
+        plant_stages: [0, ...stages.map((v) => Number(v) || 0)],
         milestone_start: start,
         lamp_minutes: Math.round(Number(lamp) || 60),
       });
@@ -328,6 +331,24 @@ function RoomSettingsAdmin() {
               <span className="font-bold text-muted">{q.data?.milestones.find((m) => m.id === u.milestone)?.label ?? u.milestone}</span>
             </Line>
           ))}
+      </Panel>
+      <Panel title="Plant growth">
+        {stages.map((v, i) => (
+          <Line key={i} label={`Stage ${i + 1}`}>
+            <label className="flex items-center gap-2 text-sm font-semibold text-muted">
+              <input
+                type="number"
+                min={0}
+                step={0.5}
+                aria-label={`Stage ${i + 1} listening hours`}
+                className={`${inputClass} w-28`}
+                value={v}
+                onChange={(e) => setStages(stages.map((s, j) => (j === i ? e.target.value : s)))}
+              />
+              hours
+            </label>
+          </Line>
+        ))}
       </Panel>
       <Panel title="Milestones">
         <Line label="Start date">

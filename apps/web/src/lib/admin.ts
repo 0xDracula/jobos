@@ -80,7 +80,7 @@ export type AdminNote = {
 };
 export type NoteInput = Pick<AdminNote, "spot" | "title" | "body" | "for_user_id" | "unlock_at" | "after_note_id">;
 
-export type AdminRoom = { unlockables: Unlockable[]; milestone_start: string; milestones: Milestone[]; lamp_minutes: number };
+export type AdminRoom = { unlockables: Unlockable[]; plant_stages: number[]; milestone_start: string; milestones: Milestone[]; lamp_minutes: number };
 
 export type NowPlaying = { user_id: string; device_name: string; track_id: string; position_ms: number; updated_at: string };
 
@@ -105,7 +105,7 @@ export const adminApi = {
   updateNote: (id: string, n: NoteInput) => request<null>(`/api/admin/notes/${id}`, json("PUT", n)),
   deleteNote: (id: string) => request<null>(`/api/admin/notes/${id}`, { method: "DELETE" }),
   room: () => request<AdminRoom>("/api/admin/room"),
-  setRoom: (body: { thresholds?: Record<string, number>; milestone_start?: string; lamp_minutes?: number }) =>
+  setRoom: (body: { thresholds?: Record<string, number>; plant_stages?: number[]; milestone_start?: string; lamp_minutes?: number }) =>
     request<AdminRoom>("/api/admin/room", json("PUT", body)),
   holidays: () => request<{ holidays: Holiday[] }>("/api/admin/holidays"),
   setHolidays: (list: Omit<Holiday, "id">[] | Holiday[]) => request<{ holidays: Holiday[] }>("/api/admin/holidays", json("PUT", list)),
