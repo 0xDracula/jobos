@@ -821,7 +821,7 @@
   const SOURCE = {
     ytmusic: "Downloads: YouTube Music", youtube: "Downloads: YouTube", soundcloud: "Downloads: SoundCloud",
     other: "Downloads: other sites", search: "Matching: YouTube Music search", lyrics: "Lyrics: LRCLIB, YouTube Music",
-    deezer: "Artwork: Deezer",
+    deezer: "Artwork: Deezer", ytdlp: "yt-dlp updates",
   };
 
   function kv(pairs) {
@@ -836,9 +836,14 @@
       const st = await api("/api/admin/status");
       const m = st.media || {};
       const yt = m.yt_dlp || {};
+      const up = st.store.ytdlp_update || {};
       const cookies = m.cookies;
       const tools = kv([
         ["yt-dlp", (yt.version || "unknown") + (yt.released ? " (" + yt.released + ")" : "") + (yt.update_available ? " · update available: " + yt.latest : "")],
+        ["yt-dlp update", (up.last_run_at ? "last run " + ago(up.last_run_at) + " · " + up.last_result : "never run")
+          + (up.last_result === "failed" && up.last_error ? ": " + up.last_error.slice(0, 160) : "")
+          + (up.last_updated_at ? " · installed " + up.version + " " + ago(up.last_updated_at) : "")
+          + (up.queued ? " · queued" : "")],
         ["ytmusicapi", (m.ytmusicapi || {}).version || "unknown"],
         ["YouTube cookies", !cookies ? "unknown" : !cookies.configured ? "not configured" : !cookies.exists ? "file missing"
           : cookies.youtube_cookies + " cookies, updated " + ago(cookies.updated_at * 1000)],
@@ -892,7 +897,16 @@
       const loud = el("div");
       loud.append(el("div", "sub", st.store.loud_files.length + " files above −1 dBTP · " + st.store.unmeasured_files + " files not measured"));
       for (const l of st.store.loud_files.slice(0, 10)) loud.append(el("div", "sub", l.title + " · " + l.true_peak_db.toFixed(1) + " dBTP"));
-      box.replaceChildren(el("h3", "", "Tools"), tools, el("h3", "", "Workers"), workerList, el("h3", "", "Sources"), sources,
+      const update = el("button", "", up.queued ? "Update queued" : "Update yt-dlp");
+      update.type = "button";
+      update.disabled = !!up.queued;
+      update.addEventListener("click", async () => {
+        update.disabled = true;
+        await api("/api/admin/ytdlp/update", { method: "POST" });
+        update.textContent = "Update queued";
+        setTimeout(loadStatus, 5000);
+      });
+      box.replaceChildren(el("h3", "", "Tools"), tools, update, el("h3", "", "Workers"), workerList, el("h3", "", "Sources"), sources,
         el("h3", "", "Jobs"), jobs, el("h3", "", "Failed jobs"), failed, el("h3", "", "Cache"), cache, clear,
         el("h3", "", "Loud files"), loud);
     } catch (err) {

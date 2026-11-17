@@ -94,6 +94,7 @@ type Store interface {
 	UserCities(ctx context.Context) ([]store.UserCity, error)
 	DeleteSetting(ctx context.Context, userID uuid.UUID, key string) error
 	BackfillAnalysis(ctx context.Context) (int, error)
+	LastJobAt(ctx context.Context, kind string) (*time.Time, error)
 	ClaimJob(ctx context.Context, queue, worker string, kinds []string) (*store.Job, error)
 	CompleteJob(ctx context.Context, id int64, result json.RawMessage) error
 	FailJob(ctx context.Context, id int64, message string) error
@@ -275,6 +276,7 @@ func New(d Deps) http.Handler {
 				r.Post("/jobs/{id}/retry", a.retryJob)
 				r.Post("/cache/clear", a.clearCache)
 				r.Post("/playlists/sync", a.syncNow)
+				r.Post("/ytdlp/update", a.updateYtdlpNow)
 				a.registerWorldAdminRoutes(r)
 			})
 			a.registerWorldRoutes(r)

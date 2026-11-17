@@ -9,7 +9,7 @@ from pathlib import Path
 
 import httpx
 
-from . import analysis, config, enrich, ingest, lyrics, match
+from . import analysis, config, enrich, ingest, lyrics, match, ytdlp_update
 
 log = logging.getLogger("jobbos.worker")
 
@@ -86,6 +86,10 @@ def handle_analyze(payload: dict) -> dict:
     return analysis.analyze(media_path(payload["path"]), payload.get("source_lufs"))
 
 
+def handle_update_ytdlp(payload: dict) -> dict:
+    return ytdlp_update.update()
+
+
 HANDLERS = {
     "download_track": handle_download,
     "analyze_audio": handle_analyze,
@@ -94,6 +98,7 @@ HANDLERS = {
     "enrich_metadata": handle_enrich,
     "process_upload": handle_upload,
     "process_cover": handle_cover,
+    "update_ytdlp": handle_update_ytdlp,
 }
 
 
@@ -107,6 +112,8 @@ def describe(kind: str, payload: dict, result: dict) -> str:
     if kind == "enrich_metadata":
         art = result["artwork_source"] or "-"
         return f"artwork {art}, artist image {'yes' if result['artist_image'] else '-'} {payload['title']!r}"
+    if kind == "update_ytdlp":
+        return f"yt-dlp {result['result']}: {result['previous']} -> {result['version']}"
     if kind == "analyze_audio":
         return f"{result['tempo_bpm']} BPM, {result['musical_key']}, energy {result['energy']} {payload['path']}"
     return "done"
@@ -140,6 +147,8 @@ def main() -> None:
                 time.sleep(5)
                 continue
             if r.status_code == 204:
+                if ytdlp_update.changed():
+                    ytdlp_update.restart()
                 time.sleep(2)
                 continue
             if r.status_code != 200:
@@ -163,6 +172,8 @@ def main() -> None:
                     log.warning("could not report job %s as failed", job["id"])
                 if job["kind"] == "download_track" and downloads.record(ok=False):
                     log.warning("%d downloads failed in a row; pausing downloads for 15 minutes", downloads.failures)
+            if ytdlp_update.changed():
+                ytdlp_update.restart()
 
 
 if __name__ == "__main__":

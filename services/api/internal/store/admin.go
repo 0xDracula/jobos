@@ -49,12 +49,13 @@ type LoudFile struct {
 }
 
 type AdminStatus struct {
-	Sources    []SourceHealth `json:"sources"`
-	Jobs       []JobCount     `json:"jobs"`
-	Failed     []FailedJob    `json:"failed"`
-	Cache      CacheStats     `json:"cache"`
-	LoudFiles  []LoudFile     `json:"loud_files"`
-	Unmeasured int            `json:"unmeasured_files"`
+	Sources     []SourceHealth `json:"sources"`
+	Jobs        []JobCount     `json:"jobs"`
+	Failed      []FailedJob    `json:"failed"`
+	Cache       CacheStats     `json:"cache"`
+	LoudFiles   []LoudFile     `json:"loud_files"`
+	Unmeasured  int            `json:"unmeasured_files"`
+	YtdlpUpdate *YtdlpUpdate   `json:"ytdlp_update"`
 }
 
 const pinnedSQL = `exists (select 1 from track_media tm where tm.asset_id = ma.id and (
@@ -121,7 +122,10 @@ func (s *Store) AdminStatus(ctx context.Context) (*AdminStatus, error) {
 	}); err != nil {
 		return nil, err
 	}
-	err = s.pool.QueryRow(ctx, `select count(*) from media_assets where kind = 'audio' and output_true_peak_db is null`).Scan(&st.Unmeasured)
+	if err := s.pool.QueryRow(ctx, `select count(*) from media_assets where kind = 'audio' and output_true_peak_db is null`).Scan(&st.Unmeasured); err != nil {
+		return nil, err
+	}
+	st.YtdlpUpdate, err = s.ytdlpUpdate(ctx)
 	return st, err
 }
 

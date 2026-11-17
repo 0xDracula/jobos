@@ -206,6 +206,8 @@ func (s *Store) CompleteJob(ctx context.Context, id int64, result json.RawMessag
 		err = completeCover(ctx, tx, payload, result)
 	case KindAnalyzeAudio:
 		err = completeAnalysis(ctx, tx, payload, result)
+	case KindUpdateYtdlp:
+		err = completeYtdlpUpdate(result)
 	}
 	if err != nil {
 		return err
@@ -280,6 +282,8 @@ func sourceKey(kind string, payload []byte) string {
 		return "lyrics"
 	case KindEnrichMetadata:
 		return "deezer"
+	case KindUpdateYtdlp:
+		return "ytdlp"
 	}
 	return ""
 }
