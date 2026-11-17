@@ -19,6 +19,7 @@ type MixTrack struct {
 	Tempo     *float32
 	Liked     bool
 	Playlists int
+	Picked    bool
 }
 
 func (s *Store) MixCandidates(ctx context.Context, userID uuid.UUID) ([]MixTrack, error) {
@@ -30,7 +31,8 @@ func (s *Store) MixCandidates(ctx context.Context, userID uuid.UUID) ([]MixTrack
 				) x join tags tg on tg.id = x.tag_id), '{}'),
 			ma.energy, ma.valence, ma.tempo_bpm,
 			exists (select 1 from likes l where l.user_id = $1 and l.track_id = t.id),
-			(select count(*) from playlist_items pi where pi.track_id = t.id)
+			(select count(*) from playlist_items pi where pi.track_id = t.id),
+			exists (select 1 from picks p where p.track_id = t.id and p.author_id <> $1 and not p.placeholder)
 		from tracks t
 		join track_media tm on tm.track_id = t.id and tm.variant = 'main'
 		join media_assets ma on ma.id = tm.asset_id
@@ -42,7 +44,7 @@ func (s *Store) MixCandidates(ctx context.Context, userID uuid.UUID) ([]MixTrack
 	}
 	return pgx.CollectRows(rows, func(r pgx.CollectableRow) (MixTrack, error) {
 		var m MixTrack
-		return m, r.Scan(&m.ID, &m.ArtistIDs, &m.Tags, &m.Energy, &m.Valence, &m.Tempo, &m.Liked, &m.Playlists)
+		return m, r.Scan(&m.ID, &m.ArtistIDs, &m.Tags, &m.Energy, &m.Valence, &m.Tempo, &m.Liked, &m.Playlists, &m.Picked)
 	})
 }
 
@@ -130,6 +132,8 @@ func normalize[K comparable](m map[K]float64) {
 	}
 }
 
+const PickBoost = 1.15
+
 func Score(t MixTrack, seed Seed, steer Steer) float64 {
 	artist := 0.0
 	for _, a := range t.ArtistIDs {
@@ -155,6 +159,9 @@ func Score(t MixTrack, seed Seed, steer Steer) float64 {
 		affinity = 0.5
 	}
 	score := 0.35*artist + 0.25*tags + 0.25*audio + 0.15*affinity
+	if t.Picked {
+		score *= PickBoost
+	}
 	for _, a := range t.ArtistIDs {
 		score *= math.Pow(0.5, float64(steer.Skipped[a]))
 		score *= math.Pow(1.3, float64(min(steer.Liked[a], 3)))
