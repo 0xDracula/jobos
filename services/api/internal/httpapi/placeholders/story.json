@@ -1,0 +1,36 @@
+{
+  "chapters": [
+    {
+      "title": "Placeholder: chapter one",
+      "date_from": "2026-02-14",
+      "date_to": "2026-03-31",
+      "body": "Placeholder: the story of how it started.\n\nPlaceholder: a second paragraph about where you were and what you felt.",
+      "images": ["nile-felucca.png"],
+      "song": true
+    },
+    {
+      "title": "Placeholder: chapter two",
+      "date_from": "2026-04-01",
+      "date_to": "2026-06-30",
+      "body": "Placeholder: what happened in these months.\n\nPlaceholder: a moment from this chapter worth telling in full.",
+      "images": ["rooftop-lights.png", "lantern-street.png"],
+      "song": true
+    },
+    {
+      "title": "Placeholder: chapter three",
+      "date_from": "2026-07-01",
+      "date_to": "2026-08-04",
+      "body": "Placeholder: the story of this summer.",
+      "images": ["sea-corniche.png", "beach-umbrella.png"],
+      "song": true
+    },
+    {
+      "title": "Placeholder: chapter four",
+      "date_from": "2026-08-05",
+      "date_to": null,
+      "body": "Placeholder: the chapter you are in now.",
+      "images": ["flowers-vase.png"],
+      "song": true
+    }
+  ]
+}

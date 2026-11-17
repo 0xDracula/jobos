@@ -204,6 +204,8 @@ func (s *Store) CompleteJob(ctx context.Context, id int64, result json.RawMessag
 		err = completeUpload(ctx, tx, payload, result, priority)
 	case KindProcessCover:
 		err = completeCover(ctx, tx, payload, result)
+	case KindProcessPhoto:
+		err = completePhoto(ctx, tx, payload, result)
 	case KindAnalyzeAudio:
 		err = completeAnalysis(ctx, tx, payload, result)
 	case KindProcessClip:
@@ -379,6 +381,11 @@ func (s *Store) FailJob(ctx context.Context, id int64, message string) error {
 	}
 	if kind == KindProcessClip && attempts >= maxAttempts {
 		if err := failClip(ctx, tx, payload); err != nil {
+			return err
+		}
+	}
+	if kind == KindProcessPhoto && attempts >= maxAttempts {
+		if err := failPhoto(ctx, tx, payload); err != nil {
 			return err
 		}
 	}

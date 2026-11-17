@@ -1,0 +1,49 @@
+{
+  "places": [
+    {
+      "name": "Placeholder: a place in Zamalek",
+      "lat": 30.0459,
+      "lon": 31.2243,
+      "date": "2026-02-14",
+      "note": "Placeholder: why this place matters.",
+      "image": "cairo-tower.png",
+      "song": true
+    },
+    {
+      "name": "Placeholder: a place in Giza",
+      "lat": 29.9792,
+      "lon": 31.1342,
+      "date": "2026-04-18",
+      "note": "Placeholder: what happened here.",
+      "image": "pyramids-stars.png",
+      "song": true
+    },
+    {
+      "name": "Placeholder: a park",
+      "lat": 30.0406,
+      "lon": 31.2625,
+      "date": "2026-05-23",
+      "note": "Placeholder: why this place matters.",
+      "image": "park-bench.png",
+      "song": true
+    },
+    {
+      "name": "Placeholder: a café downtown",
+      "lat": 30.0480,
+      "lon": 31.2393,
+      "date": "2026-07-11",
+      "note": "Placeholder: what you ordered, what you talked about.",
+      "image": "cafe-rain.png",
+      "song": true
+    },
+    {
+      "name": "Placeholder: a walk by the Nile",
+      "lat": 29.9670,
+      "lon": 31.2496,
+      "date": "2026-09-05",
+      "note": "Placeholder: why this place matters.",
+      "image": "nile-felucca.png",
+      "song": true
+    }
+  ]
+}

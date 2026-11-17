@@ -1,0 +1,46 @@
+{
+  "memories": [
+    {
+      "date": "2026-02-14",
+      "title": "Placeholder: the day you met",
+      "caption": "Placeholder: what happened that day, in a line or two.",
+      "image": "nile-felucca.png",
+      "song": true
+    },
+    {
+      "date": "2026-03-21",
+      "title": "Placeholder: a rooftop evening",
+      "caption": "Placeholder: who was there, what you talked about, the song that was playing.",
+      "image": "rooftop-lights.png",
+      "song": true
+    },
+    {
+      "date": "2026-05-09",
+      "title": "Placeholder: a rainy café",
+      "caption": "Placeholder: a small moment worth keeping.",
+      "image": "cafe-rain.png",
+      "song": true
+    },
+    {
+      "date": "2026-06-30",
+      "title": "Placeholder: a late night call",
+      "caption": "Placeholder: what this night meant.",
+      "image": "kitten-moon.png",
+      "song": true
+    },
+    {
+      "date": "2026-08-04",
+      "title": "Placeholder: a day by the sea",
+      "caption": "Placeholder: where you went and what you saw.",
+      "image": "sea-corniche.png",
+      "song": true
+    },
+    {
+      "date": "2026-10-01",
+      "title": "Placeholder: a night out",
+      "caption": "Placeholder: the story behind this photo.",
+      "image": "lantern-street.png",
+      "song": true
+    }
+  ]
+}

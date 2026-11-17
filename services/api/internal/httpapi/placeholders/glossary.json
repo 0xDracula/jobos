@@ -1,0 +1,36 @@
+{
+  "entries": [
+    {
+      "kind": "nickname",
+      "term": "owner",
+      "body": "Placeholder: what this nickname means and who started it.",
+      "started_on": null,
+      "image": null,
+      "song": true
+    },
+    {
+      "kind": "nickname",
+      "term": "قطتي",
+      "body": "Placeholder: what this nickname means and who started it.",
+      "started_on": null,
+      "image": "kitten-moon.png",
+      "song": false
+    },
+    {
+      "kind": "joke",
+      "term": "Placeholder: an inside joke",
+      "body": "Placeholder: what it means and where it came from.",
+      "started_on": "2026-03-21",
+      "image": null,
+      "song": true
+    },
+    {
+      "kind": "joke",
+      "term": "Placeholder: a word only you two use",
+      "body": "Placeholder: its meaning, and the day it started.",
+      "started_on": "2026-06-30",
+      "image": "sunset-roofs.png",
+      "song": false
+    }
+  ]
+}
