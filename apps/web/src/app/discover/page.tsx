@@ -1,13 +1,16 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { CloudDrizzle, CloudFog, CloudLightning, CloudRain, CloudSnow, Cloud, Moon, Play, Radio, Sun } from "lucide-react";
+import { CloudDrizzle, CloudFog, CloudLightning, CloudRain, CloudSnow, Cloud, Moon, PartyPopper, Play, Radio, Sun } from "lucide-react";
+import Link from "next/link";
 
 import { Loading } from "@/components/common";
 import { TrackList } from "@/components/tracks";
 import { Button, Empty, PageTitle, SectionTitle } from "@/components/ui";
 import { ApiError, request } from "@/lib/api";
+import { holidayActive, useRoomConfig } from "@/lib/gift";
 import { useOurSong } from "@/lib/keepsakes";
+import { usePlaylists } from "@/lib/queries";
 import type { Track } from "@/lib/types";
 import { playTracks } from "@/player/controls";
 import { MOODS, startRadio } from "@/player/radio";
@@ -83,6 +86,34 @@ function WeatherMixSection() {
   );
 }
 
+function HolidaySection() {
+  const config = useRoomConfig().data;
+  const playlists = usePlaylists().data;
+  const today = new Date();
+  const active = (config?.holidays ?? []).filter((h) => h.playlist_id && holidayActive(h, today));
+  if (!active.length) return null;
+  return (
+    <section className="mb-10">
+      <SectionTitle>Holiday</SectionTitle>
+      <div className="flex flex-wrap gap-2">
+        {active.map((h) => (
+          <Link
+            key={h.id}
+            href={`/playlist/?id=${h.playlist_id}`}
+            className="inline-flex min-h-11 items-center gap-2 rounded-card bg-surface-solid/70 px-4 font-bold shadow-soft hover:bg-accent-soft/60"
+          >
+            <PartyPopper className="size-4 text-accent-strong" />
+            <span dir="auto">{h.name}</span>
+            <span dir="auto" className="text-sm font-semibold text-muted">
+              {playlists?.find((p) => p.id === h.playlist_id)?.name}
+            </span>
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function RadioSection() {
   const current = usePlayer(selectTrack);
   const ours = useOurSong().data?.track;
@@ -114,6 +145,7 @@ export default function DiscoverPage() {
   return (
     <>
       <PageTitle>Discover</PageTitle>
+      <HolidaySection />
       <WeatherMixSection />
       <RadioSection />
     </>

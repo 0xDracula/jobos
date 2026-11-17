@@ -118,3 +118,5 @@ export function startGift() {
   on("members.update", () => void queryClient.invalidateQueries({ queryKey: ["members"] }));
   on("room.config", () => void queryClient.invalidateQueries({ queryKey: giftKeys.roomConfig }));
 }
+
+export { holidayActive } from "./holidays";
