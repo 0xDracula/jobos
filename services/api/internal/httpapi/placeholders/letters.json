@@ -1,0 +1,37 @@
+{
+  "welcome": {
+    "title": "",
+    "body": "Placeholder: the welcome letter she reads the first time she opens the app, before our song starts."
+  },
+  "letters": [
+    { "kind": "open_when", "occasion": "Open when you're sad", "body": "Placeholder: a letter for when she's sad." },
+    { "kind": "open_when", "occasion": "Open when you can't sleep", "body": "Placeholder: a letter for when she can't sleep." },
+    { "kind": "open_when", "occasion": "Open when you're stressed", "body": "Placeholder: a letter for when she's stressed." },
+    { "kind": "open_when", "occasion": "Open when you're happy", "body": "Placeholder: a letter for when she's happy." },
+    { "kind": "open_when", "occasion": "Open when you miss me", "body": "Placeholder: a letter for when she misses you." },
+    { "kind": "open_when", "occasion": "Open when you need motivation", "body": "Placeholder: a letter for when she needs motivation." },
+    { "kind": "open_when", "occasion": "Open when you had a bad day", "body": "Placeholder: a letter for when she had a bad day." },
+    { "kind": "time_locked", "occasion": "Birthday", "unlock": "10-01 00:00", "body": "Placeholder: the letter for her birthday on 1 October." },
+    { "kind": "time_locked", "occasion": "Anniversary", "unlock": "08-04 00:00", "body": "Placeholder: the letter for your anniversary on 4 August." },
+    { "kind": "standard", "body": "Placeholder: a letter for no particular day." }
+  ],
+  "notes": [
+    { "kind": "daily", "body": "Placeholder: daily note 1, a few lines for her day." },
+    { "kind": "daily", "body": "Placeholder: daily note 2, a few lines for her day." },
+    { "kind": "daily", "body": "Placeholder: daily note 3, a few lines for her day." },
+    { "kind": "daily", "body": "Placeholder: daily note 4, a few lines for her day." },
+    { "kind": "daily", "body": "Placeholder: daily note 5, a few lines for her day." },
+    { "kind": "morning", "body": "Placeholder: good-morning note 1." },
+    { "kind": "morning", "body": "Placeholder: good-morning note 2." },
+    { "kind": "morning", "body": "Placeholder: good-morning note 3." },
+    { "kind": "night", "body": "Placeholder: good-night note 1." },
+    { "kind": "night", "body": "Placeholder: good-night note 2." },
+    { "kind": "night", "body": "Placeholder: good-night note 3." }
+  ],
+  "promises": [
+    "Placeholder: promise 1 to her.",
+    "Placeholder: promise 2 to her.",
+    "Placeholder: promise 3 to her."
+  ],
+  "picks": 3
+}

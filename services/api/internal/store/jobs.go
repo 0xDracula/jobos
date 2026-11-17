@@ -214,6 +214,8 @@ func (s *Store) CompleteJob(ctx context.Context, id int64, result json.RawMessag
 		err = completeArtistEnrich(ctx, tx, payload, result)
 	case KindFetchTags:
 		err = completeTrackTags(ctx, tx, payload, result)
+	case KindProcessFont:
+		err = completeFont(ctx, tx, payload, result)
 	}
 	if err != nil {
 		return err
@@ -367,6 +369,11 @@ func (s *Store) FailJob(ctx context.Context, id int64, message string) error {
 	}
 	if err != nil {
 		return err
+	}
+	if kind == KindProcessFont {
+		if err := failFont(ctx, tx, payload, message); err != nil {
+			return err
+		}
 	}
 	if kind == KindMatchTrack && attempts >= maxAttempts {
 		var p MatchPayload
