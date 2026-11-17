@@ -1,12 +1,13 @@
 "use client";
 
-import { ArrowDownToLine, CircleArrowDown, Play, Shuffle } from "lucide-react";
+import { ArrowDownToLine, CircleArrowDown, Play, Radio, Shuffle } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { cn } from "@/lib/cn";
 import { downloadTracks, useOffline } from "@/lib/offline";
 import type { Track } from "@/lib/types";
 import { playTracks } from "@/player/controls";
+import { startRadio } from "@/player/radio";
 import { playable, type PlayContext } from "@/player/store";
 
 import { Button, IconButton, inputClass, Spinner } from "./ui";
@@ -65,6 +66,11 @@ export function PlayBar({ tracks, context, download = true }: { tracks: Track[];
       <Button disabled={!playableCount} onClick={() => playTracks(tracks, -1, context, { shuffle: true })}>
         <Shuffle className="size-5" /> Shuffle
       </Button>
+      {(context.type === "artist" || context.type === "playlist") && context.id && (
+        <Button disabled={!playableCount} onClick={() => void startRadio({ type: context.type as "artist" | "playlist", id: context.id, name: context.name })}>
+          <Radio className="size-5" /> Radio
+        </Button>
+      )}
       {download && <DownloadButton tracks={tracks} />}
     </div>
   );
