@@ -160,7 +160,7 @@ export function MenuContent({ children, className, ...props }: ComponentProps<ty
         sideOffset={6}
         collisionPadding={12}
         className={cn(
-          "glass z-[70] min-w-56 max-w-[calc(100vw-24px)] rounded-[20px] p-1.5 shadow-soft outline-none [background:var(--surface-solid)]",
+          "glass z-[70] max-h-[var(--radix-dropdown-menu-content-available-height)] min-w-56 max-w-[calc(100vw-24px)] overflow-y-auto overscroll-contain rounded-[20px] p-1.5 shadow-soft outline-none [background:var(--surface-solid)]",
           "data-[state=open]:animate-[menu-in_140ms_ease-out]",
           className,
         )}
