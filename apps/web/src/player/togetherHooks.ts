@@ -13,4 +13,4 @@ export type TogetherHandler = {
   reorder(uids: string[]): void;
 };
 
-export const together: { handler: TogetherHandler | null } = { handler: null };
+export const together: { handler: TogetherHandler | null; queueEnded: (() => void) | null } = { handler: null, queueEnded: null };

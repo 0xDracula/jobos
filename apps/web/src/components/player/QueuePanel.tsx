@@ -12,7 +12,7 @@ import { useTogether } from "@/lib/together";
 import { toast } from "@/lib/toast";
 import { clearQueue, jumpTo, removeFromQueue, reorderUpcoming } from "@/player/controls";
 import { usePlayer, type QueueItem } from "@/player/store";
-import { leaveSession, startSession } from "@/player/together";
+import { leaveSession, startFromQueue } from "@/player/together";
 
 import { NamePromptDialog } from "../dialogs";
 import { PersonBadge } from "../PersonBadge";
@@ -29,7 +29,7 @@ function TogetherButton({ disabled }: { disabled: boolean }) {
       <LogOut className="size-4" /> Leave
     </Button>
   ) : (
-    <Button size="sm" variant="ghost" onClick={() => startSession()} disabled={disabled}>
+    <Button size="sm" variant="ghost" onClick={() => void startFromQueue().catch(() => toast("Session not started"))} disabled={disabled}>
       <Headphones className="size-4" /> Together
     </Button>
   );

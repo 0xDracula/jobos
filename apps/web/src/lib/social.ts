@@ -22,7 +22,7 @@ export type ChatMessage = {
   id: string;
   sender_id: string;
   client_key: string;
-  kind: "text" | "song" | "lyric" | "swap";
+  kind: "text" | "song" | "lyric" | "swap" | "session";
   body: string;
   data?: ChatData;
   reply_to: string | null;

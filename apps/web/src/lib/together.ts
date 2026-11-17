@@ -10,6 +10,9 @@ export type TogetherQueueItem = { track_id: string; added_by: string; key: strin
 
 export type TogetherState = {
   active: boolean;
+  session_id: string;
+  title: string;
+  finished: boolean;
   members: string[];
   queue: TogetherQueueItem[];
   index: number;

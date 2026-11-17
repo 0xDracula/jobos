@@ -151,6 +151,7 @@ func run(log *slog.Logger) error {
 		defer tick.Stop()
 		for {
 			httpapi.SendCalendarReminders(ctx, deps, time.Now())
+			httpapi.SendSessionReminders(ctx, deps, time.Now())
 			select {
 			case <-ctx.Done():
 				return

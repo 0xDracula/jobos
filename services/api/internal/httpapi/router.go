@@ -30,6 +30,7 @@ import (
 )
 
 type Store interface {
+	SessionsStore
 	LettersStore
 	MemoriesStore
 	DatesStore
@@ -227,6 +228,9 @@ var mediaFileRE = regexp.MustCompile(`^([0-9a-f]{64})(\.300)?\.(m4a|jpg|png|webp
 func New(d Deps) http.Handler {
 	a := &api{Deps: d, upstream: newUpstreamClient(), streams: map[uuid.UUID]cachedStream{}, workers: map[string]workerSeen{}, limits: newLimits()}
 	a.registerRealtime()
+	if _, real := d.Store.(*store.Store); real {
+		a.restoreLive()
+	}
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID, middleware.Recoverer)
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) { writeJSON(w, http.StatusOK, map[string]bool{"ok": true}) })
@@ -336,6 +340,7 @@ func New(d Deps) http.Handler {
 			a.registerWorldRoutes(r)
 			a.registerGiftRoutes(r)
 			a.registerRadioRoutes(r)
+			a.registerSessionRoutes(r)
 			a.registerLettersRoutes(r)
 			a.registerMemoriesRoutes(r)
 			a.registerDatesRoutes(r)

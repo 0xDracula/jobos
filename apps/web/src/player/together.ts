@@ -3,6 +3,7 @@
 import { api } from "@/lib/api";
 import { queryClient } from "@/lib/queries";
 import { send, serverNow } from "@/lib/realtime";
+import { sessionApi } from "@/lib/sessions";
 import { fetchTogether, togetherKey, type TogetherState } from "@/lib/together";
 import type { Track } from "@/lib/types";
 
@@ -25,13 +26,15 @@ const command = (action: string, data: Record<string, unknown> = {}) => send("ro
 const currentKey = () => selectCurrent(usePlayer.getState())?.uid;
 const indexOf = (uid: string) => room?.queue.findIndex((q) => q.key === uid) ?? -1;
 
-export function startSession(): boolean {
+export async function startFromQueue(): Promise<string | null> {
   const s = usePlayer.getState();
-  const ids = s.queue.map((q) => q.track.id);
-  if (!ids.length) return false;
-  command("start", { track_ids: ids, index: Math.max(0, s.index), position_ms: Math.round(getEngine().currentTime() * 1000) });
-  return true;
+  const ids = s.queue.slice(Math.max(0, s.index)).map((q) => q.track.id);
+  if (!ids.length) return null;
+  const { id } = await sessionApi.create({ title: "", scheduled_at: null, track_ids: ids.slice(0, 500) });
+  await sessionApi.start(id);
+  return id;
 }
+export const react = (emoji: string) => send("room.react", { emoji });
 export const joinSession = () => send("room.join");
 export const leaveSession = () => send("room.leave");
 export const endSession = () => command("end");
@@ -53,7 +56,7 @@ const handler: TogetherHandler = {
     const i = indexOf(uid);
     if (i >= 0) command("jump", { index: i });
   },
-  playTracks: (ids, start) => command("start", { track_ids: ids, index: start, position_ms: 0 }),
+  playTracks: (ids, start) => command("playnow", { track_ids: ids.slice(Math.max(0, start), Math.max(0, start) + 100) }),
   addToQueue: (ids) => command("queue.add", { track_ids: ids }),
   playNext: (ids) => command("queue.add", { track_ids: ids, at: (room?.index ?? 0) + 1 }),
   remove: (uid) => {
@@ -72,6 +75,10 @@ function setRate(r: number | null) {
 function enter() {
   inSession = true;
   together.handler = handler;
+  together.queueEnded = () => {
+    const key = currentKey();
+    if (key && room && room.queue[room.index]?.key === key) command("skip", { key });
+  };
   setRate(1);
   driftTimer ??= setInterval(drift, DRIFT_MS);
 }
@@ -79,6 +86,7 @@ function enter() {
 function exit() {
   inSession = false;
   together.handler = null;
+  together.queueEnded = null;
   if (driftTimer) clearInterval(driftTimer);
   driftTimer = null;
   if (applyTimer) clearTimeout(applyTimer);

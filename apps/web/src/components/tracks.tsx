@@ -35,6 +35,7 @@ import { playable, selectCurrent, usePlayer, type PlayContext } from "@/player/s
 
 import { DedicationMark } from "./Dedications";
 import { openAddToPlaylist, openVersions, providerLabel } from "./dialogs";
+import { SessionMenuItems } from "./together/SessionMenu";
 import { DateMenuItems } from "./trackMenu/dates";
 import { LetterMenuItems } from "./trackMenu/letters";
 import { MemoryMenuItems } from "./trackMenu/memories";
@@ -139,6 +140,7 @@ export function TrackMenu({
         <MenuItem icon={<Mic />} onSelect={() => openDedication(track)}>
           Dedication
         </MenuItem>
+        <SessionMenuItems track={track} />
         <LetterMenuItems track={track} />
         <MemoryMenuItems track={track} />
         <DateMenuItems track={track} />

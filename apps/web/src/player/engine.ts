@@ -7,6 +7,7 @@ import type { Track } from "@/lib/types";
 
 import { AudioGraph } from "./graph";
 import { nextIndex, selectCurrent, usePlayer, type PlayerState, type QueueItem } from "./store";
+import { together } from "./togetherHooks";
 import { record } from "./telemetry";
 
 const GAPLESS_LEAD = 0.06;
@@ -259,6 +260,7 @@ export class Engine {
     }
     const ni = nextIndex(s);
     if (ni == null) {
+      together.queueEnded?.();
       usePlayer.setState({ playing: false, position: 0 });
       slot.el.currentTime = 0;
       return;

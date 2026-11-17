@@ -7,12 +7,14 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentPr
 import { Avatar } from "@/avatar";
 import { SwapSheet } from "@/components/SwapSheet";
 import { Artwork } from "@/components/media";
+import { PixelIcon } from "@/components/pixel/PixelIcon";
 import { seedOf, SkyScene, type Clear } from "@/components/sky/PageHero";
 import { Button, IconButton, Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { groupMessages } from "@/lib/chatGroups";
+import { sessionWhen } from "@/lib/sessions";
 import { cn } from "@/lib/cn";
-import { fmtTime } from "@/lib/format";
+import { fmtTime, plural } from "@/lib/format";
 import { keys, queryClient } from "@/lib/queries";
 import { useMe, useMembers } from "@/lib/session";
 import {
@@ -88,6 +90,27 @@ function LyricCard({ m }: { m: ChatMessage }) {
   );
 }
 
+function SessionCard({ m }: { m: ChatMessage }) {
+  const d = (m.data ?? {}) as unknown as { session_id?: string; title?: string; scheduled_at?: string | null; songs?: number };
+  return (
+    <Link href={`/together/?id=${d.session_id ?? ""}`} className="flex items-center gap-3">
+      <span className="grid size-14 shrink-0 place-items-center rounded-[10px] bg-[var(--chat-action)]">
+        <PixelIcon name="headphones" size={36} />
+      </span>
+      <span className="min-w-0">
+        <span className="block text-xs font-extrabold uppercase tracking-wider opacity-70">Listen together</span>
+        <span dir="auto" className="block truncate font-bold">
+          {d.title || m.body}
+        </span>
+        <span className="block text-sm opacity-75">
+          {sessionWhen(d.scheduled_at ?? null)}
+          {d.songs ? ` · ${plural(d.songs, "song")}` : ""}
+        </span>
+      </span>
+    </Link>
+  );
+}
+
 function Bubble({
   m, mine, tail, replyTo, nameOf, onReply, onEdit, me,
 }: {
@@ -100,7 +123,7 @@ function Bubble({
   onEdit: () => void;
   me: string;
 }) {
-  const card = m.kind === "song" || m.kind === "lyric";
+  const card = m.kind === "song" || m.kind === "lyric" || m.kind === "session";
   const myReaction = m.reactions.find((r) => r.user_id === me)?.emoji ?? "";
   const react = (emoji: string) => socialApi.react(m.id, emoji === myReaction ? "" : emoji).catch(() => toast("Reaction not saved"));
   const edited = !!m.edited_at && !m.deleted;
@@ -120,7 +143,7 @@ function Bubble({
         {replyTo && (
           <p dir="auto" className="mb-1.5 line-clamp-2 border-s-2 border-accent-strong/60 ps-2 text-sm opacity-75">
             <span className="font-bold">{nameOf(replyTo.sender_id)}: </span>
-            {replyTo.deleted ? "Deleted message" : replyTo.kind === "text" ? replyTo.body : replyTo.data?.track.title}
+            {replyTo.deleted ? "Deleted message" : replyTo.kind === "text" ? replyTo.body : (replyTo.data?.track?.title ?? replyTo.body)}
           </p>
         )}
         {m.deleted ? (
@@ -129,6 +152,8 @@ function Bubble({
           <SongCard m={m} mine={mine} />
         ) : m.kind === "lyric" ? (
           <LyricCard m={m} />
+        ) : m.kind === "session" ? (
+          <SessionCard m={m} />
         ) : (
           <p dir="auto" className="whitespace-pre-wrap break-words text-[16px] leading-relaxed">
             {m.body}
@@ -452,7 +477,7 @@ export default function ChatPage() {
             {editing ? <Pencil className="size-4 shrink-0" /> : <Reply className="size-4 shrink-0" />}
             <p dir="auto" className="min-w-0 flex-1 truncate">
               <span className="font-bold">{editing ? "Editing" : `Reply to ${nameOf(replyTo!.sender_id)}`}: </span>
-              {(editing ?? replyTo)!.kind === "text" ? (editing ?? replyTo)!.body : (editing ?? replyTo)!.data?.track.title}
+              {(editing ?? replyTo)!.kind === "text" ? (editing ?? replyTo)!.body : ((editing ?? replyTo)!.data?.track?.title ?? (editing ?? replyTo)!.body)}
             </p>
             <IconButton
               label="Cancel"

@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDownToLine, CircleArrowDown, Play, Radio, Shuffle } from "lucide-react";
+import { ArrowDownToLine, CircleArrowDown, Headphones, Play, Radio, Shuffle } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { cn } from "@/lib/cn";
@@ -10,6 +10,7 @@ import { playTracks } from "@/player/controls";
 import { startRadio } from "@/player/radio";
 import { playable, type PlayContext } from "@/player/store";
 
+import { SessionForm } from "./together/SessionForm";
 import { Button, IconButton, inputClass, Spinner } from "./ui";
 
 export function useDebounced<T>(value: T, ms: number): T {
@@ -58,6 +59,7 @@ export function FilterInput({ value, onChange, label = "Filter" }: { value: stri
 
 export function PlayBar({ tracks, context, download = true }: { tracks: Track[]; context: PlayContext; download?: boolean }) {
   const playableCount = tracks.filter(playable).length;
+  const [planning, setPlanning] = useState(false);
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Button variant="primary" disabled={!playableCount} onClick={() => playTracks(tracks, -1, context, { shuffle: false })}>
@@ -71,7 +73,13 @@ export function PlayBar({ tracks, context, download = true }: { tracks: Track[];
           <Radio className="size-5" /> Radio
         </Button>
       )}
+      {(context.type === "artist" || context.type === "playlist" || context.type === "album") && (
+        <Button disabled={!playableCount} onClick={() => setPlanning(true)}>
+          <Headphones className="size-5" /> Together
+        </Button>
+      )}
       {download && <DownloadButton tracks={tracks} />}
+      {planning && <SessionForm open onOpenChange={setPlanning} trackIds={tracks.filter(playable).map((t) => t.id)} defaultTitle={context.name} />}
     </div>
   );
 }
