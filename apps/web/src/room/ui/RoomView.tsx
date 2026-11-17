@@ -33,7 +33,7 @@ import { hotspotElements, roomView } from "../hotspots";
 import { DECORATIONS, DEFAULT_ACCENT, resolveAccent } from "../layout";
 import { moodLight, NEUTRAL_LIGHT } from "../light";
 import type { KittenPose } from "../pixel/renderer";
-import { ROOM_LABELS, type RoomId } from "../pixel/rooms/types";
+import { OBJECT_LABELS, ROOM_LABELS, type RoomId } from "../pixel/rooms/types";
 import { fallbackPlace, skyAt } from "../sky";
 import { openSheet, useRoom } from "../state";
 import { EditPanel } from "./EditPanel";
@@ -446,6 +446,7 @@ export function RoomView() {
   };
 
   const night = (sky?.night ?? 0) > 0.5;
+  const names = OBJECT_LABELS[room];
   const noteSpots = useMemo(() => new Set<string>((notes.data ?? []).filter((n) => !n.found).map((n) => n.spot)), [notes.data]);
   const hotspots: Hotspot[] = [
     {
@@ -455,14 +456,14 @@ export function RoomView() {
       action: () => (usePlayer.getState().index >= 0 ? expand() : router.push("/library/")),
     },
     { id: "pinned_record", label: "Our song", action: () => router.push("/song/") },
-    { id: "records", label: "Records", opens: "Library", action: () => router.push("/library/") },
+    { id: "records", label: names.records ?? "Records", opens: "Library", action: () => router.push("/library/") },
     wrapped
       ? { id: "cassette", label: "New mixtape", action: () => router.push(`/mixtapes/?id=${wrapped.id}`) }
       : { id: "cassette", label: "Mixtapes", action: () => router.push("/mixtapes/") },
     { id: "telephone", label: "Chat", action: () => router.push("/chat/") },
     { id: "window", label: "Discover", action: () => router.push("/discover/") },
     { id: "lamp", label: "Lamp", opens: otherUser ? "Shared lamp" : undefined, action: () => void toggleLamp() },
-    { id: "bed", label: "Bed", opens: "Sleep mode", action: () => openSheet("sleep") },
+    { id: "bed", label: names.bed ?? "Bed", opens: "Sleep mode", action: () => openSheet("sleep") },
     { id: "tea", label: "Listen together", action: () => router.push("/together/") },
     {
       id: "kitten",
@@ -473,7 +474,7 @@ export function RoomView() {
       },
     },
     { id: "plants", label: "Plants", opens: "Growth", action: () => openSheet("growth") },
-    { id: "speaker", label: "Speaker", opens: "Ambient sounds", action: () => openSheet("ambient") },
+    { id: "speaker", label: names.speaker ?? "Speaker", opens: "Ambient sounds", action: () => openSheet("ambient") },
   ];
   for (const a of [avatars.me, avatars.other]) {
     if (a) hotspots.push({ id: `avatar:${a.id}`, label: memberOf(a.id)?.display_name ?? "", opens: "Profile", action: () => router.push(`/profile/?id=${a.id}`) });

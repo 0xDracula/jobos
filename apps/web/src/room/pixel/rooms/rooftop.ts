@@ -190,7 +190,6 @@ export function createRooftop(): RoomArt {
   return {
     id: "rooftop",
     customWalls: true,
-    labels: {},
     init: rooftopFurniture,
     backdropKey: ({ sky }) => `${sky.horizon.slice(0, 6)}|${sky.tint.slice(0, 6)}|${Math.round(sky.night * 10)}`,
     drawBackdrop: (g, lg, { sky }) => drawCairo(g, lg, sky, city),

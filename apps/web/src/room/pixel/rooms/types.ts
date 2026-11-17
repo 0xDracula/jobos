@@ -17,6 +17,13 @@ export const ROOM_LABELS: Record<RoomId, string> = {
   cabin: "Snowy cabin",
 };
 
+export const OBJECT_LABELS: Record<RoomId, Partial<Record<string, string>>> = {
+  rooftop: {},
+  cafe: { bed: "Sofa", records: "Shelf", speaker: "Radio" },
+  beach: { speaker: "Radio" },
+  cabin: { speaker: "Radio" },
+};
+
 export type Item = { bottom: number; draw: (g: Ctx) => void };
 
 export type Furniture = {
@@ -48,7 +55,9 @@ export type AnimateInput = BackdropInput & {
 export interface RoomArt {
   id: RoomId;
   customWalls: boolean;
-  labels: Partial<Record<string, string>>;
+  sky?(s: SkyState): SkyState;
+  weather?(w: Weather | null): Weather | null;
+  season?(s: Season | null, w: Weather | null): Season | null;
   init(kit: Kit): Furniture;
   backdropKey(b: BackdropInput): string;
   drawBackdrop(g: Ctx, lights: Ctx, b: BackdropInput): void;

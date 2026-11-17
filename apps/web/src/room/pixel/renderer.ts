@@ -732,9 +732,20 @@ export class PixelRenderer {
     return sprites;
   }
 
+  private themed(input: RoomInput): RoomInput {
+    const a = this.art;
+    if (!a.sky && !a.weather && !a.season) return input;
+    return {
+      ...input,
+      sky: a.sky ? a.sky(input.sky) : input.sky,
+      weather: a.weather ? a.weather(input.weather) : input.weather,
+      season: a.season ? a.season(input.season, input.weather) : input.season,
+    };
+  }
+
   frame(t: number, f: FrameInput) {
-    const input = this.input;
-    if (!input) return;
+    if (!this.input) return;
+    const input = this.themed(this.input);
     const still = input.reducedMotion;
     const tt = still ? 0 : t;
     const dt = Math.min(0.25, Math.max(0, t - this.last));
