@@ -498,7 +498,7 @@ export class PixelRenderer {
     const decos = this.visibleDecorations(input);
     const garland = decos.find(({ d }) => d.id === "photo_garland");
     if (garland) this.drawPhotoGarland(g, garland.p.x);
-    if (input.holiday.includes("hearts")) this.drawHeartGarland(g, 8, 52, S.WALL_TOP + 3);
+    if (input.holiday.includes("hearts")) this.drawHeartGarland(g, 54, 94, S.WALL_TOP + 2);
     if (input.milestoneDay) this.put(g, "banner", 51, S.WALL_TOP);
     if (input.holiday.includes("crescent")) {
       px(g, "#d9d4c8", 73, H.window.y + 1, 1, 3);
@@ -1357,8 +1357,8 @@ export class PixelRenderer {
     }
     if (rainy(c)) return;
     if (season === "autumn" || season === "spring") {
-      const colors = season === "autumn" ? [["#e8924a", "#a8502c"], ["#e0b870", "#a8783a"], ["#c9572f", "#7d3322"]] : [["#ffd3df", "#e88fa3"], ["#fff1f4", "#f2b6c6"], ["#f7c6d0", "#d9879d"]];
-      for (let i = 0; i < 9; i++) {
+      const colors = season === "autumn" ? [["#e8924a", "#a8502c"], ["#e0b870", "#a8783a"], ["#c9572f", "#7d3322"]] : [["#ff9fbd", "#e0607e"], ["#ffc4d6", "#e88fa3"], ["#ffffff", "#f2a0b8"]];
+      for (let i = 0; i < 18; i++) {
         const d = this.drops[i + 40];
         const y = ((d.y + t * (7 + d.s * 6)) % (h + 20)) - 10;
         const x = ((((d.x + t * 5 + Math.sin(t * 0.9 + i) * 12) % (w + 20)) + w + 20) % (w + 20)) - 10;

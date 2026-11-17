@@ -333,13 +333,19 @@ export function RoomView() {
     useRoom.setState({ unlocking: { id, at: Date.now() } });
     roomView.revealDecoration(id);
     uiSound("chime");
-    const label = unlockables.find((u) => u.id === id)?.label ?? DECORATIONS.find((d) => d.id === id)?.label ?? "";
+  }, [ready, unlocking, queued]);
+  const labels = useRef({ unlockables, saved });
+  labels.current = { unlockables, saved };
+  useEffect(() => {
+    if (!unlocking) return;
+    const { id, at } = unlocking;
     const t = setTimeout(() => {
       useRoom.setState({ unlocking: null });
-      toast(`Unlocked: ${label}`, { label: "Place it", run: () => useRoom.setState({ sheet: "edit", draft: structuredClone(saved), selected: id }) });
-    }, UNLOCK_MS);
+      const label = labels.current.unlockables.find((u) => u.id === id)?.label ?? DECORATIONS.find((d) => d.id === id)?.label ?? "";
+      toast(`Unlocked: ${label}`, { label: "Place it", run: () => useRoom.setState({ sheet: "edit", draft: structuredClone(labels.current.saved), selected: id }) });
+    }, Math.max(0, at + UNLOCK_MS - Date.now()));
     return () => clearTimeout(t);
-  }, [ready, unlocking, queued, unlockables, saved]);
+  }, [unlocking]);
 
   const fallback = useMemo(() => (now ? fallbackPlace(now) : { lat: 30, lon: 31 }), [now]);
   const lat = place?.lat ?? fallback.lat;

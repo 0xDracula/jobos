@@ -25,7 +25,7 @@ export const DECORATIONS: Decoration[] = [
   { id: "bean_bag", label: "Bean bag", zone: "roof", sprites: ["bean_bag"], unlock: "bean_bag", home: { x: 290, y: 168, flip: false } },
   { id: "disco_ball", label: "Disco ball", zone: "roof", sprites: ["disco_ball"], unlock: "disco_ball", home: { x: 200, y: 166, flip: false } },
   { id: "anniversary_cake", label: "Cake", zone: "roof", sprites: ["anniversary_cake"], unlock: "anniversary_cake", home: { x: 296, y: 154, flip: false } },
-  { id: "photo_garland", label: "Photo garland", zone: "inside", sprites: ["photo_garland"], unlock: "photo_garland", home: { x: 120, y: 130, flip: false } },
+  { id: "photo_garland", label: "Photo garland", zone: "inside", sprites: ["photo_garland"], unlock: "photo_garland", home: { x: 32, y: 130, flip: false } },
   { id: "star_lantern", label: "Star lantern", zone: "roof", sprites: ["star_lantern"], unlock: "star_lantern", home: { x: 262, y: 130, flip: false } },
   { id: "rose_bouquet", label: "Rose bouquet", zone: "inside", sprites: ["rose_bouquet"], unlock: "rose_bouquet", home: { x: 146, y: 168, flip: false } },
 ];
