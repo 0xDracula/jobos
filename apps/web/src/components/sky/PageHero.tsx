@@ -68,7 +68,7 @@ function stream(seed: number) {
   return { r, int: (a: number, b: number) => a + Math.floor(r() * (b - a + 1)) };
 }
 
-function drawCity(canvas: HTMLCanvasElement, p: Palette, seed: number, clear: Box[]) {
+function drawCity(canvas: HTMLCanvasElement, p: Palette, seed: number, clear: Box[], cloudClear: Box[]) {
   const w = Math.max(1, Math.ceil(canvas.clientWidth / UNIT));
   const h = Math.max(1, Math.ceil(canvas.clientHeight / UNIT));
   canvas.width = w;
@@ -101,7 +101,7 @@ function drawCity(canvas: HTMLCanvasElement, p: Palette, seed: number, clear: Bo
         const cx = air.int(0, w - 24);
         const cy = air.int(2, Math.max(3, skyBottom - 16));
         const cw = air.int(12, 22);
-        if (overlaps(clear, cx, cy - 2, cx + cw, cy + 5)) continue;
+        if (overlaps(clear, cx, cy - 2, cx + cw, cy + 5) || overlaps(cloudClear, cx, cy - 2, cx + cw, cy + 5)) continue;
         g.fillRect(cx, cy + 2, cw, 3);
         g.fillRect(cx + 3, cy, cw - 8, 3);
         g.fillRect(cx + 6, cy - 2, Math.max(3, cw - 14), 2);
@@ -150,16 +150,18 @@ function drawCity(canvas: HTMLCanvasElement, p: Palette, seed: number, clear: Bo
   }
 }
 
-const NO_CLEAR: RefObject<HTMLElement | null>[] = [];
+type Clear = { all: RefObject<HTMLElement | null>[]; clouds: RefObject<HTMLElement | null>[] };
 
-function City({ theme, seed, clear = NO_CLEAR, className }: { theme: "day" | "night"; seed: number; clear?: RefObject<HTMLElement | null>[]; className?: string }) {
+const NO_CLEAR: Clear = { all: [], clouds: [] };
+
+function City({ theme, seed, clear = NO_CLEAR, className }: { theme: "day" | "night"; seed: number; clear?: Clear; className?: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = ref.current;
     if (!canvas) return;
     const paint = () => {
       const c = canvas.getBoundingClientRect();
-      const boxes = clear.flatMap((el) => {
+      const measure = (refs: RefObject<HTMLElement | null>[]) => refs.flatMap((el) => {
         const b = el.current?.getBoundingClientRect();
         if (!b || !b.width || !b.height) return [];
         return [
@@ -171,12 +173,12 @@ function City({ theme, seed, clear = NO_CLEAR, className }: { theme: "day" | "ni
           },
         ];
       });
-      drawCity(canvas, PALETTES[theme], seed, boxes);
+      drawCity(canvas, PALETTES[theme], seed, measure(clear.all), measure(clear.clouds));
     };
     paint();
     const ro = new ResizeObserver(paint);
     ro.observe(canvas);
-    for (const el of clear) if (el.current) ro.observe(el.current);
+    for (const el of [...clear.all, ...clear.clouds]) if (el.current) ro.observe(el.current);
     return () => ro.disconnect();
   }, [theme, seed, clear]);
   return <canvas ref={ref} aria-hidden className={cn("absolute inset-0 size-full [image-rendering:pixelated]", className)} />;
@@ -215,7 +217,9 @@ export function PageHero({ title, meta, children, actions }: { title: ReactNode;
   const seed = seedOf(typeof title === "string" ? title : "page");
   const textRef = useRef<HTMLDivElement>(null);
   const actionsRef = useRef<HTMLDivElement>(null);
-  const clear = useMemo(() => [textRef, actionsRef], []);
+  const toggleRef = useRef<HTMLDivElement>(null);
+  const childrenRef = useRef<HTMLDivElement>(null);
+  const clear = useMemo(() => ({ all: [textRef, actionsRef, toggleRef], clouds: [childrenRef] }), []);
   return (
     <section className="bleed relative isolate -mt-[max(env(safe-area-inset-top),24px)] mb-8 overflow-hidden lg:-mt-10">
       <div aria-hidden className={cn("absolute inset-0 transition-opacity duration-700", theme === "night" ? "opacity-100" : "opacity-0")}>
@@ -241,9 +245,15 @@ export function PageHero({ title, meta, children, actions }: { title: ReactNode;
               {actions}
             </div>
           )}
-          <SkyToggle className="-me-2 -mt-1 shrink-0" />
+          <div ref={toggleRef} className="-me-2 -mt-1 shrink-0">
+            <SkyToggle />
+          </div>
         </div>
-        {children && <div className="mt-5">{children}</div>}
+        {children && (
+          <div ref={childrenRef} className="mt-5">
+            {children}
+          </div>
+        )}
       </div>
     </section>
   );

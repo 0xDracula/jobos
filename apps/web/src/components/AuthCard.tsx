@@ -7,7 +7,7 @@ import { inputClass } from "./ui";
 
 export function AuthCard({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="glass w-full max-w-sm rounded-sheet p-6 shadow-soft [background:var(--surface-solid)]">
+    <section className="w-full max-w-sm rounded-sheet border-2 border-b-[5px] border-panel-line bg-panel p-6 shadow-soft">
       <p className="mb-1 flex items-center gap-2 font-display text-lg font-semibold text-accent-strong">
         <PixelIcon name="record" size={30} />
         Jobbos

@@ -18,8 +18,8 @@ export function TogetherBanner() {
   const others = room.members.filter((id) => id !== me.id);
   const names = others.map((id) => members.data?.find((u) => u.id === id)?.display_name ?? "").filter(Boolean);
   return (
-    <div className="pointer-events-none fixed inset-x-0 top-[max(env(safe-area-inset-top),8px)] z-40 flex justify-center px-4 lg:left-64">
-      <div className="glass pointer-events-auto flex items-center gap-2 rounded-full py-1.5 pe-1.5 ps-3 shadow-soft [background:var(--surface-solid)]">
+    <div className="pointer-events-none fixed inset-x-0 bottom-[calc(4.6rem+env(safe-area-inset-bottom)+4.75rem)] z-40 flex justify-center px-4 lg:bottom-[calc(1rem+4.75rem)] lg:left-64">
+      <div className="pointer-events-auto flex items-center gap-2 rounded-full border-2 border-panel-line bg-panel py-1.5 pe-1.5 ps-3 shadow-soft">
         <Headphones aria-hidden className="size-4 text-accent-strong" />
         <Link href="/together/" className="max-w-[50vw] truncate text-sm font-bold">
           {inside ? (names.length ? `Listening with ${names.join(", ")}` : "Listening together") : `${names.join(", ") || "Someone"} is listening`}
