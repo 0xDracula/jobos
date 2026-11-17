@@ -219,13 +219,22 @@ func (a *api) weatherMix(w http.ResponseWriter, r *http.Request) {
 	if raw, ok := settings["mix.weather"]; ok {
 		_ = json.Unmarshal(raw, &cached)
 	}
-	ids := cached.IDs
-	if len(ids) == 0 || (cached.Key != key && time.Since(cached.At) >= time.Hour) {
-		cands, err := a.Store.MixCandidates(ctx, uid(r))
-		if err != nil {
-			a.serverError(w, "mix candidates", err)
-			return
+	cands, err := a.Store.MixCandidates(ctx, uid(r))
+	if err != nil {
+		a.serverError(w, "mix candidates", err)
+		return
+	}
+	allowed := make(map[uuid.UUID]bool, len(cands))
+	for _, t := range cands {
+		allowed[t.ID] = true
+	}
+	ids := make([]uuid.UUID, 0, len(cached.IDs))
+	for _, id := range cached.IDs {
+		if allowed[id] {
+			ids = append(ids, id)
 		}
+	}
+	if len(ids) < weatherMixSize/2 || (cached.Key != key && time.Since(cached.At) >= time.Hour) {
 		analyzed := make([]store.MixTrack, 0, len(cands))
 		for _, t := range cands {
 			if t.Energy != nil && t.Valence != nil {

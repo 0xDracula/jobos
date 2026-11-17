@@ -411,7 +411,10 @@ export function RoomView() {
       setSentUntil(Date.now() + (config.data?.lamp_minutes ?? 60) * 60_000);
       toast(otherUser ? `Lamp on in ${otherUser.display_name}'s room` : "Lamp on");
     } catch (err) {
-      if (err instanceof ApiError && err.status === 429) toast(`Lamp available at ${timeOf((lastSent || Date.now()) + LAMP_EVERY)}`);
+      if (err instanceof ApiError && err.status === 429) {
+        const retry = Date.parse(String((err.body as { retry_at?: string } | null)?.retry_at ?? ""));
+        toast(`Lamp available at ${timeOf(Number.isFinite(retry) ? retry : (lastSent || Date.now()) + LAMP_EVERY)}`);
+      }
       else if (err instanceof ApiError && err.status === 409) toast(err.message);
       else toast("Lamp unavailable");
     }

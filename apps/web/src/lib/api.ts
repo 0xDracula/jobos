@@ -5,9 +5,11 @@ import type {
 
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  body: unknown;
+  constructor(status: number, message: string, body?: unknown) {
     super(message);
     this.status = status;
+    this.body = body;
   }
 }
 
@@ -23,7 +25,7 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
     if (res.status === 401 && typeof window !== "undefined" && !/^\/api\/(auth|invites|resets)\//.test(path)) {
       window.dispatchEvent(new Event("jobbos:signed-out"));
     }
-    throw new ApiError(res.status, (body && body.error) || res.statusText);
+    throw new ApiError(res.status, (body && body.error) || res.statusText, body);
   }
   return body as T;
 }
