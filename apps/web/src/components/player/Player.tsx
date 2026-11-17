@@ -20,6 +20,7 @@ import { Artwork, LevelMeter } from "../media";
 import { TrackMenu } from "../tracks";
 import { IconButton } from "../ui";
 import { LyricsPanel } from "./LyricsPanel";
+import { MemoryPhoto } from "./MemoryPhoto";
 import { QueuePanel } from "./QueuePanel";
 import { SongNotes } from "./SongNotes";
 import { SoundPanel, useSleepRemaining } from "./SoundPanel";
@@ -126,6 +127,7 @@ function MiniPlayer() {
             </span>
           </span>
         </button>
+        <MemoryPhoto track={track} />
         <div className="hidden min-w-0 flex-1 items-center gap-2 lg:flex">
           <PrevButton size="sm" />
           <PlayButton size="md" />
@@ -304,6 +306,7 @@ function NowPlaying() {
                     {track.artists.join(", ")}
                   </div>
                 </div>
+                <MemoryPhoto track={track} />
                 <DedicationMark track={track} className="size-11" />
                 <LikeButton trackId={track.id} />
               </div>

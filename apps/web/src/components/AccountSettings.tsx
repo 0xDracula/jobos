@@ -35,6 +35,7 @@ const EVENTS: [string, string, boolean][] = [
   ["mixtapes", "Mixtapes", true],
   ["dates", "Listening dates", true],
   ["dedications", "Dedications", false],
+  ["reminders", "Reminds me of you", true],
   ["swaps", "Song swaps", false],
   ["lamp", "Lamp", false],
 ];
