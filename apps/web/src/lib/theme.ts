@@ -6,7 +6,7 @@ import { pickAccent, pickWash } from "./color";
 import { usePrefs } from "./prefs";
 import type { PaletteColor } from "./types";
 
-const BG = { day: "#fff7f0", night: "#1e1b3a" } as const;
+const BG = { day: "#fff7f0", night: "#1c1a3d" } as const;
 
 const darkQuery = () => window.matchMedia("(prefers-color-scheme: dark)");
 
