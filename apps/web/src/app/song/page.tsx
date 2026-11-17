@@ -84,12 +84,11 @@ export default function OurSongPage() {
       <div className="grid items-end gap-6 sm:grid-cols-[minmax(0,320px)_1fr]">
         <Artwork src={track.artwork_url ?? track.artwork_thumb_url} className="aspect-square w-full max-w-[320px] rounded-[28px] shadow-soft" eager />
         <div className="min-w-0">
-          <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-muted">Our song</p>
-          <h1 dir="auto" className="mt-1 font-display text-[34px] font-semibold leading-tight lg:text-[44px]">
+          <h1 dir="auto" className="font-display text-[34px] font-semibold leading-tight lg:text-[44px]">
             {track.title}
           </h1>
           <p dir="auto" className="text-lg font-bold text-muted">
-            {track.artists.join(", ")}
+            Our song · {track.artists.join(", ")}
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <Button variant="primary" onClick={() => void playFrom(track.id, null, "Our song")}>

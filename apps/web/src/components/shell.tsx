@@ -26,7 +26,9 @@ import { GlobalDialogs } from "./dialogs";
 import { KeepsakeDialogs } from "./KeepsakeDialogs";
 import { TogetherBanner } from "./Together";
 import { Cover } from "./media";
+import { PixelIcon } from "./pixel/PixelIcon";
 import { PlayerDock } from "./player/Player";
+import { SkyBackdrop, SkyToggle } from "./sky/PageHero";
 
 const NAV = [
   { href: "/", label: "Home", icon: House },
@@ -52,11 +54,14 @@ function Sidebar() {
   const playlists = usePlaylists();
   const admin = useIsAdmin();
   return (
-    <nav aria-label="Main" className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col gap-1 border-e border-line px-4 pb-28 pt-7 lg:flex">
-      <Link href="/" className="mb-5 flex items-center gap-2 px-3 font-display text-[26px] font-semibold text-accent-strong">
-        <span aria-hidden className="grid size-9 place-items-center rounded-full bg-accent-soft text-lg">♫</span>
-        Jobbos
-      </Link>
+    <nav aria-label="Main" className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col gap-1 border-e border-line bg-sidebar px-4 pb-28 pt-6 lg:flex">
+      <div className="mb-4 flex items-center gap-1">
+        <Link href="/" className="flex min-w-0 flex-1 items-center gap-2.5 rounded-button px-2 py-1 font-display text-[26px] font-semibold text-accent-strong">
+          <PixelIcon name="record" size={34} />
+          Jobbos
+        </Link>
+        <SkyToggle className="size-11" />
+      </div>
       {[...NAV, { href: "/settings/", label: "Settings", icon: Settings }, ...(admin ? [{ href: "/admin/", label: "Admin", icon: Shield }] : [])].map(({ href, label, icon: Icon }) => (
         <Link
           key={href}
@@ -230,7 +235,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   if (isPublicPath(pathname)) {
     return (
-      <main className="grid min-h-dvh place-items-center px-4 py-10">
+      <main className="relative isolate grid min-h-dvh place-items-center px-4 py-10">
+        <SkyBackdrop />
+        <div className="fixed end-[max(12px,env(safe-area-inset-right))] top-[max(12px,env(safe-area-inset-top))] z-10">
+          <SkyToggle />
+        </div>
         {children}
         <Toasts />
       </main>
@@ -247,8 +256,8 @@ function appFrame(home: boolean, children: ReactNode) {
         {home ? (
           <main className="fixed inset-x-0 top-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] lg:bottom-0 lg:left-64">{children}</main>
         ) : (
-          <main className="lg:ps-64">
-            <div className="mx-auto max-w-5xl px-4 pb-[calc(10.5rem+env(safe-area-inset-bottom))] pt-[max(env(safe-area-inset-top),24px)] lg:px-10 lg:pb-36 lg:pt-10">
+          <main className="overflow-x-clip lg:ps-64">
+            <div className="mx-auto max-w-6xl px-4 pb-[calc(10.5rem+env(safe-area-inset-bottom))] pt-[max(env(safe-area-inset-top),24px)] lg:px-10 lg:pb-36 lg:pt-10">
               <OfflineBanner />
               {children}
             </div>

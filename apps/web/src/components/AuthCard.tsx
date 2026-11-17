@@ -2,13 +2,14 @@
 
 import type { ReactNode, SyntheticEvent } from "react";
 
+import { PixelIcon } from "./pixel/PixelIcon";
 import { inputClass } from "./ui";
 
 export function AuthCard({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="glass w-full max-w-sm rounded-sheet p-6 shadow-soft [background:var(--surface-solid)]">
       <p className="mb-1 flex items-center gap-2 font-display text-lg font-semibold text-accent-strong">
-        <span aria-hidden className="grid size-8 place-items-center rounded-full bg-accent-soft text-base">♫</span>
+        <PixelIcon name="record" size={30} />
         Jobbos
       </p>
       <h1 className="mb-5 font-display text-[26px] font-semibold leading-tight">{title}</h1>

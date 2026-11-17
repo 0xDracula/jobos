@@ -6,7 +6,8 @@ import { Content, RoomAdmin } from "@/components/admin/Content";
 import { Library } from "@/components/admin/Library";
 import { People } from "@/components/admin/People";
 import { Sources } from "@/components/admin/Sources";
-import { Empty, PageTitle } from "@/components/ui";
+import { PageHero } from "@/components/sky/PageHero";
+import { Empty } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useIsAdmin, useMe } from "@/lib/session";
 
@@ -43,9 +44,9 @@ export default function AdminPage() {
   if (!admin) return <Empty>Admin only</Empty>;
   return (
     <>
-      <PageTitle>Admin</PageTitle>
-      <nav aria-label="Admin sections" className="-mx-4 mb-6 overflow-x-auto px-4">
-        <div role="tablist" className="inline-flex gap-1 rounded-full border border-line bg-surface-solid/60 p-1">
+      <PageHero title="Admin">
+      <nav aria-label="Admin sections" className="no-scrollbar -mx-4 overflow-x-auto px-4">
+        <div role="tablist" className="inline-flex gap-1 rounded-full border border-panel-line bg-panel p-1 shadow-soft">
           {TABS.map(([t, label]) => (
             <button
               key={t}
@@ -63,6 +64,7 @@ export default function AdminPage() {
           ))}
         </div>
       </nav>
+      </PageHero>
       <div role="tabpanel">
         {tab === "people" && <People />}
         {tab === "library" && <Library />}

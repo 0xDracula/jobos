@@ -4,10 +4,11 @@ import { Mic, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { Loading } from "@/components/common";
+import { PageHero } from "@/components/sky/PageHero";
 import { playDedication } from "@/components/Dedications";
 import { ConfirmDialog } from "@/components/dialogs";
 import { Artwork } from "@/components/media";
-import { Empty, IconButton, PageTitle } from "@/components/ui";
+import { Empty, IconButton } from "@/components/ui";
 import { fmtMs } from "@/lib/format";
 import { keepsakeApi, keepsakeKeys, useDedications, type Dedication } from "@/lib/keepsakes";
 import { queryClient } from "@/lib/queries";
@@ -24,7 +25,7 @@ export default function DedicationsPage() {
   const name = (id: string) => members.data?.find((u) => u.id === id)?.display_name ?? "";
   return (
     <>
-      <PageTitle>Dedications</PageTitle>
+      <PageHero title="Dedications" />
       {q.isLoading && <Loading />}
       {q.data && !q.data.length && <Empty>No dedications</Empty>}
       <ul className="grid grid-cols-1 gap-2">

@@ -4,8 +4,9 @@ import { Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { Loading } from "@/components/common";
+import { PageHero } from "@/components/sky/PageHero";
 import { ConfirmDialog } from "@/components/dialogs";
-import { Empty, IconButton, PageTitle } from "@/components/ui";
+import { Empty, IconButton } from "@/components/ui";
 import { keepsakeApi, keepsakeKeys, useScrapbook, type Clipping } from "@/lib/keepsakes";
 import { queryClient } from "@/lib/queries";
 import { useMe, useMembers } from "@/lib/session";
@@ -39,7 +40,7 @@ function ClippingCard({ c, mine, name, onDelete }: { c: Clipping; mine: boolean;
         <p className="text-xs font-bold opacity-50">{name}</p>
       </button>
       {mine && (
-        <span className="absolute end-1 top-3">
+        <span className="absolute bottom-2 end-1">
           <IconButton label="Remove clipping" size="sm" className="text-[#3b2f2a]/60" onClick={onDelete}>
             <Trash2 />
           </IconButton>
@@ -57,7 +58,7 @@ export default function ScrapbookPage() {
   const name = (id: string) => members.data?.find((u) => u.id === id)?.display_name ?? "";
   return (
     <>
-      <PageTitle>Scrapbook</PageTitle>
+      <PageHero title="Scrapbook" />
       {q.isLoading && <Loading />}
       {q.data && !q.data.length && <Empty>No clippings</Empty>}
       <ul className="grid grid-cols-1 gap-x-6 gap-y-8 pt-2 sm:grid-cols-2 lg:grid-cols-3">

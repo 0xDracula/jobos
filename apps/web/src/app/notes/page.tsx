@@ -4,9 +4,10 @@ import { Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { Loading } from "@/components/common";
+import { PageHero } from "@/components/sky/PageHero";
 import { ConfirmDialog, Dialog } from "@/components/dialogs";
 import { Artwork } from "@/components/media";
-import { Button, Empty, IconButton, PageTitle, inputClass } from "@/components/ui";
+import { Button, Empty, IconButton, inputClass } from "@/components/ui";
 import { keepsakeApi, keepsakeKeys, useAllNotes, type SongNote } from "@/lib/keepsakes";
 import { queryClient } from "@/lib/queries";
 import { useMe, useMembers } from "@/lib/session";
@@ -24,7 +25,7 @@ export default function NotesPage() {
   const refresh = () => void queryClient.invalidateQueries({ queryKey: keepsakeKeys.notes });
   return (
     <>
-      <PageTitle>Song notes</PageTitle>
+      <PageHero title="Song notes" />
       {q.isLoading && <Loading />}
       {q.data && !q.data.length && <Empty>No notes</Empty>}
       <ul className="grid grid-cols-1 gap-3">

@@ -5,7 +5,8 @@ import Link from "next/link";
 import { Suspense, useMemo } from "react";
 
 import { Loading } from "@/components/common";
-import { PersonBadge } from "@/components/PersonBadge";
+import { Avatar } from "@/avatar";
+import { PageHero } from "@/components/sky/PageHero";
 import { Empty } from "@/components/ui";
 import { FAVORITE_CATEGORIES, useFavoriteLists, useStars } from "@/lib/gift";
 import { useMe, useMembers } from "@/lib/session";
@@ -42,17 +43,12 @@ function Profile() {
   const list = favorites?.find((l) => l.user_id === userId);
   const status = person?.online ? (person.listening ? "Listening" : "Online") : person?.last_seen ? `Last seen ${lastSeen(person.last_seen)}` : "";
   return (
-    <div className="mx-auto grid max-w-2xl gap-6">
-      <header className="flex items-center gap-4">
-        <PersonBadge userId={user.id} className="size-20 text-3xl" />
-        <div className="min-w-0">
-          <h1 className="font-display text-[30px] font-semibold leading-tight">{user.display_name}</h1>
-          <p className="font-semibold text-muted">
-            {user.id === me?.id ? "You" : status}
-            {person?.quiet ? " · Quiet mode" : ""}
-          </p>
-        </div>
-      </header>
+    <div className="grid gap-8">
+      <PageHero
+        title={user.display_name}
+        meta={`${user.id === me?.id ? "You" : status}${person?.quiet ? " · Quiet mode" : ""}`}
+        actions={<Avatar userId={user.id} size={96} pose={person?.listening ? "listening" : "idle"} className="-my-2" />}
+      />
       <section className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {shared.map(([label, n]) => (
           <div key={label} className="rounded-card bg-surface-solid/60 p-3 shadow-soft">

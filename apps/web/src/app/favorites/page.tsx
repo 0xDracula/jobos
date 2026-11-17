@@ -4,6 +4,7 @@ import { X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Loading } from "@/components/common";
+import { PageHero } from "@/components/sky/PageHero";
 import { Segmented, inputClass } from "@/components/ui";
 import { PageTitle } from "@/components/ui";
 import { FAVORITE_CATEGORIES, giftApi, giftKeys, useFavoriteLists, type FavoriteCategory, type FavoriteItems } from "@/lib/gift";
@@ -101,7 +102,7 @@ export default function FavoritesPage() {
   const people = members.data ?? [];
   return (
     <>
-      <PageTitle>Favorite things</PageTitle>
+      <PageHero title="Favorite things" />
       {people.length > 1 && me && (
         <div className="mb-5">
           <Segmented

@@ -5,9 +5,10 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import { AvatarEditor } from "@/avatar";
 import { AccountSettings } from "@/components/AccountSettings";
+import { PageHero } from "@/components/sky/PageHero";
 import { ConfirmDialog } from "@/components/dialogs";
 import { Artwork } from "@/components/media";
-import { Button, Empty, PageTitle, Segmented } from "@/components/ui";
+import { Button, Empty, Segmented } from "@/components/ui";
 import { api } from "@/lib/api";
 import { deviceName, isIOS } from "@/lib/device";
 import { install, useInstall } from "@/lib/install";
@@ -151,7 +152,8 @@ export default function SettingsPage() {
   useEffect(() => setDevice(deviceName()), []);
   return (
     <>
-      <PageTitle>Settings</PageTitle>
+      <PageHero title="Settings" />
+      <div className="lg:columns-2 lg:gap-8 [&>*]:break-inside-avoid">
       <AccountSettings />
       <AvatarEditor />
       <Section title="Appearance">
@@ -202,6 +204,7 @@ export default function SettingsPage() {
           <span className="font-bold text-muted">{device}</span>
         </Row>
       </Section>
+      </div>
     </>
   );
 }

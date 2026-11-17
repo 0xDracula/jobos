@@ -18,42 +18,99 @@
   --line: rgba(59, 47, 63, 0.12);
   --shadow: 0 8px 24px rgba(168, 68, 94, 0.12);
   --tint: var(--accent);
+  --sky-top: #9fcbee;
+  --sky-mid: #cfe2f2;
+  --sky-bottom: #fff1e8;
+  --city-1: #c9c2df;
+  --city-2: #b8b0d2;
+  --city-3: #a99fc6;
+  --window: #ece8f7;
+  --window-lit: #fff3c8;
+  --cloud: #ffffff;
+  --amber: #c27a12;
+  --amber-soft: #ffe1a6;
+  --plank: #b98a5e;
+  --plank-hi: #d8ad80;
+  --plank-shade: #8d6644;
+  --panel: #ffffff;
+  --panel-line: rgba(59, 47, 63, 0.1);
+  --sidebar: rgba(255, 250, 246, 0.72);
+  --wash-a: color-mix(in oklab, var(--accent-soft) 60%, transparent);
+  --wash-b: color-mix(in oklab, var(--lavender) 30%, transparent);
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="day"]) {
-    --bg: #1e1b3a;
-    --surface: rgba(41, 37, 74, 0.78);
-    --surface-solid: #29254a;
-    --glass-border: rgba(255, 255, 255, 0.12);
+    --bg: #1c1a3d;
+    --surface: rgba(37, 34, 79, 0.82);
+    --surface-solid: #25224f;
+    --glass-border: rgba(255, 255, 255, 0.1);
     --text: #f5eef8;
-    --text-muted: #b9aec6;
+    --text-muted: #b6acd0;
     --accent: #f2a7b8;
     --accent-strong: #f2a7b8;
-    --accent-soft: #3a3160;
-    --on-accent: #1e1b3a;
+    --accent-soft: #34306a;
+    --on-accent: #1c1a3d;
     --butter: #ffd98a;
-    --line: rgba(245, 238, 248, 0.12);
-    --shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    --line: rgba(245, 238, 248, 0.1);
+    --shadow: 0 10px 28px rgba(5, 4, 20, 0.45);
+    --sky-top: #0d0f2b;
+    --sky-mid: #14153a;
+    --sky-bottom: #1c1a3d;
+    --city-1: #2d2a5e;
+    --city-2: #252252;
+    --city-3: #36326b;
+    --window: #312e66;
+    --window-lit: #ffcf7a;
+    --cloud: transparent;
+    --amber: #ffcf7a;
+    --amber-soft: #4a3a3a;
+    --plank: #6b4a35;
+    --plank-hi: #8c6447;
+    --plank-shade: #3b2a22;
+    --panel: #25224f;
+    --panel-line: rgba(245, 238, 248, 0.08);
+    --sidebar: #16153a;
+    --wash-a: color-mix(in oklab, #2b2766 55%, transparent);
+    --wash-b: transparent;
     color-scheme: dark;
   }
 }
 
 :root[data-theme="night"] {
-  --bg: #1e1b3a;
-  --surface: rgba(41, 37, 74, 0.78);
-  --surface-solid: #29254a;
-  --glass-border: rgba(255, 255, 255, 0.12);
+  --bg: #1c1a3d;
+  --surface: rgba(37, 34, 79, 0.82);
+  --surface-solid: #25224f;
+  --glass-border: rgba(255, 255, 255, 0.1);
   --text: #f5eef8;
-  --text-muted: #b9aec6;
+  --text-muted: #b6acd0;
   --accent: #f2a7b8;
   --accent-strong: #f2a7b8;
-  --accent-soft: #3a3160;
-  --on-accent: #1e1b3a;
+  --accent-soft: #34306a;
+  --on-accent: #1c1a3d;
   --butter: #ffd98a;
-  --line: rgba(245, 238, 248, 0.12);
-  --shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --line: rgba(245, 238, 248, 0.1);
+  --shadow: 0 10px 28px rgba(5, 4, 20, 0.45);
+  --sky-top: #0d0f2b;
+  --sky-mid: #14153a;
+  --sky-bottom: #1c1a3d;
+  --city-1: #2d2a5e;
+  --city-2: #252252;
+  --city-3: #36326b;
+  --window: #312e66;
+  --window-lit: #ffcf7a;
+  --cloud: transparent;
+  --amber: #ffcf7a;
+  --amber-soft: #4a3a3a;
+  --plank: #6b4a35;
+  --plank-hi: #8c6447;
+  --plank-shade: #3b2a22;
+  --panel: #25224f;
+  --panel-line: rgba(245, 238, 248, 0.08);
+  --sidebar: #16153a;
+  --wash-a: color-mix(in oklab, #2b2766 55%, transparent);
+  --wash-b: transparent;
   color-scheme: dark;
 }
 
@@ -73,6 +130,11 @@
   --color-danger: var(--danger);
   --color-line: var(--line);
   --color-tint: var(--tint);
+  --color-panel: var(--panel);
+  --color-panel-line: var(--panel-line);
+  --color-amber: var(--amber);
+  --color-amber-soft: var(--amber-soft);
+  --color-sidebar: var(--sidebar);
   --font-display: var(--font-fredoka), var(--font-baloo), ui-rounded, sans-serif;
   --font-sans: var(--font-nunito), var(--font-tajawal), ui-sans-serif, system-ui, sans-serif;
   --font-hand: var(--font-caveat), var(--font-ruqaa), cursive;
@@ -113,6 +175,26 @@ body {
 :focus-visible {
   outline: 3px solid var(--accent);
   outline-offset: 2px;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--accent) 45%, transparent);
+  color: var(--text);
+}
+
+html {
+  caret-color: var(--accent-strong);
+  accent-color: var(--accent-strong);
+  scrollbar-color: color-mix(in oklab, var(--text-muted) 45%, transparent) transparent;
+}
+
+.bleed {
+  width: calc(100vw - var(--sidebar-w, 0px));
+  margin-inline-start: calc(50% - (100vw - var(--sidebar-w, 0px)) / 2);
+}
+
+@media (min-width: 1024px) {
+  :root { --sidebar-w: 16rem; }
 }
 
 @keyframes level {
@@ -165,8 +247,8 @@ body {
 
 body {
   background:
-    radial-gradient(48rem 32rem at 0% -8%, color-mix(in oklab, var(--accent-soft) 60%, transparent), transparent 70%),
-    radial-gradient(40rem 30rem at 100% 0%, color-mix(in oklab, var(--lavender) 30%, transparent), transparent 70%),
+    radial-gradient(48rem 32rem at 0% -8%, var(--wash-a), transparent 70%),
+    radial-gradient(40rem 30rem at 100% 0%, var(--wash-b), transparent 70%),
     var(--bg);
   background-attachment: fixed;
   min-height: 100dvh;

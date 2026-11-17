@@ -9,15 +9,19 @@ import { useDebounced } from "@/components/common";
 import { openAddToPlaylist, providerLabel } from "@/components/dialogs";
 import { Artwork } from "@/components/media";
 import { TrackList } from "@/components/tracks";
-import { Button, inputClass, Menu, MenuContent, MenuItem, MenuTrigger, PageTitle, SectionTitle, Spinner } from "@/components/ui";
+import { PixelIcon } from "@/components/pixel/PixelIcon";
+import { CoverShelf } from "@/components/Shelf";
+import { PageHero } from "@/components/sky/PageHero";
+import { Button, inputClass, Menu, MenuContent, MenuItem, MenuTrigger, SectionTitle, Spinner } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { fmtMs } from "@/lib/format";
 import { keepsakeApi, keepsakeKeys, useRecentSearches } from "@/lib/keepsakes";
-import { keys } from "@/lib/queries";
+import { keys, useRecent } from "@/lib/queries";
 import { toast } from "@/lib/toast";
 import type { SearchResult, Track } from "@/lib/types";
 import { addToQueue, playNext, playTracks } from "@/player/controls";
+import { MOODS, startRadio } from "@/player/radio";
 import { playable } from "@/player/store";
 
 const isLink = (s: string) => /^https?:\/\/\S+$/i.test(s);
@@ -130,8 +134,8 @@ export default function SearchPage() {
 
   return (
     <>
-      <PageTitle>Search</PageTitle>
-      <div className="relative mb-8">
+      <PageHero title="Search">
+      <div className="relative">
         <Search className="pointer-events-none absolute start-4 top-1/2 size-5 -translate-y-1/2 text-muted" />
         <input
           type="search"
@@ -142,9 +146,10 @@ export default function SearchPage() {
           aria-label="Search"
           autoFocus
           dir="auto"
-          className={cn(inputClass, "min-h-14 rounded-card ps-12 text-[17px] shadow-soft")}
+          className={cn(inputClass, "min-h-14 rounded-[12px] border-2 bg-panel ps-12 text-[17px] shadow-soft")}
         />
       </div>
+      </PageHero>
 
       {!query.trim() && !!recent.data?.length && (
         <section className="mb-10">
@@ -176,6 +181,8 @@ export default function SearchPage() {
           </ul>
         </section>
       )}
+
+      {!query.trim() && <Browse />}
 
       {link && (
         <section className="mb-10 flex items-center gap-3 rounded-card bg-surface-solid/70 p-4 shadow-soft">
@@ -221,6 +228,39 @@ export default function SearchPage() {
     </>
   );
 }
+
+function Browse() {
+  const recent = useRecent();
+  const tracks = recent.data?.slice(0, 16) ?? [];
+  return (
+    <div className="grid grid-cols-1 gap-10">
+      <section>
+        <SectionTitle>Radio</SectionTitle>
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+          {MOODS.map(([mood, label], i) => (
+            <button
+              key={mood}
+              type="button"
+              onClick={() => void startRadio({ type: "mood", mood, name: label })}
+              className="flex min-h-16 items-center gap-3 rounded-[8px] border-2 border-b-[5px] border-panel-line bg-panel px-3 text-start font-extrabold transition-transform duration-150 hover:-translate-y-0.5"
+            >
+              <PixelIcon name={MOOD_ICONS[i]} size={32} />
+              {label}
+            </button>
+          ))}
+        </div>
+      </section>
+      {tracks.length > 0 && (
+        <section>
+          <SectionTitle>Recently played</SectionTitle>
+          <CoverShelf tracks={tracks} context={{ type: "history", name: "Recently played" }} label="Recently played" />
+        </section>
+      )}
+    </div>
+  );
+}
+
+const MOOD_ICONS = ["moon", "sun", "notes", "star"] as const;
 
 function OnlineRow({
   result: r,

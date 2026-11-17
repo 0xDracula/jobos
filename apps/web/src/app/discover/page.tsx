@@ -1,87 +1,103 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { CloudDrizzle, CloudFog, CloudLightning, CloudRain, CloudSnow, Cloud, Moon, PartyPopper, Play, Radio, Sun } from "lucide-react";
+import { Play } from "lucide-react";
 import Link from "next/link";
 
 import { Loading } from "@/components/common";
+import { Artwork } from "@/components/media";
+import { PixelIcon, type PixelIconName } from "@/components/pixel/PixelIcon";
+import { PageHero } from "@/components/sky/PageHero";
 import { TrackList } from "@/components/tracks";
-import { Button, Empty, PageTitle, SectionTitle } from "@/components/ui";
-import { ApiError, request } from "@/lib/api";
+import { Button, Empty, SectionTitle } from "@/components/ui";
+import { ApiError } from "@/lib/api";
+import { plural } from "@/lib/format";
 import { holidayActive, useRoomConfig } from "@/lib/gift";
 import { useOurSong } from "@/lib/keepsakes";
+import { MOOD_LABELS, WEATHER_CONDITIONS, useWeatherMix } from "@/lib/mixes";
 import { usePlaylists } from "@/lib/queries";
-import type { Track } from "@/lib/types";
 import { playTracks } from "@/player/controls";
 import { MOODS, startRadio } from "@/player/radio";
 import { selectTrack, usePlayer } from "@/player/store";
 
-type WeatherMix = {
-  weather: { condition: string; temperature_c: number; is_day: boolean; city: string };
-  mood: "mellow" | "upbeat" | "bright" | "soft";
-  generated_at: string;
-  tracks: Track[];
-};
-
-const CONDITIONS: Record<string, string> = {
-  clear: "Clear",
-  clouds: "Clouds",
-  fog: "Fog",
-  drizzle: "Drizzle",
-  rain: "Rain",
-  snow: "Snow",
-  thunderstorm: "Thunderstorm",
-};
-
-const MOOD_LABELS: Record<WeatherMix["mood"], string> = { mellow: "Mellow", upbeat: "Upbeat", bright: "Bright", soft: "Soft" };
-
-function WeatherIcon({ condition, day }: { condition: string; day: boolean }) {
-  const cls = "size-9 text-accent-strong";
-  switch (condition) {
-    case "rain":
-      return <CloudRain className={cls} />;
-    case "drizzle":
-      return <CloudDrizzle className={cls} />;
-    case "snow":
-      return <CloudSnow className={cls} />;
-    case "fog":
-      return <CloudFog className={cls} />;
-    case "thunderstorm":
-      return <CloudLightning className={cls} />;
-    case "clouds":
-      return <Cloud className={cls} />;
-    default:
-      return day ? <Sun className={cls} /> : <Moon className={cls} />;
-  }
-}
+const MIX_CONTEXT = { type: "queue" as const, id: "weather-mix", name: "Weather mix" };
 
 function WeatherMixSection() {
-  const q = useQuery({
-    queryKey: ["mixes", "weather"],
-    queryFn: () => request<WeatherMix>("/api/mixes/weather"),
-    staleTime: 30 * 60_000,
-    refetchInterval: 30 * 60_000,
-    retry: false,
-  });
+  const q = useWeatherMix();
   if (q.isLoading) return <Loading />;
   if (q.error) return <Empty>{q.error instanceof ApiError && q.error.status === 404 ? "No city" : "Weather mix unavailable"}</Empty>;
   const m = q.data!;
-  const context = { type: "queue" as const, id: "weather-mix", name: "Weather mix" };
+  const day = m.weather.is_day;
   return (
-    <section className="mb-10">
-      <div className="mb-4 flex flex-wrap items-center gap-4 rounded-card bg-surface-solid/60 p-4 shadow-soft">
-        <WeatherIcon condition={m.weather.condition} day={m.weather.is_day} />
-        <div className="min-w-0 flex-1">
-          <h2 className="font-display text-xl font-semibold">Weather mix</h2>
-          <p className="text-sm font-bold text-muted">
-            {CONDITIONS[m.weather.condition] ?? m.weather.condition} · {Math.round(m.weather.temperature_c)}°C · {m.weather.city} · {MOOD_LABELS[m.mood]}
-          </p>
+    <section className="grid grid-cols-1 gap-5">
+      <div className="grid gap-5 rounded-[12px] border-2 border-b-[5px] border-panel-line bg-panel p-4 sm:grid-cols-[176px_minmax(0,1fr)] sm:items-center sm:p-5">
+        <div className="relative size-44 justify-self-center overflow-hidden rounded-[8px] sm:justify-self-start">
+          <div className="grid size-full grid-cols-2">
+            {m.tracks.slice(0, 4).map((t) => (
+              <Artwork key={t.id} src={t.artwork_thumb_url} className="size-full" />
+            ))}
+          </div>
+          <span className="absolute bottom-1.5 end-1.5 grid size-11 place-items-center rounded-[8px] bg-[#0d0f2b]/80">
+            <PixelIcon name={day ? "sun" : "moon"} size={28} />
+          </span>
         </div>
-        <Button variant="primary" onClick={() => playTracks(m.tracks, 0, context)} disabled={!m.tracks.length}>
-          <Play className="size-5" /> Play
-        </Button>
+        <div className="min-w-0">
+          <h2 className="font-display text-[28px] font-semibold leading-tight">Weather mix</h2>
+          <p className="mt-1 font-bold text-muted">
+            {WEATHER_CONDITIONS[m.weather.condition] ?? m.weather.condition} · {Math.round(m.weather.temperature_c)}°C · {m.weather.city}
+          </p>
+          <p className="mt-0.5 font-bold text-muted">
+            {MOOD_LABELS[m.mood]} · {plural(m.tracks.length, "song")}
+          </p>
+          <Button variant="primary" className="mt-4" onClick={() => playTracks(m.tracks, 0, MIX_CONTEXT)} disabled={!m.tracks.length}>
+            <Play className="size-5" /> Play
+          </Button>
+        </div>
       </div>
-      {m.tracks.length ? <TrackList tracks={m.tracks} context={context} /> : <Empty>No songs</Empty>}
+      {m.tracks.length ? <TrackList tracks={m.tracks} context={MIX_CONTEXT} /> : <Empty>No songs</Empty>}
+    </section>
+  );
+}
+
+const MOOD_ICONS: Record<string, PixelIconName> = { calm: "moon", upbeat: "sun", melancholy: "notes", late_night: "star" };
+
+function RadioSection() {
+  const current = usePlayer(selectTrack);
+  const ours = useOurSong().data?.track;
+  const tile =
+    "flex min-h-[72px] items-center gap-3 rounded-[8px] border-2 border-b-[5px] border-panel-line bg-panel px-3 text-start font-extrabold transition-transform duration-150 hover:-translate-y-0.5";
+  return (
+    <section>
+      <SectionTitle>Radio</SectionTitle>
+      <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-3">
+        {ours && (
+          <button type="button" className={tile} onClick={() => void startRadio({ type: "track", id: ours.id, name: ours.title })}>
+            <Artwork src={ours.artwork_thumb_url} className="size-11 shrink-0 rounded-[5px]" />
+            <span className="min-w-0">
+              <span className="block">Our song</span>
+              <span dir="auto" className="block truncate text-sm font-semibold text-muted">
+                {ours.title}
+              </span>
+            </span>
+          </button>
+        )}
+        {current && (
+          <button type="button" className={tile} onClick={() => void startRadio({ type: "track", id: current.id, name: current.title })}>
+            <Artwork src={current.artwork_thumb_url} className="size-11 shrink-0 rounded-[5px]" />
+            <span className="min-w-0">
+              <span className="block">Playing now</span>
+              <span dir="auto" className="block truncate text-sm font-semibold text-muted">
+                {current.title}
+              </span>
+            </span>
+          </button>
+        )}
+        {MOODS.map(([mood, label]) => (
+          <button key={mood} type="button" className={tile} onClick={() => void startRadio({ type: "mood", mood, name: label })}>
+            <PixelIcon name={MOOD_ICONS[mood] ?? "star"} size={34} />
+            {label}
+          </button>
+        ))}
+      </div>
     </section>
   );
 }
@@ -93,16 +109,16 @@ function HolidaySection() {
   const active = (config?.holidays ?? []).filter((h) => h.playlist_id && holidayActive(h, today));
   if (!active.length) return null;
   return (
-    <section className="mb-10">
+    <section>
       <SectionTitle>Holiday</SectionTitle>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2.5">
         {active.map((h) => (
           <Link
             key={h.id}
             href={`/playlist/?id=${h.playlist_id}`}
-            className="inline-flex min-h-11 items-center gap-2 rounded-card bg-surface-solid/70 px-4 font-bold shadow-soft hover:bg-accent-soft/60"
+            className="inline-flex min-h-14 items-center gap-3 rounded-[8px] border-2 border-b-[5px] border-panel-line bg-panel px-4 font-extrabold"
           >
-            <PartyPopper className="size-4 text-accent-strong" />
+            <PixelIcon name="star" size={28} />
             <span dir="auto">{h.name}</span>
             <span dir="auto" className="text-sm font-semibold text-muted">
               {playlists?.find((p) => p.id === h.playlist_id)?.name}
@@ -114,40 +130,21 @@ function HolidaySection() {
   );
 }
 
-function RadioSection() {
-  const current = usePlayer(selectTrack);
-  const ours = useOurSong().data?.track;
-  return (
-    <section>
-      <SectionTitle>Radio</SectionTitle>
-      <div className="flex flex-wrap gap-2">
-        {ours && (
-          <Button onClick={() => void startRadio({ type: "track", id: ours.id, name: ours.title })}>
-            <Radio className="size-4" /> Our song
-          </Button>
-        )}
-        {current && (
-          <Button onClick={() => void startRadio({ type: "track", id: current.id, name: current.title })}>
-            <Radio className="size-4" /> <span dir="auto" className="max-w-48 truncate">{current.title}</span>
-          </Button>
-        )}
-        {MOODS.map(([mood, label]) => (
-          <Button key={mood} onClick={() => void startRadio({ type: "mood", mood, name: label })}>
-            <Radio className="size-4" /> {label}
-          </Button>
-        ))}
-      </div>
-    </section>
-  );
+function DiscoverHero() {
+  const m = useWeatherMix().data;
+  const meta = m ? `${m.weather.city} · ${WEATHER_CONDITIONS[m.weather.condition] ?? m.weather.condition} · ${Math.round(m.weather.temperature_c)}°C` : undefined;
+  return <PageHero title="Discover" meta={meta} />;
 }
 
 export default function DiscoverPage() {
   return (
     <>
-      <PageTitle>Discover</PageTitle>
-      <HolidaySection />
-      <WeatherMixSection />
-      <RadioSection />
+      <DiscoverHero />
+      <div className="grid grid-cols-1 gap-12">
+        <HolidaySection />
+        <WeatherMixSection />
+        <RadioSection />
+      </div>
     </>
   );
 }

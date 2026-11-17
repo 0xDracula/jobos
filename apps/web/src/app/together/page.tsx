@@ -4,8 +4,9 @@ import { Headphones, LogOut, Play, Square } from "lucide-react";
 import { useEffect, useMemo } from "react";
 
 import { Artwork } from "@/components/media";
+import { PageHero } from "@/components/sky/PageHero";
 import { PersonBadge } from "@/components/PersonBadge";
-import { Button, Empty, PageTitle } from "@/components/ui";
+import { Button, Empty } from "@/components/ui";
 import { fmtMs } from "@/lib/format";
 import { useMe, useMembers } from "@/lib/session";
 import { useTogether } from "@/lib/together";
@@ -32,7 +33,7 @@ export default function TogetherPage() {
 
   return (
     <>
-      <PageTitle>Listen together</PageTitle>
+      <PageHero title="Listen together" />
       <div className="mb-6 flex flex-wrap items-center gap-3 rounded-card bg-surface-solid/60 p-4 shadow-soft">
         <Headphones aria-hidden className="size-6 text-accent-strong" />
         <div className="min-w-0 flex-1">

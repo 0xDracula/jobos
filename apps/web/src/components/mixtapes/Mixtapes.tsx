@@ -8,10 +8,12 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { useDebounced } from "@/components/common";
+import { PageHero } from "@/components/sky/PageHero";
 import { ClipRecorder, useClipRecorder } from "@/components/Dedications";
 import { ConfirmDialog } from "@/components/dialogs";
 import { Artwork } from "@/components/media";
-import { Button, Chip, Empty, Field, IconButton, PageTitle, Spinner, inputClass } from "@/components/ui";
+import { Plank } from "@/components/Shelf";
+import { Button, Chip, Empty, Field, IconButton, Spinner, inputClass } from "@/components/ui";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { fmtMs } from "@/lib/format";
@@ -61,26 +63,33 @@ export function Cassette({ title, color, spinning, className }: { title: string;
   );
 }
 
-function SummaryRow({ m, mine, name }: { m: MixtapeSummary; mine: boolean; name: string }) {
+function ShelfTape({ m, mine, name }: { m: MixtapeSummary; mine: boolean; name: string }) {
   const wrapped = !mine && !m.opened_at;
   const href = mine && !m.sent_at ? `/mixtapes/?edit=${m.id}` : `/mixtapes/?id=${m.id}`;
   return (
-    <li>
-      <Link href={href} className="flex items-center gap-3 rounded-card bg-surface-solid/60 p-2 shadow-soft hover:bg-accent-soft/40">
-        <span className="grid size-14 shrink-0 place-items-center rounded-chip" style={{ background: m.color }}>
-          {wrapped ? <Gift className="size-6 text-white" /> : <span className="h-3 w-8 rounded-full bg-[#fff8ec]/90" />}
-        </span>
-        <span className="min-w-0 flex-1">
-          <span dir="auto" className="block truncate font-hand text-xl leading-tight">
-            {wrapped ? "Mixtape" : m.title}
+    <Link href={href} className="group grid w-[188px] shrink-0 snap-start gap-1.5">
+      <span className="relative block transition-transform duration-200 ease-out group-hover:-translate-y-1">
+        <Cassette title={wrapped ? "" : m.title} color={m.color} />
+        {wrapped && (
+          <span
+            aria-hidden
+            className="absolute inset-0 rounded-[10px]"
+            style={{
+              background: `repeating-linear-gradient(45deg, ${m.color}, ${m.color} 10px, color-mix(in oklab, ${m.color} 78%, white) 10px, color-mix(in oklab, ${m.color} 78%, white) 20px)`,
+            }}
+          >
+            <span className="absolute inset-y-0 left-1/2 w-3 -translate-x-1/2 bg-[#fff8ec]/90" />
+            <span className="absolute inset-x-0 top-1/2 h-3 -translate-y-1/2 bg-[#fff8ec]/90" />
           </span>
-          <span className="block truncate text-sm font-semibold text-muted">
-            {mine ? (m.sent_at ? `To ${name}` : "Draft") : `From ${name}`} · {m.track_count} {m.track_count === 1 ? "song" : "songs"}
-            {wrapped ? " · Wrapped" : ""}
-          </span>
-        </span>
-      </Link>
-    </li>
+        )}
+      </span>
+      <span dir="auto" className="truncate font-hand text-xl leading-tight">
+        {wrapped ? "Mixtape" : m.title}
+      </span>
+      <span className="-mt-1.5 truncate text-[13px] font-semibold text-muted">
+        {mine ? (m.sent_at ? `To ${name}` : "Draft") : `From ${name}`} · {m.track_count} {m.track_count === 1 ? "song" : "songs"}
+      </span>
+    </Link>
   );
 }
 
@@ -93,29 +102,38 @@ export function MixtapeList() {
   const made = (q.data ?? []).filter((m) => m.from_user === me?.id);
   return (
     <>
-      <PageTitle>Mixtapes</PageTitle>
-      <Link href="/mixtapes/?edit=new" className="mb-6 inline-flex min-h-11 items-center gap-2 rounded-button bg-accent-strong px-4 font-semibold text-on-accent shadow-soft">
-        <Plus className="size-5" /> New mixtape
-      </Link>
+      <PageHero title="Mixtapes" meta={q.data ? `${received.length} received · ${made.length} made` : undefined}>
+        <Link href="/mixtapes/?edit=new" className="inline-flex min-h-11 items-center gap-2 rounded-button bg-accent-strong px-4 font-semibold text-on-accent shadow-soft">
+          <Plus className="size-5" /> New mixtape
+        </Link>
+      </PageHero>
       {q.isLoading && <Spinner className="size-6 text-muted" />}
-      <section className="mb-8">
-        <h2 className="mb-3 font-display text-xl font-semibold">Received</h2>
-        {q.data && !received.length && <Empty>None yet</Empty>}
-        <ul className="grid gap-2">
-          {received.map((m) => (
-            <SummaryRow key={m.id} m={m} mine={false} name={name(m.from_user)} />
-          ))}
-        </ul>
-      </section>
-      <section>
-        <h2 className="mb-3 font-display text-xl font-semibold">Made</h2>
-        {q.data && !made.length && <Empty>None yet</Empty>}
-        <ul className="grid gap-2">
-          {made.map((m) => (
-            <SummaryRow key={m.id} m={m} mine name={name(m.to_user)} />
-          ))}
-        </ul>
-      </section>
+      <div className="grid grid-cols-1 gap-10">
+        <section>
+          <h2 className="mb-3 font-display text-xl font-semibold">Received</h2>
+          {q.data && !received.length ? (
+            <Empty>None yet</Empty>
+          ) : (
+            <Plank>
+              {received.map((m) => (
+                <ShelfTape key={m.id} m={m} mine={false} name={name(m.from_user)} />
+              ))}
+            </Plank>
+          )}
+        </section>
+        <section>
+          <h2 className="mb-3 font-display text-xl font-semibold">Made</h2>
+          {q.data && !made.length ? (
+            <Empty>None yet</Empty>
+          ) : (
+            <Plank>
+              {made.map((m) => (
+                <ShelfTape key={m.id} m={m} mine name={name(m.to_user)} />
+              ))}
+            </Plank>
+          )}
+        </section>
+      </div>
     </>
   );
 }
@@ -336,7 +354,7 @@ export function MixtapeEditor({ id }: { id: string | null }) {
   if (existing.data?.sent_at) return <MixtapeView id={existing.data.id} />;
   return (
     <div className="mx-auto grid max-w-2xl gap-5">
-      <PageTitle>{id ? "Mixtape draft" : "New mixtape"}</PageTitle>
+      <PageHero title={id ? "Mixtape draft" : "New mixtape"} />
       <Cassette title={title || "…"} color={color} className="mx-auto max-w-sm" />
       <Field label="Label">
         <input dir="auto" className={`${inputClass} font-hand text-xl`} value={title} maxLength={60} onChange={(e) => setTitle(e.target.value)} />
