@@ -1,0 +1,10 @@
+{
+  "dates": [
+    {"kind": "birthday", "label": "Partner's birthday", "date": "2026-10-01", "user": "member", "decorations": ["balloons", "string_flags"], "remind_minutes": 10080},
+    {"kind": "birthday", "label": "owner's birthday", "date": "2026-03-12", "user": "admin", "decorations": ["balloons", "string_flags"], "remind_minutes": 10080},
+    {"kind": "anniversary", "label": "Anniversary", "date": "2026-08-04", "decorations": ["hearts", "balloons"], "remind_minutes": 1440},
+    {"kind": "countdown", "label": "Visit", "date": "2026-12-03", "surprise": true},
+    {"kind": "plan", "label": "Placeholder: a plan for a call", "date": "2026-11-28", "time": "21:00", "note": "Placeholder: what the plan is.", "remind_minutes": 60, "placeholder": true},
+    {"kind": "plan", "label": "Placeholder: a plan for a listening night", "date": "2026-12-12", "time": "22:00", "placeholder": true}
+  ]
+}

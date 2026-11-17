@@ -314,7 +314,7 @@ func (a *api) roomConfig(w http.ResponseWriter, r *http.Request) {
 		"unlockables":  unlocks,
 		"plant_stages": a.plantStages(ctx),
 		"milestones":   ms,
-		"holidays":     a.holidays(ctx),
+		"holidays":     append(a.occasionHolidays(ctx), a.holidays(ctx)...),
 		"lamp_minutes": a.lampMinutes(ctx),
 	})
 }
