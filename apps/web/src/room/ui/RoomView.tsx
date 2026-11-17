@@ -486,7 +486,7 @@ export function RoomView() {
   for (const spot of noteSpots) hotspots.push({ id: spot, label: "Hidden note", note: true, action: () => void openNote(spot) });
   const hotspotIds = hotspots.map((h) => h.id);
 
-  const Icon = weather.data ? WEATHER_ICON[weather.data.condition] : sky && sky.night > 0.5 ? Moon : Sun;
+  const Icon = weather.data && !(weather.data.condition === "clear" && night) ? WEATHER_ICON[weather.data.condition] : night ? Moon : Sun;
   const chip = (sky?.night ?? 1) > 0.5
     ? "border border-white/15 bg-[#1e1b3a]/70 text-[#f5eef8] backdrop-blur-md"
     : "border border-white/60 bg-[#fff7f0]/80 text-[#3b2f3f] backdrop-blur-md";

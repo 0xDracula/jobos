@@ -37,12 +37,17 @@ function paint(d: Uint8ClampedArray, w: number, x: number, y: number, hex: strin
 
 function eyesOf(src: Uint8ClampedArray, style: AvatarStyle, fx: number, w: number): [number, number][] {
   const skin = new Set(RULES[style].find((r) => r.role === "skin")!.colors);
+  const isSkin = (x: number, y: number) => {
+    const o = (y * w + x) * 4;
+    return src[o + 3] > 0 && skin.has(hexOf(src, o));
+  };
   const out: [number, number][] = [];
   for (let y = 16; y <= 22; y++) {
     for (let x = fx + 1; x < fx + 15; x++) {
       const o = (y * w + x) * 4;
       if (src[o + 3] === 0 || hexOf(src, o) !== INK) continue;
-      if (skin.has(hexOf(src, o - 4)) && skin.has(hexOf(src, o + 4))) out.push([x, y]);
+      const n = [isSkin(x - 1, y), isSkin(x + 1, y), isSkin(x, y - 1), isSkin(x, y + 1)].filter(Boolean).length;
+      if (n >= 2) out.push([x, y]);
     }
     if (out.length >= 2) break;
     out.length = 0;
@@ -125,15 +130,18 @@ async function build(look: AvatarLook): Promise<AvatarFrames> {
       const eyes = eyesOf(src, look.style, f * 16, w);
       if (eyes.length < 2) continue;
       const [[ax, ay], [bx]] = eyes;
-      const rim = "#4a3f5a";
+      const rim = "#2b2833";
+      const glint = "#c6cbe0";
       for (const x of [ax, bx]) {
         paint(d, w, x - 1, ay - 1, rim);
-        paint(d, w, x, ay - 1, rim);
         paint(d, w, x + 1, ay - 1, rim);
         paint(d, w, x - 1, ay, rim);
-        paint(d, w, x + 1, ay, rim);
+        paint(d, w, x + 1, ay, glint);
+        paint(d, w, x - 1, ay + 1, rim);
+        paint(d, w, x, ay + 1, rim);
+        paint(d, w, x + 1, ay + 1, rim);
       }
-      for (let x = ax + 2; x <= bx - 2; x++) paint(d, w, x, ay - 1, rim);
+      for (let x = ax + 2; x <= bx - 2; x++) paint(d, w, x, ay, rim);
     }
   }
   const frames = Array.from({ length: FRAMES }, (_, i) => frameCanvas(data, i * 16));
