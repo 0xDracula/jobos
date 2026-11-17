@@ -29,6 +29,9 @@ import (
 )
 
 type Store interface {
+	LettersStore
+	MemoriesStore
+	DatesStore
 	AddTrackFromSource(ctx context.Context, in store.SourceTrack) (uuid.UUID, uuid.UUID, bool, error)
 	HasMainMedia(ctx context.Context, trackID uuid.UUID) (bool, error)
 	Track(ctx context.Context, id uuid.UUID) (*store.TrackView, error)
@@ -323,10 +326,17 @@ func New(d Deps) http.Handler {
 				a.registerWorldAdminRoutes(r)
 				a.registerGiftAdminRoutes(r)
 				a.registerReviewRoutes(r)
+				r.Get("/placeholders", a.adminPlaceholders)
+				a.registerLettersAdminRoutes(r)
+				a.registerMemoriesAdminRoutes(r)
+				a.registerDatesAdminRoutes(r)
 			})
 			a.registerWorldRoutes(r)
 			a.registerGiftRoutes(r)
 			a.registerRadioRoutes(r)
+			a.registerLettersRoutes(r)
+			a.registerMemoriesRoutes(r)
+			a.registerDatesRoutes(r)
 			r.Get("/tracks/{id}/lyrics", a.lyrics)
 			r.Patch("/tracks/{id}/lyrics", a.lyricsOffset)
 			r.Post("/lyrics/backfill", a.backfillLyrics)

@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from "react";
 import { FilterInput, filterTracks, Loading, PlayBar } from "@/components/common";
 import { NamePromptDialog } from "@/components/dialogs";
 import { Artwork, CardGrid, Cover, MediaCard } from "@/components/media";
+import { KEEPSAKE_GROUPS } from "@/components/keepsakes";
 import { CoverShelf, KeepsakeTiles } from "@/components/Shelf";
 import { PageHero } from "@/components/sky/PageHero";
 import { TrackList } from "@/components/tracks";
@@ -145,6 +146,12 @@ function Overview() {
   return (
     <div className="mb-12 grid grid-cols-1 gap-10">
       <KeepsakeTiles />
+      {KEEPSAKE_GROUPS.filter((g) => g.items.length).map((g) => (
+        <section key={g.title}>
+          <SectionTitle>{g.title}</SectionTitle>
+          <KeepsakeTiles items={g.items} />
+        </section>
+      ))}
       {recentTracks.length > 0 && (
         <section>
           <SectionTitle>Recently played</SectionTitle>

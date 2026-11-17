@@ -1,10 +1,13 @@
 import { memo } from "react";
 
-type Art = { rows: string[]; pal: Record<string, string> };
+import { O, type Art } from "./art";
+import { DATE_ART } from "./icons/dates";
+import { LETTER_ART } from "./icons/letters";
+import { MEMORY_ART } from "./icons/memories";
 
-const O = "#2e2c48"; // outline, the room's sprite ink
 
-const ART = {
+
+const BASE_ART = {
   record: {
     rows: ["....oooo....", "..oo####oo..", ".o###--###o.", ".o#-####-#o.", "o##-#pp#-##o", "o###pwwp###o", "o###pwwp###o", "o##-#pp#-##o", ".o#-####-#o.", ".o###--###o.", "..oo####oo..", "....oooo...."],
     pal: { o: O, "#": "#1b1a2b", "-": "#3f3d5c", p: "#e88fa3", w: "#fff4e8" },
@@ -50,6 +53,8 @@ const ART = {
     pal: { y: "#ffd25e", r: "#ffb84d" },
   },
 } satisfies Record<string, Art>;
+
+const ART = { ...BASE_ART, ...LETTER_ART, ...MEMORY_ART, ...DATE_ART };
 
 export type PixelIconName = keyof typeof ART;
 

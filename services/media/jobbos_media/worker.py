@@ -9,7 +9,7 @@ from pathlib import Path
 
 import httpx
 
-from . import analysis, artists, config, enrich, ingest, lyrics, match, ytdlp_update
+from . import analysis, artists, config, enrich, fonts, ingest, lyrics, match, photos, ytdlp_update
 
 log = logging.getLogger("jobbos.worker")
 
@@ -86,6 +86,14 @@ def handle_cover(payload: dict) -> dict:
     return {"cover": cover(payload["path"])}
 
 
+def handle_photo(payload: dict) -> dict:
+    return photos.process_photo(payload)
+
+
+def handle_font(payload: dict) -> dict:
+    return fonts.process_font(payload)
+
+
 def handle_analyze(payload: dict) -> dict:
     return analysis.analyze(media_path(payload["path"]), payload.get("source_lufs"))
 
@@ -111,6 +119,8 @@ HANDLERS = {
     "process_upload": handle_upload,
     "process_cover": handle_cover,
     "process_clip": handle_clip,
+    "process_photo": handle_photo,
+    "process_font": handle_font,
     "update_ytdlp": handle_update_ytdlp,
     "enrich_artist": handle_enrich_artist,
     "fetch_tags": handle_fetch_tags,

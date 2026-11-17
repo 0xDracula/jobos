@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { Content, RoomAdmin } from "@/components/admin/Content";
+import { GiftAdmin } from "@/components/admin/Gift";
 import { Library } from "@/components/admin/Library";
 import { People } from "@/components/admin/People";
 import { Sources } from "@/components/admin/Sources";
@@ -17,6 +18,7 @@ const TABS = [
   ["sources", "Sources"],
   ["content", "Content"],
   ["room", "Room"],
+  ["gift", "Gift"],
 ] as const;
 
 type Tab = (typeof TABS)[number][0];
@@ -71,6 +73,7 @@ export default function AdminPage() {
         {tab === "sources" && <Sources />}
         {tab === "content" && <Content />}
         {tab === "room" && <RoomAdmin />}
+        {tab === "gift" && <GiftAdmin />}
       </div>
     </>
   );

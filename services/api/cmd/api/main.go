@@ -114,6 +114,9 @@ func run(log *slog.Logger) error {
 	if locator != nil {
 		deps.Locator = locator
 	}
+	if err := httpapi.SeedPlaceholders(ctx, deps); err != nil {
+		log.Error("seed placeholders", "err", err)
+	}
 	srv := &http.Server{
 		Addr:              cfg.ListenAddr,
 		Handler:           httpapi.New(deps),
