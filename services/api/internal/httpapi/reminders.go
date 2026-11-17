@@ -65,10 +65,12 @@ func reminderRecipients(d store.ImportantDate, members []store.User) []store.Use
 func reminderWhen(r dueReminder, hasTime bool, now time.Time, loc *time.Location) string {
 	days := int(r.On.Sub(civilDay(now, loc)).Hours() / 24)
 	var when string
-	switch days {
-	case 0:
+	switch {
+	case days < 0:
+		when = "Yesterday"
+	case days == 0:
 		when = "Today"
-	case 1:
+	case days == 1:
 		when = "Tomorrow"
 	default:
 		when = fmt.Sprintf("In %d days", days)
@@ -81,6 +83,7 @@ func reminderWhen(r dueReminder, hasTime bool, now time.Time, loc *time.Location
 
 func SendCalendarReminders(ctx context.Context, d Deps, now time.Time) {
 	a := &api{Deps: d}
+	a.linkMemberBirthdays(ctx)
 	dates, err := d.Store.ImportantDates(ctx, nil, false)
 	if err != nil {
 		d.Log.Warn("calendar reminders", "err", err)

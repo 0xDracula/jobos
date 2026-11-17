@@ -94,8 +94,14 @@ func (in *DateInput) Validate() error {
 		}
 	}
 	in.Decorations = decorations
-	if in.Kind == "birthday" || in.Kind == "anniversary" {
-		in.Recurring = true
+	switch in.Kind {
+	case "birthday", "anniversary":
+		in.Recurring, in.Time = true, nil
+	case "plan", "countdown":
+		in.Decorations, in.PlaylistID = []string{}, nil
+	}
+	if in.Kind != "plan" && in.Kind != "other" {
+		in.Note = ""
 	}
 	if in.Kind != "birthday" {
 		in.UserID = nil
@@ -172,6 +178,11 @@ func (s *Store) UpdateImportantDate(ctx context.Context, id uuid.UUID, in DateIn
 		return d, ErrNotFound
 	}
 	return d, err
+}
+
+func (s *Store) LinkDateUser(ctx context.Context, id, userID uuid.UUID) error {
+	_, err := s.pool.Exec(ctx, `update important_dates set user_id = $2, updated_at = now() where id = $1 and user_id is null`, id, userID)
+	return err
 }
 
 func (s *Store) DeleteImportantDate(ctx context.Context, id uuid.UUID) error {

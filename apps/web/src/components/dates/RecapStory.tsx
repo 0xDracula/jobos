@@ -46,7 +46,7 @@ export const recapTitle = (r: Pick<Recap, "period" | "starts_on" | "ends_on">) =
 export function RecapStory({ recap, onClose }: { recap: Recap; onClose: () => void }) {
   const members = useMembers().data ?? [];
   const theme = useResolvedTheme();
-  const [index, setIndex] = useState(0);
+  const [picked, setIndex] = useState(0);
   const [dir, setDir] = useState(1);
   const [saving, setSaving] = useState(false);
   const slideNode = useRef<HTMLDivElement | null>(null);
@@ -54,6 +54,7 @@ export function RecapStory({ recap, onClose }: { recap: Recap; onClose: () => vo
   const stageRef = useRef<HTMLDivElement>(null);
   const dragged = useRef(false);
   const count = recap.slides.length;
+  const index = Math.min(picked, count - 1);
 
   const go = useCallback(
     (to: number) => {

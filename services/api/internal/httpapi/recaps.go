@@ -130,9 +130,14 @@ func (a *api) recaps(w http.ResponseWriter, r *http.Request) {
 	} else if len(months) > 0 && !months[0].Opened && months[0].ReleasedOn == dayString(monthOf(today).Start) {
 		latest = &months[0]
 	}
+	var nextYear *string
+	if me.Role == "admin" || !today.Before(anchor) {
+		d := dayString(yearRelease(anchor, today).End)
+		nextYear = &d
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"months": months, "years": years, "latest": latest,
-		"next_month": dayString(monthOf(today).End), "next_year": dayString(yearRelease(anchor, today).End),
+		"next_month": dayString(monthOf(today).End), "next_year": nextYear,
 	})
 }
 
@@ -261,7 +266,13 @@ func (a *api) buildRecap(ctx context.Context, viewer, subject *store.User, p, no
 	}
 	rc.Slides = append(rc.Slides, figures...)
 	rc.Slides = append(rc.Slides, listening...)
-	if list := visibleNotes(notes, viewer); len(list) > 0 {
+	list := []noteView{}
+	for _, n := range visibleNotes(notes, viewer) {
+		if !preview || n.AuthorID == viewer.ID {
+			list = append(list, n)
+		}
+	}
+	if len(list) > 0 {
 		rc.Slides = append(rc.Slides, Slide{Kind: "notes", Data: map[string]any{"notes": list}})
 	}
 	return rc, nil
@@ -378,7 +389,11 @@ func (a *api) recapNotes(w http.ResponseWriter, r *http.Request) {
 	this := monthOf(today)
 	year := yearRelease(a.recapAnchor(ctx), today)
 	slots := []NoteSlot{}
-	for _, p := range []recapPeriod{monthOf(this.Start.AddDate(0, 0, -1)), this, monthOf(this.End), year, yearOf(year.Start, year.End)} {
+	periods := []recapPeriod{monthOf(this.Start.AddDate(0, 0, -1)), this, monthOf(this.End)}
+	if currentUser(r).Role == "admin" || !today.Before(a.recapAnchor(ctx)) {
+		periods = append(periods, year, yearOf(year.Start, year.End))
+	}
+	for _, p := range periods {
 		slots = append(slots, NoteSlot{Period: p.Kind, StartsOn: dayString(p.Start), EndsOn: dayString(p.last()), ReleasedOn: dayString(p.End)})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"notes": notes, "slots": slots})

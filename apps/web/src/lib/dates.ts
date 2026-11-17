@@ -107,7 +107,7 @@ export type RecapPeriod = "month" | "year";
 
 export type RecapEntry = { period: RecapPeriod; starts_on: string; ends_on: string; released_on: string; opened: boolean };
 
-export type RecapList = { months: RecapEntry[]; years: RecapEntry[]; latest: RecapEntry | null; next_month: string; next_year: string };
+export type RecapList = { months: RecapEntry[]; years: RecapEntry[]; latest: RecapEntry | null; next_month: string; next_year: string | null };
 
 export type RecapHighlight = {
   title: string;
@@ -193,9 +193,15 @@ function startDates() {
   });
 }
 
-export function useCalendar(from: string, to: string) {
+export function useCalendar(from: string, to: string, enabled = true) {
   startDates();
-  return useQuery({ queryKey: datesKeys.calendar(from, to), queryFn: () => datesApi.calendar(from, to), placeholderData: keepPreviousData, staleTime: 60_000 });
+  return useQuery({
+    queryKey: datesKeys.calendar(from, to),
+    queryFn: () => datesApi.calendar(from, to),
+    placeholderData: keepPreviousData,
+    staleTime: 60_000,
+    enabled,
+  });
 }
 
 export function useDates() {

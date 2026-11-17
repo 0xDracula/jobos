@@ -9,7 +9,7 @@ import { PlaceholderMark } from "@/components/PlaceholderMark";
 import { PageHero } from "@/components/sky/PageHero";
 import { Button, Empty, IconButton } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { addDays, addMonths, dateIdOf, dayKey, daysBetween, monthGrid, monthStart, relativeDays, WEEKDAYS } from "@/lib/dateMath";
+import { addDays, addMonths, dateIdOf, dayKey, daysBetween, isDay, monthGrid, monthStart, relativeDays, WEEKDAYS } from "@/lib/dateMath";
 import { KIND_LABELS, useCalendar, useCountdowns, useDates, type CalendarEvent, type DateItem } from "@/lib/dates";
 
 import { CountdownCard, CountdownFace } from "./CountdownCard";
@@ -126,13 +126,15 @@ function MonthGrid({
 export function CalendarView() {
   const params = useSearchParams();
   const router = useRouter();
-  const asked = params.get("date");
+  const raw = params.get("date");
+  const asked = raw && isDay(raw) ? raw : null;
   const [month, setMonth] = useState(() => monthStart(asked ?? localToday()));
   const [selected, setSelected] = useState<string | null>(asked);
   const [editing, setEditing] = useState<DateItem | { new: string } | null>(null);
 
   const cells = useMemo(() => monthGrid(month), [month]);
-  const grid = useCalendar(cells[0].day, cells[cells.length - 1].day);
+  const fallback = localToday();
+  const grid = useCalendar(cells[0]?.day ?? fallback, cells.at(-1)?.day ?? fallback, cells.length > 0);
   const upcomingFrom = grid.data?.today ?? localToday();
   const upcoming = useCalendar(upcomingFrom, addDays(upcomingFrom, 60));
   const dates = useDates();
@@ -153,7 +155,9 @@ export function CalendarView() {
   }, [grid.data]);
   const dateOf = (e: CalendarEvent) => dates.data?.find((d) => d.id === dateIdOf(e.id));
   const day = selected ?? today;
-  const dayEvents = byDay.get(day) ?? (day === today ? (upcoming.data?.events.filter((e) => e.date === today) ?? []) : []);
+  const inGrid = cells.some((c) => c.day === day);
+  const single = useCalendar(day, day, !inGrid);
+  const dayEvents = inGrid ? (byDay.get(day) ?? []) : (single.data?.events.filter((e) => e.date === day) ?? []);
   const todayEvents = upcoming.data?.events.filter((e) => e.date === today) ?? [];
   const later = (upcoming.data?.events ?? []).filter((e) => e.date > today).slice(0, 12);
   const otherCountdowns = countdowns.data?.countdowns.slice(1) ?? [];

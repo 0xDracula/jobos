@@ -34,7 +34,15 @@ export function monthEnd(s: string): string {
 
 export const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+export function isDay(s: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const { y, m, d } = parseDay(s);
+  const t = new Date(Date.UTC(y, m - 1, d));
+  return t.getUTCFullYear() === y && t.getUTCMonth() === m - 1 && t.getUTCDate() === d;
+}
+
 export function monthGrid(month: string): { day: string; inMonth: boolean }[] {
+  if (!isDay(monthStart(month))) return [];
   const first = monthStart(month);
   const start = addDays(first, -dayDate(first).getUTCDay());
   const last = monthEnd(month);

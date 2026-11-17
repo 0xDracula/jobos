@@ -193,18 +193,20 @@ export function RecapsView() {
             </div>
           )}
         </section>
-        <section>
-          <h2 className="mb-3 font-display text-xl font-semibold">Year recaps</h2>
-          {years.length > 0 ? (
-            <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-              {years.map((r) => (
-                <RecapTile key={r.starts_on} r={r} />
-              ))}
-            </div>
-          ) : (
-            q.data && <Figure label="Next year recap" value={fmtDay(q.data.next_year)} className="max-w-xs" />
-          )}
-        </section>
+        {(years.length > 0 || q.data?.next_year) && (
+          <section>
+            <h2 className="mb-3 font-display text-xl font-semibold">Year recaps</h2>
+            {years.length > 0 ? (
+              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+                {years.map((r) => (
+                  <RecapTile key={r.starts_on} r={r} />
+                ))}
+              </div>
+            ) : (
+              q.data?.next_year && <Figure label="Next year recap" value={fmtDay(q.data.next_year)} className="max-w-xs" />
+            )}
+          </section>
+        )}
         <div className="max-w-3xl">
           <RecapNotesEditor />
         </div>

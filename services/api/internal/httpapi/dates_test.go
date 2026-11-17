@@ -26,6 +26,21 @@ func (f *fakeStore) AppSetting(_ context.Context, key string) (json.RawMessage, 
 	return f.settings[key], nil
 }
 func (f *fakeStore) Members(context.Context) ([]store.User, error) { return f.members, nil }
+func (f *fakeStore) SetAppSetting(_ context.Context, key string, value json.RawMessage) error {
+	if f.settings == nil {
+		f.settings = map[string]json.RawMessage{}
+	}
+	f.settings[key] = value
+	return nil
+}
+func (f *fakeStore) LinkDateUser(_ context.Context, id, user uuid.UUID) error {
+	for i := range f.dates {
+		if f.dates[i].ID == id && f.dates[i].UserID == nil {
+			f.dates[i].UserID = &user
+		}
+	}
+	return nil
+}
 func (f *fakeStore) ImportantDates(_ context.Context, kinds []string, withPlaceholders bool) ([]store.ImportantDate, error) {
 	var out []store.ImportantDate
 	for _, d := range f.dates {
@@ -169,7 +184,7 @@ func TestCalendarConsumesEverySource(t *testing.T) {
 	if len(her) != 2 {
 		t.Fatalf("her events %+v, want the letter and the surprise", her)
 	}
-	if her[0].ID != "s:1" || her[0].Title != "" || her[0].Link != "" || !her[0].Surprise {
+	if her[0].ID != "s:1" || her[0].Title != "" || her[0].Link != "" || her[0].Kind != "surprise" || !her[0].Surprise {
 		t.Errorf("a surprise for her keeps only its date and mark: %+v", her[0])
 	}
 	if her[1].ID != "letter:1" {
@@ -224,7 +239,7 @@ func TestUpcomingCountdowns(t *testing.T) {
 	if len(list) != 2 {
 		t.Fatalf("countdowns %+v", list)
 	}
-	if list[0].Days != 16 || list[0].Title != "" || !list[0].Surprise || list[0].Editable {
+	if list[0].Days != 16 || list[0].Title != "" || list[0].Time != nil || !list[0].Surprise || list[0].Editable {
 		t.Errorf("nearest is the surprise, 16 days, title hidden from her: %+v", list[0])
 	}
 	if list[1].Title != "Later" || !list[1].Editable {
@@ -283,5 +298,33 @@ func TestSendCalendarRemindersOnce(t *testing.T) {
 	SendCalendarReminders(context.Background(), a.Deps, now.Add(5*time.Minute))
 	if len(f.sent) != 2 {
 		t.Errorf("reminders recorded %v, want one per person", f.sent)
+	}
+}
+
+func TestLateReminderWording(t *testing.T) {
+	loc := cairo(t)
+	now := time.Date(2026, 11, 29, 0, 2, 0, 0, loc)
+	r := dueReminder{On: day("2026-11-28"), Start: time.Date(2026, 11, 28, 23, 58, 0, 0, loc)}
+	if got := reminderWhen(r, true, now, loc); got != "Yesterday, 23:58" {
+		t.Errorf("late reminder %q", got)
+	}
+}
+
+func TestMemberBirthdayLinkedOnceSheJoins(t *testing.T) {
+	birthday := store.ImportantDate{ID: uuid.New(), Kind: "birthday", Label: "Partner's birthday", Date: "2026-10-01", Recurring: true}
+	pending, _ := json.Marshal([]uuid.UUID{birthday.ID})
+	f := &fakeStore{settings: map[string]json.RawMessage{memberBirthdaysKey: pending}, members: []store.User{owner}, dates: []store.ImportantDate{birthday}}
+	a := newFakeAPI(t, f)
+	SendCalendarReminders(context.Background(), a.Deps, time.Now())
+	if f.dates[0].UserID != nil {
+		t.Fatal("linked before she has an account")
+	}
+	f.members = append(f.members, partner)
+	SendCalendarReminders(context.Background(), a.Deps, time.Now())
+	if f.dates[0].UserID == nil || *f.dates[0].UserID != partner.ID || string(f.settings[memberBirthdaysKey]) != "[]" {
+		t.Errorf("birthday person %v, pending %s", f.dates[0].UserID, f.settings[memberBirthdaysKey])
+	}
+	if got := reminderRecipients(f.dates[0], f.members); len(got) != 1 || got[0].ID != owner.ID {
+		t.Errorf("her birthday reminds %+v, want him only", got)
 	}
 }

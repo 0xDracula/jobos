@@ -239,4 +239,9 @@ func TestYearRecapSlides(t *testing.T) {
 	if got[len(got)-1] != "notes" || len(rc.Slides[len(rc.Slides)-1].Data.(map[string]any)["notes"].([]noteView)) != 2 {
 		t.Errorf("closing slide holds a note from each: %v", got)
 	}
+	rc, _ = a.buildRecap(context.Background(), &owner, &owner, year, year, true)
+	notes := rc.Slides[len(rc.Slides)-1].Data.(map[string]any)["notes"].([]noteView)
+	if len(notes) != 1 || notes[0].AuthorID != owner.ID {
+		t.Errorf("preview notes %+v, want his only", notes)
+	}
 }

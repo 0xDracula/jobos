@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { addDays, addMonths, dateIdOf, daysBetween, fmtHours, monthEnd, monthGrid, relativeDays, reminderLabel, reminderOptions } from "./dateMath.ts";
+import { addDays, addMonths, dateIdOf, daysBetween, fmtHours, isDay, monthEnd, monthGrid, relativeDays, reminderLabel, reminderOptions } from "./dateMath.ts";
 
 test("day arithmetic across months, years and leap days", () => {
   assert.equal(addDays("2026-11-30", 1), "2026-12-01");
@@ -43,6 +43,14 @@ test("calendar event ids lead back to stored dates", () => {
   assert.equal(dateIdOf("date:0190-abc:2027"), "0190-abc");
   assert.equal(dateIdOf("date:0190-abc"), "0190-abc");
   assert.equal(dateIdOf("letter:0190-abc"), null);
+});
+
+test("only real days pass, and a bad month gives an empty grid", () => {
+  assert.equal(isDay("2026-11-17"), true);
+  assert.equal(isDay("2028-02-29"), true);
+  assert.equal(isDay("2026-02-29"), false);
+  assert.equal(isDay("x"), false);
+  assert.deepEqual(monthGrid("x"), []);
 });
 
 test("minutes as hours", () => {

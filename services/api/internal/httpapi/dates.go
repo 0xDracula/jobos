@@ -21,6 +21,7 @@ type DatesStore interface {
 	InsertImportantDate(ctx context.Context, authorID *uuid.UUID, in store.DateInput, placeholder bool) (store.ImportantDate, error)
 	UpdateImportantDate(ctx context.Context, id uuid.UUID, in store.DateInput) (store.ImportantDate, error)
 	DeleteImportantDate(ctx context.Context, id uuid.UUID) error
+	LinkDateUser(ctx context.Context, id, userID uuid.UUID) error
 	DatePlaceholdersLeft(ctx context.Context) (int, error)
 	MarkReminderSent(ctx context.Context, eventID string, occursOn time.Time, userID uuid.UUID) (bool, error)
 	RecapNotes(ctx context.Context, period string, startsOn time.Time, withPlaceholders bool) ([]store.RecapNote, error)
@@ -82,13 +83,17 @@ func canEditDate(d store.ImportantDate, viewer *store.User) bool {
 	return viewer.Role == "admin" && (d.AuthorID == nil || !d.Surprise)
 }
 
-func viewDate(d store.ImportantDate, viewer *store.User) DateView {
+func hiddenSurprise(d store.ImportantDate, viewer *store.User) bool {
 	author := ""
 	if d.AuthorID != nil {
 		author = d.AuthorID.String()
 	}
-	if d.Surprise && !authoredBy(author, viewer) {
-		d.Label, d.Note, d.PlaylistID, d.UserID, d.RemindMinutes, d.Decorations = "", "", nil, nil, nil, []string{}
+	return d.Surprise && !authoredBy(author, viewer)
+}
+
+func viewDate(d store.ImportantDate, viewer *store.User) DateView {
+	if hiddenSurprise(d, viewer) {
+		d.Label, d.Note, d.Time, d.PlaylistID, d.UserID, d.RemindMinutes, d.Decorations = "", "", nil, nil, nil, nil, []string{}
 	}
 	return DateView{ImportantDate: d, Editable: canEditDate(d, viewer)}
 }
@@ -102,7 +107,9 @@ func (a *api) listDates(w http.ResponseWriter, r *http.Request) {
 	me := currentUser(r)
 	out := make([]DateView, 0, len(dates))
 	for _, d := range dates {
-		out = append(out, viewDate(d, me))
+		if !hiddenSurprise(d, me) {
+			out = append(out, viewDate(d, me))
+		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"dates": out})
 }
@@ -216,7 +223,7 @@ func upcomingCountdowns(dates []store.ImportantDate, today time.Time, viewer *st
 		}
 		v := viewDate(d, viewer)
 		out = append(out, Countdown{
-			ID: d.ID, Title: v.Label, Date: dayString(next), Time: d.Time, Days: int(next.Sub(today).Hours() / 24),
+			ID: d.ID, Title: v.Label, Date: dayString(next), Time: v.Time, Days: int(next.Sub(today).Hours() / 24),
 			Surprise: d.Surprise, AuthorID: d.AuthorID, Placeholder: d.Placeholder, Editable: v.Editable,
 		})
 	}
@@ -254,9 +261,12 @@ func (a *api) occasionHolidays(ctx context.Context) []Holiday {
 			continue
 		}
 		on := day
-		if d.Recurring {
+		switch {
+		case on.After(today.AddDate(0, 0, 1)):
+			continue
+		case d.Recurring:
 			on = occurrenceIn(day, today.Year())
-		} else if on.Before(today.AddDate(0, 0, -1)) || on.After(today.AddDate(0, 0, 1)) {
+		case on.Before(today.AddDate(0, 0, -1)):
 			continue
 		}
 		md := on.Format("01-02")
@@ -307,6 +317,7 @@ func seedDates(ctx context.Context, a *api, raw json.RawMessage) error {
 		return err
 	}
 	admin, member := a.seedAuthors(ctx)
+	pending := []uuid.UUID{}
 	for _, d := range file.Dates {
 		in := d.DateInput
 		switch d.User {
@@ -318,11 +329,43 @@ func seedDates(ctx context.Context, a *api, raw json.RawMessage) error {
 		if err := in.Validate(); err != nil {
 			return err
 		}
-		if _, err := a.Store.InsertImportantDate(ctx, admin, in, d.Placeholder); err != nil {
+		saved, err := a.Store.InsertImportantDate(ctx, admin, in, d.Placeholder)
+		if err != nil {
 			return err
 		}
+		if d.User == "member" && member == nil {
+			pending = append(pending, saved.ID)
+		}
 	}
-	return nil
+	if len(pending) == 0 {
+		return nil
+	}
+	raw, _ = json.Marshal(pending)
+	return a.Store.SetAppSetting(ctx, memberBirthdaysKey, raw)
+}
+
+const memberBirthdaysKey = "dates.member_birthdays"
+
+func (a *api) linkMemberBirthdays(ctx context.Context) {
+	var pending []uuid.UUID
+	if !a.setting(ctx, memberBirthdaysKey, &pending) || len(pending) == 0 {
+		return
+	}
+	_, member := a.seedAuthors(ctx)
+	if member == nil {
+		return
+	}
+	for _, id := range pending {
+		if err := a.Store.LinkDateUser(ctx, id, *member); err != nil {
+			a.Log.Warn("link birthday", "date", id, "err", err)
+			return
+		}
+	}
+	if err := a.Store.SetAppSetting(ctx, memberBirthdaysKey, json.RawMessage(`[]`)); err != nil {
+		a.Log.Warn("link birthdays", "err", err)
+		return
+	}
+	a.datesChanged(ctx)
 }
 
 func seedRecapNotes(ctx context.Context, a *api, raw json.RawMessage) error {

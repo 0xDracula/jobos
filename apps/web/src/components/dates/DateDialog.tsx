@@ -67,14 +67,21 @@ export function DateDialog({ editing, onClose }: { editing: DateItem | { new: st
   const timed = form.kind === "plan" || form.kind === "countdown" || form.kind === "other";
   const withExtras = occasion || form.kind === "other";
 
-  const setKind = (kind: DateKind) =>
+  const setKind = (kind: DateKind) => {
+    const yearly = kind === "birthday" || kind === "anniversary";
+    const extras = yearly || kind === "other";
+    const withTime = !yearly;
     set({
       kind,
-      recurring: kind === "birthday" || kind === "anniversary" ? true : kind === "plan" ? false : form.recurring,
-      decorations: form.decorations.length ? form.decorations : (DEFAULT_DECORATIONS[kind] ?? []),
-      time: kind === "birthday" || kind === "anniversary" ? null : form.time,
+      recurring: yearly ? true : kind === "plan" ? false : form.recurring,
+      decorations: extras ? (form.decorations.length ? form.decorations : (DEFAULT_DECORATIONS[kind] ?? [])) : [],
+      playlist_id: extras ? form.playlist_id : null,
+      time: withTime ? form.time : null,
+      note: kind === "plan" || kind === "other" ? form.note : "",
       user_id: kind === "birthday" ? form.user_id : null,
+      remind_minutes: !withTime && (form.remind_minutes === 10 || form.remind_minutes === 60) ? 0 : form.remind_minutes,
     });
+  };
 
   const save = async () => {
     setBusy(true);
@@ -90,6 +97,9 @@ export function DateDialog({ editing, onClose }: { editing: DateItem | { new: st
       setBusy(false);
     }
   };
+
+  const setTime = (time: string | null) =>
+    set({ time, remind_minutes: !time && (form.remind_minutes === 10 || form.remind_minutes === 60) ? 0 : form.remind_minutes });
 
   const toggleDecoration = (id: string) =>
     set({ decorations: form.decorations.includes(id) ? form.decorations.filter((d) => d !== id) : [...form.decorations, id] });
@@ -115,7 +125,7 @@ export function DateDialog({ editing, onClose }: { editing: DateItem | { new: st
           </Field>
           {timed && (
             <Field label="Time">
-              <input type="time" className={inputClass} value={form.time ?? ""} onChange={(e) => set({ time: e.target.value || null })} />
+              <input type="time" className={inputClass} value={form.time ?? ""} onChange={(e) => setTime(e.target.value || null)} />
             </Field>
           )}
         </div>

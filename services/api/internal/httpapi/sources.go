@@ -84,7 +84,7 @@ func (a *api) calendarEvents(ctx context.Context, viewer *store.User, first, las
 				continue
 			}
 			if ev.Surprise && !authoredBy(ev.AuthorID, viewer) {
-				ev.Title, ev.Link = "", ""
+				ev.Kind, ev.Title, ev.Time, ev.Link = "surprise", "", "", ""
 			}
 			out = append(out, ev)
 		}
