@@ -138,6 +138,15 @@ func (s *Store) AdminNotes(ctx context.Context) ([]AdminNote, error) {
 	})
 }
 
+func (s *Store) UpdateNote(ctx context.Context, id uuid.UUID, in NoteInput) error {
+	tag, err := s.pool.Exec(ctx, `update hidden_notes set spot = $2, title = $3, body = $4, for_user_id = $5, unlock_at = $6, after_note_id = $7
+		where id = $1`, id, in.Spot, strings.TrimSpace(in.Title), in.Body, in.ForUserID, in.UnlockAt, in.AfterNoteID)
+	if err == nil && tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return err
+}
+
 func (s *Store) DeleteNote(ctx context.Context, id uuid.UUID) error {
 	tag, err := s.pool.Exec(ctx, `delete from hidden_notes where id = $1`, id)
 	if err == nil && tag.RowsAffected() == 0 {

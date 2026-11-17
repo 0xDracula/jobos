@@ -3,11 +3,20 @@
 import { useQuery } from "@tanstack/react-query";
 import { Command } from "cmdk";
 import {
+  BookHeart,
+  CassetteTape,
+  Compass,
+  Disc3,
+  Flower2,
+  Headphones,
   Heart,
   House,
   Library,
   ListMusic,
+  MessageCircleHeart,
+  Mic,
   MicVocal,
+  NotebookPen,
   Pause,
   Play,
   Repeat,
@@ -17,6 +26,7 @@ import {
   SkipBack,
   SkipForward,
   SlidersHorizontal,
+  Sparkles,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
@@ -85,6 +95,16 @@ export function CommandPalette() {
     { id: "home", label: "Home", icon: <House />, run: go("/") },
     { id: "search", label: "Search", icon: <Search />, run: go("/search/") },
     { id: "library", label: "Library", icon: <Library />, run: go("/library/") },
+    { id: "chat", label: "Chat", icon: <MessageCircleHeart />, run: go("/chat/") },
+    { id: "discover", label: "Discover", icon: <Compass />, run: go("/discover/") },
+    { id: "together", label: "Listen together", icon: <Headphones />, run: go("/together/") },
+    { id: "our-song", label: "Our song", icon: <Disc3 />, run: go("/song/") },
+    { id: "notes", label: "Song notes", icon: <NotebookPen />, run: go("/notes/") },
+    { id: "scrapbook", label: "Scrapbook", icon: <BookHeart />, run: go("/scrapbook/") },
+    { id: "dedications", label: "Dedications", icon: <Mic />, run: go("/dedications/") },
+    { id: "mixtapes", label: "Mixtapes", icon: <CassetteTape />, run: go("/mixtapes/") },
+    { id: "favorites", label: "Favorite things", icon: <Flower2 />, run: go("/favorites/") },
+    { id: "stars", label: "Star map", icon: <Sparkles />, run: go("/stars/") },
     { id: "settings", label: "Settings", icon: <Settings />, run: go("/settings/") },
     ...(playlists.data ?? []).map((p) => ({
       id: `playlist-${p.id}`,

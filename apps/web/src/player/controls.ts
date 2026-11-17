@@ -22,6 +22,7 @@ import {
   type SleepTimer,
 } from "./store";
 import { record } from "./telemetry";
+import { together } from "./togetherHooks";
 
 const get = usePlayer.getState;
 const set = usePlayer.setState;
@@ -42,6 +43,7 @@ export function playTracks(tracks: Track[], start: number, context: PlayContext,
   if (!list.length) return toast("Nothing to play");
   const shuffle = opts.shuffle ?? get().shuffle;
   const first = picked ? list.indexOf(picked) : shuffle ? Math.floor(Math.random() * list.length) : 0;
+  if (together.handler) return together.handler.playTracks(list.map((t) => t.id), first);
   recordSkip();
   set({ ...loadQueue(list, first, context, shuffle), shuffle, playing: true, position: 0, direction: 1 });
 }
@@ -49,18 +51,21 @@ export function playTracks(tracks: Track[], start: number, context: PlayContext,
 export function playNext(tracks: Track[]) {
   const ok = tracks.filter(playable);
   if (!ok.length) return toast("Unavailable");
-  set(insertTracks(get(), ok, "next"));
+  if (together.handler) together.handler.playNext(ok.map((t) => t.id));
+  else set(insertTracks(get(), ok, "next"));
   toast(ok.length === 1 ? "Playing next" : `${ok.length} songs playing next`);
 }
 
 export function addToQueue(tracks: Track[]) {
   const ok = tracks.filter(playable);
   if (!ok.length) return toast("Unavailable");
-  set(insertTracks(get(), ok, "last"));
+  if (together.handler) together.handler.addToQueue(ok.map((t) => t.id));
+  else set(insertTracks(get(), ok, "last"));
   toast(ok.length === 1 ? "Added to queue" : `${ok.length} songs added to queue`);
 }
 
 export function jumpTo(uid: string) {
+  if (together.handler) return together.handler.jumpTo(uid);
   const s = get();
   const i = s.queue.findIndex((q) => q.uid === uid);
   if (i < 0 || i === s.index) return;
@@ -72,6 +77,7 @@ export function play() {
   const s = get();
   const cur = selectCurrent(s);
   if (!cur || s.playing) return;
+  if (together.handler) return together.handler.play();
   const sleep = s.sleep?.mode === "time" && s.sleep.endsAt <= Date.now() ? null : s.sleep;
   set({ playing: true, sleep });
   record("resume", cur.track.id, getEngine().currentTime());
@@ -81,6 +87,7 @@ export function pause() {
   const s = get();
   const cur = selectCurrent(s);
   if (!cur || !s.playing) return;
+  if (together.handler) return together.handler.pause();
   set({ playing: false });
   record("pause", cur.track.id, getEngine().currentTime());
 }
@@ -93,6 +100,7 @@ export function toggle() {
 export function next() {
   const s = get();
   if (s.index < 0) return;
+  if (together.handler) return together.handler.next();
   recordSkip();
   const ni = nextIndex(s);
   if (ni == null) set({ index: 0, playing: false, position: 0, direction: 1 });
@@ -102,6 +110,7 @@ export function next() {
 export function previous() {
   const s = get();
   if (s.index < 0) return;
+  if (together.handler) return together.handler.previous();
   const prev = s.index > 0 ? s.index - 1 : s.repeat === "all" ? s.queue.length - 1 : -1;
   if (getEngine().currentTime() > 3 || prev < 0) return seek(0);
   recordSkip();
@@ -111,6 +120,7 @@ export function previous() {
 export function seek(seconds: number) {
   const cur = selectCurrent(get());
   if (!cur) return;
+  if (together.handler) return together.handler.seek(seconds);
   const from = getEngine().currentTime();
   getEngine().seek(seconds);
   if (Math.abs(seconds - from) >= 1) record("seek", cur.track.id, seconds, { from_ms: Math.round(from * 1000) });
@@ -133,15 +143,19 @@ export function cycleRepeat() {
 }
 
 export function removeFromQueue(uid: string) {
+  if (together.handler) return together.handler.remove(uid);
   set(removeItem(get(), uid));
 }
 
 export function clearQueue() {
+  if (together.handler) return together.handler.clear();
   set(clearUpcoming(get()));
 }
 
 export function reorderUpcoming(run: QueueItem[]) {
-  set(replaceUpcoming(get(), run));
+  const next = replaceUpcoming(get(), run);
+  if (together.handler) return together.handler.reorder((next.queue ?? []).map((q) => q.uid));
+  set(next);
 }
 
 export function setVolume(volume: number) {

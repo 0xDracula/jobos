@@ -1,9 +1,9 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Ellipsis, Link2, ListEnd, ListPlus, ListStart, Search } from "lucide-react";
+import { Ellipsis, Link2, ListEnd, ListPlus, ListStart, Search, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useDebounced } from "@/components/common";
 import { openAddToPlaylist, providerLabel } from "@/components/dialogs";
@@ -13,6 +13,7 @@ import { Button, inputClass, Menu, MenuContent, MenuItem, MenuTrigger, PageTitle
 import { api, ApiError } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { fmtMs } from "@/lib/format";
+import { keepsakeApi, keepsakeKeys, useRecentSearches } from "@/lib/keepsakes";
 import { keys } from "@/lib/queries";
 import { toast } from "@/lib/toast";
 import type { SearchResult, Track } from "@/lib/types";
@@ -73,8 +74,24 @@ export default function SearchPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
 
+  const recent = useRecentSearches();
+  const remember = (text: string) => {
+    const t = text.trim();
+    if (t.length < 2 || isLink(t)) return;
+    void keepsakeApi.addRecentSearch(t).then(() => qc.invalidateQueries({ queryKey: keepsakeKeys.recentSearches }));
+  };
+  const hasResults = !!library.data?.length || online.length > 0;
+  useEffect(() => {
+    if (!ready || !hasResults) return;
+    const id = setTimeout(() => remember(q), 3000);
+    return () => clearTimeout(id);
+  }, [q, ready, hasResults]);
+  const forget = (text?: string) =>
+    void keepsakeApi.deleteRecentSearch(text).then(() => qc.invalidateQueries({ queryKey: keepsakeKeys.recentSearches }));
+
   const withTrack = async (r: SearchResult, then: (t: Track) => void) => {
     setBusy(resultKey(r));
+    remember(q);
     try {
       const t = await api.addTrack(r);
       void qc.invalidateQueries({ queryKey: ["library-search"] });
@@ -120,6 +137,7 @@ export default function SearchPage() {
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && remember(query)}
           placeholder="Songs, artists, links"
           aria-label="Search"
           autoFocus
@@ -127,6 +145,37 @@ export default function SearchPage() {
           className={cn(inputClass, "min-h-14 rounded-card ps-12 text-[17px] shadow-soft")}
         />
       </div>
+
+      {!query.trim() && !!recent.data?.length && (
+        <section className="mb-10">
+          <SectionTitle
+            action={
+              <Button size="sm" variant="ghost" onClick={() => forget()}>
+                Clear
+              </Button>
+            }
+          >
+            Recent searches
+          </SectionTitle>
+          <ul className="flex flex-wrap gap-2">
+            {recent.data.map((s) => (
+              <li key={s} className="inline-flex min-h-10 items-center rounded-full bg-surface-solid/70 shadow-soft">
+                <button type="button" dir="auto" onClick={() => setQuery(s)} className="min-h-10 rounded-s-full ps-4 pe-2 text-sm font-bold">
+                  {s}
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Remove ${s}`}
+                  onClick={() => forget(s)}
+                  className="grid size-10 place-items-center rounded-e-full text-muted hover:text-ink"
+                >
+                  <X className="size-4" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {link && (
         <section className="mb-10 flex items-center gap-3 rounded-card bg-surface-solid/70 p-4 shadow-soft">

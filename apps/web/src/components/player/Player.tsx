@@ -15,11 +15,13 @@ import type { Track } from "@/lib/types";
 import { collapse, expand, togglePanel } from "@/player/controls";
 import { selectCurrent, usePlayer, type Panel, type PlayContext, type QueueItem } from "@/player/store";
 
+import { DedicationMark } from "../Dedications";
 import { Artwork, LevelMeter } from "../media";
 import { TrackMenu } from "../tracks";
 import { IconButton } from "../ui";
 import { LyricsPanel } from "./LyricsPanel";
 import { QueuePanel } from "./QueuePanel";
+import { SongNotes } from "./SongNotes";
 import { SoundPanel, useSleepRemaining } from "./SoundPanel";
 import { LikeButton, NextButton, PlayButton, PrevButton, RepeatButton, ShuffleButton, VolumeControl } from "./Transport";
 import { ProgressLine, Waveform } from "./Waveform";
@@ -302,8 +304,10 @@ function NowPlaying() {
                     {track.artists.join(", ")}
                   </div>
                 </div>
+                <DedicationMark track={track} className="size-11" />
                 <LikeButton trackId={track.id} />
               </div>
+              <SongNotes track={track} />
               <Waveform peaks={track.audio?.waveform} duration={duration} />
               <div className="flex items-center justify-between">
                 <ShuffleButton />

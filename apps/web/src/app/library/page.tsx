@@ -1,7 +1,8 @@
 "use client";
 
 import * as Tabs from "@radix-ui/react-tabs";
-import { Plus } from "lucide-react";
+import { BookHeart, CassetteTape, Compass, Disc3, Flower2, Headphones, Mic, NotebookPen, Plus, Sparkles } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
@@ -128,6 +129,35 @@ function History({ which }: { which: "recent" | "top" }) {
   );
 }
 
+const KEEPSAKES: [string, string, typeof Disc3][] = [
+  ["/discover/", "Discover", Compass],
+  ["/together/", "Listen together", Headphones],
+  ["/song/", "Our song", Disc3],
+  ["/notes/", "Song notes", NotebookPen],
+  ["/scrapbook/", "Scrapbook", BookHeart],
+  ["/dedications/", "Dedications", Mic],
+  ["/mixtapes/", "Mixtapes", CassetteTape],
+  ["/favorites/", "Favorite things", Flower2],
+  ["/stars/", "Star map", Sparkles],
+];
+
+function Keepsakes() {
+  return (
+    <nav aria-label="Keepsakes" className="no-scrollbar -mx-4 mb-6 flex gap-2 overflow-x-auto px-4 lg:mx-0 lg:flex-wrap lg:px-0">
+      {KEEPSAKES.map(([href, label, Icon]) => (
+        <Link
+          key={href}
+          href={href}
+          className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-card bg-surface-solid/70 px-4 text-sm font-bold shadow-soft hover:bg-accent-soft/60"
+        >
+          <Icon className="size-4 text-accent-strong" />
+          {label}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
 const TAB_KEY = "jobbos.library-tab";
 
 export default function LibraryPage() {
@@ -144,6 +174,7 @@ export default function LibraryPage() {
   return (
     <>
       <PageTitle>Library</PageTitle>
+      <Keepsakes />
       <Tabs.Root value={tab} onValueChange={choose}>
         <Tabs.List aria-label="Library" className="no-scrollbar -mx-4 mb-6 flex gap-2 overflow-x-auto px-4 lg:mx-0 lg:px-0">
           {TABS.map(([value, label]) => (

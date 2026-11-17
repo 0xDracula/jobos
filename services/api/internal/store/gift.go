@@ -340,3 +340,21 @@ func (s *Store) attachTracks(ctx context.Context, n int, idOf func(int) uuid.UUI
 	}
 	return nil
 }
+
+type PlayCount struct {
+	UserID uuid.UUID `json:"user_id"`
+	Plays  int       `json:"plays"`
+}
+
+func (s *Store) PlayCounts(ctx context.Context, trackID uuid.UUID) ([]PlayCount, error) {
+	rows, err := s.pool.Query(ctx, `select u.id, count(e.id) from users u
+		left join listening_events e on e.user_id = u.id and e.track_id = $1 and e.event = 'start'
+		group by u.id, u.created_at order by u.created_at`, trackID)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, func(r pgx.CollectableRow) (PlayCount, error) {
+		var c PlayCount
+		return c, r.Scan(&c.UserID, &c.Plays)
+	})
+}

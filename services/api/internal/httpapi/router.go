@@ -91,6 +91,7 @@ type Store interface {
 	CreateNote(ctx context.Context, authorID uuid.UUID, in store.NoteInput) (uuid.UUID, error)
 	AdminNotes(ctx context.Context) ([]store.AdminNote, error)
 	DeleteNote(ctx context.Context, id uuid.UUID) error
+	UpdateNote(ctx context.Context, id uuid.UUID, in store.NoteInput) error
 	UserCities(ctx context.Context) ([]store.UserCity, error)
 	DeleteSetting(ctx context.Context, userID uuid.UUID, key string) error
 	BackfillAnalysis(ctx context.Context) (int, error)
@@ -171,6 +172,10 @@ type Store interface {
 	SetLyrics(ctx context.Context, trackID uuid.UUID, synced, plain string, instrumental bool) error
 	SyncedLRC(ctx context.Context, trackID uuid.UUID) (string, error)
 	ListeningNow(ctx context.Context) (map[uuid.UUID]store.NowPlaying, error)
+	PlayCounts(ctx context.Context, trackID uuid.UUID) ([]store.PlayCount, error)
+	MixCandidates(ctx context.Context, userID uuid.UUID) ([]store.MixTrack, error)
+	RelatedArtists(ctx context.Context, artistIDs []uuid.UUID) (map[uuid.UUID][]uuid.UUID, error)
+	PlaylistTrackIDs(ctx context.Context, playlistID uuid.UUID) ([]uuid.UUID, error)
 }
 
 type Searcher interface {
@@ -314,6 +319,7 @@ func New(d Deps) http.Handler {
 			})
 			a.registerWorldRoutes(r)
 			a.registerGiftRoutes(r)
+			a.registerRadioRoutes(r)
 			r.Get("/tracks/{id}/lyrics", a.lyrics)
 			r.Patch("/tracks/{id}/lyrics", a.lyricsOffset)
 			r.Post("/lyrics/backfill", a.backfillLyrics)

@@ -14,6 +14,10 @@ import {
   Eye,
   AudioLines,
   ArrowDownToLine,
+  MessageCircleHeart,
+  Mic,
+  NotebookPen,
+  Radio,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { memo, useMemo } from "react";
@@ -22,11 +26,16 @@ import { cn } from "@/lib/cn";
 import { fmtMs } from "@/lib/format";
 import { downloadTracks, removeDownload, useOfflineStatus } from "@/lib/offline";
 import { isHidden, setLiked, useHide, useHiddenIds, useLikedIds } from "@/lib/queries";
+import { shareSong } from "@/lib/social";
+import { toast } from "@/lib/toast";
 import type { Track } from "@/lib/types";
 import { addToQueue, playNext, playTracks } from "@/player/controls";
+import { startRadio } from "@/player/radio";
 import { playable, selectCurrent, usePlayer, type PlayContext } from "@/player/store";
 
+import { DedicationMark } from "./Dedications";
 import { openAddToPlaylist, openVersions, providerLabel } from "./dialogs";
+import { openDedication, openSongNote } from "./KeepsakeDialogs";
 import { Artwork, LevelMeter } from "./media";
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuSub, MenuSubContent, MenuSubTrigger, MenuTrigger, Spinner } from "./ui";
 
@@ -105,8 +114,27 @@ export function TrackMenu({
             </MenuSubContent>
           </MenuSub>
         )}
+        <MenuItem icon={<Radio />} disabled={!can} onSelect={() => void startRadio({ type: "track", id: track.id, name: track.title })}>
+          Radio
+        </MenuItem>
         <MenuItem icon={<AudioLines />} onSelect={() => openVersions(track)}>
           Versions
+        </MenuItem>
+        <MenuSeparator />
+        <MenuItem
+          icon={<MessageCircleHeart />}
+          onSelect={() => {
+            shareSong(track);
+            toast("Sent to chat");
+          }}
+        >
+          Send to chat
+        </MenuItem>
+        <MenuItem icon={<NotebookPen />} onSelect={() => openSongNote(track)}>
+          Note
+        </MenuItem>
+        <MenuItem icon={<Mic />} onSelect={() => openDedication(track)}>
+          Dedication
         </MenuItem>
         <MenuSeparator />
         {offline === "offline" ? (
@@ -210,6 +238,7 @@ export const TrackRow = memo(function TrackRow({ track, index, current, playing,
           </span>
         </div>
       </div>
+      <DedicationMark track={track} />
       <div className="pointer-events-none flex shrink-0 items-center gap-2">
         {unavailable ? (
           <span className="rounded-full bg-butter/80 px-2 py-0.5 text-xs font-bold text-[#5b4a1f]">{unavailable}</span>
