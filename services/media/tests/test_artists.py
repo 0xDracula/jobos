@@ -267,3 +267,42 @@ def test_wikimedia_429_is_waited_out(monkeypatch):
 
 def test_deezer_placeholder_pictures_are_dropped():
     assert enrich._real("https://cdn-images.dzcdn.net/images/artist//500x500.jpg") is None
+
+
+def test_lastfm_refused_key_raises_then_pauses(monkeypatch):
+    monkeypatch.setattr(config, "LASTFM_API_KEY", "k")
+    monkeypatch.setattr(artists, "_lastfm_refused_until", 0.0)
+    monkeypatch.setattr(artists, "_http", lambda: FakeClient([FakeResponse(403, {"error": 26, "message": "Suspended API key"})]))
+    with pytest.raises(artists.LastfmUnavailable):
+        artists.lastfm("artist.gettoptags", artist="Cairokee")
+    monkeypatch.setattr(artists, "_http", lambda: pytest.fail("Last.fm asked again after refusing the key"))
+    with pytest.raises(artists.LastfmUnavailable):
+        artists.lastfm("artist.gettoptags", artist="Cairokee")
+    assert artists.lastfm_optional("artist.gettoptags", artist="Cairokee") is None
+    assert artists.lastfm_bio("Cairokee") is None
+
+
+def test_lastfm_not_found_is_a_result_and_failures_are_unavailable(monkeypatch):
+    monkeypatch.setattr(config, "LASTFM_API_KEY", "k")
+    monkeypatch.setattr(artists, "_lastfm_refused_until", 0.0)
+    monkeypatch.setattr(artists, "_http", lambda: FakeClient([FakeResponse(200, {"error": 6, "message": "The artist you supplied could not be found"})]))
+    assert artists.lastfm("artist.getinfo", artist="Nobody") is None
+    monkeypatch.setattr(artists, "_http", lambda: FakeClient([FakeResponse(503)]))
+    with pytest.raises(artists.LastfmUnavailable):
+        artists.lastfm("artist.getinfo", artist="Nobody")
+    assert artists._lastfm_refused_until == 0.0
+    monkeypatch.setattr(artists, "_http", lambda: FakeClient([FakeResponse(200, {"toptags": {"tag": []}})]))
+    assert artists.lastfm("artist.gettoptags", artist="Cairokee") == {"toptags": {"tag": []}}
+
+
+def test_enrich_artist_keeps_the_rest_when_lastfm_refuses_the_key(monkeypatch):
+    monkeypatch.setattr(config, "LASTFM_API_KEY", "k")
+    monkeypatch.setattr(artists, "_lastfm_refused_until", 0.0)
+    monkeypatch.setattr(artists, "_http", lambda: FakeClient([FakeResponse(403, {"error": 10, "message": "Invalid API key"})]))
+    monkeypatch.setattr(artists, "find_deezer_artist", lambda name, isrcs, titles: None)
+    monkeypatch.setattr(artists, "find_mbid", lambda name, isrcs, titles: "m1")
+    monkeypatch.setattr(mb, "artist", lambda mbid: {"tags": [{"name": "rock", "count": 2}], "relations": []})
+    monkeypatch.setattr(artists, "wikipedia_bio", lambda name, qid: None)
+    got = artists.enrich_artist({"artist_id": "a1", "name": "Cairokee", "isrcs": [], "titles": [], "need_image": False})
+    assert got["mbid"] == "m1" and got["bio"] is None
+    assert got["tags"] == [{"name": "rock", "source": "musicbrainz", "weight": 1.0}]

@@ -218,9 +218,9 @@ def fetch_candidates(payload: dict, yt=None) -> dict:
     for t in payload.get("library") or []:
         library.setdefault(song_key(t["title"], t.get("artists") or []), t["id"])
     sources = {
+        "lastfm": lambda n: lastfm_similar(tracks, artists, n),
         "ytmusic": lambda n: ytmusic_radio(tracks, n, yt=yt),
         "deezer": lambda n: deezer_similar(artists, n),
-        "lastfm": lambda n: lastfm_similar(tracks, artists, n),
         "listenbrainz": lambda n: listenbrainz_radio(artists, n),
     }
     out: list[dict] = []
@@ -236,6 +236,8 @@ def fetch_candidates(payload: dict, yt=None) -> dict:
             found = []
         counts[name] = len(found)
         out.extend(found)
+        if name == "lastfm" and len(found) < limits[name]:
+            limits["ytmusic"] = limits.get("ytmusic", 0) + limits[name] - len(found)
     for c in out:
         c["key"] = song_key(c["title"], [a["name"] for a in c["artists"]])
         c["track_id"] = library.get(c["key"])

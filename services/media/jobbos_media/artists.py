@@ -184,16 +184,47 @@ def wikipedia_bio(name: str, qid: str | None, summary=None, titles=None) -> dict
 
 
 
+class LastfmUnavailable(RuntimeError):
+    pass
+
+
+LASTFM_KEY_ERRORS = {4, 9, 10, 26}
+LASTFM_NOT_FOUND = 6
+LASTFM_REFUSED_PAUSE = 3600.0
+_lastfm_refused_until = 0.0
+
+
 def lastfm(method: str, **params) -> dict | None:
+    global _lastfm_refused_until
     if not config.LASTFM_API_KEY:
         return None
-    r = _http().get(LASTFM_URL, params={"method": method, "api_key": config.LASTFM_API_KEY, "format": "json",
-                                        "autocorrect": 1, **params})
-    if r.status_code == 404:
+    if time.monotonic() < _lastfm_refused_until:
+        raise LastfmUnavailable("Last.fm refused the API key")
+    try:
+        r = _http().get(LASTFM_URL, params={"method": method, "api_key": config.LASTFM_API_KEY, "format": "json",
+                                            "autocorrect": 1, **params})
+    except httpx.HTTPError as e:
+        raise LastfmUnavailable(f"Last.fm unreachable: {e}") from e
+    try:
+        body = r.json()
+    except ValueError:
+        body = None
+    code = body.get("error") if isinstance(body, dict) else None
+    if r.status_code in (401, 403) or code in LASTFM_KEY_ERRORS:
+        _lastfm_refused_until = time.monotonic() + LASTFM_REFUSED_PAUSE
+        raise LastfmUnavailable("Last.fm refused the API key")
+    if r.status_code == 404 or code == LASTFM_NOT_FOUND:
         return None
-    r.raise_for_status()
-    body = r.json()
-    return None if "error" in body else body
+    if r.status_code >= 400 or code is not None or not isinstance(body, dict):
+        raise LastfmUnavailable(f"Last.fm error {code if code is not None else r.status_code}")
+    return body
+
+
+def lastfm_optional(method: str, **params) -> dict | None:
+    try:
+        return lastfm(method, **params)
+    except LastfmUnavailable:
+        return None
 
 
 def lastfm_tags(body: dict | None) -> list[tuple[str, int]]:
@@ -207,7 +238,7 @@ def lastfm_tags(body: dict | None) -> list[tuple[str, int]]:
 
 
 def lastfm_bio(name: str) -> dict | None:
-    a = ((lastfm("artist.getinfo", artist=name) or {}).get("artist")) or {}
+    a = ((lastfm_optional("artist.getinfo", artist=name) or {}).get("artist")) or {}
     summary = (a.get("bio") or {}).get("summary") or ""
     text = html.unescape(_TAG_RE.sub("", summary.split("<a href")[0])).strip()
     return {"bio": short(text), "url": a.get("url")} if text and a.get("url") else None
@@ -252,7 +283,7 @@ def enrich_artist(payload: dict, fetch=None) -> dict:
         out.update(bio=bio["bio"], bio_source="wikipedia", bio_url=bio["url"])
     elif bio := lastfm_bio(name):
         out.update(bio=bio["bio"], bio_source="lastfm", bio_url=bio["url"])
-    out["tags"] += weighted(lastfm_tags(lastfm("artist.gettoptags", artist=name)), "lastfm")
+    out["tags"] += weighted(lastfm_tags(lastfm_optional("artist.gettoptags", artist=name)), "lastfm")
     return out
 
 
@@ -266,5 +297,5 @@ def fetch_track_tags(payload: dict) -> dict:
                 out["tags"] += weighted(mb.tags(mb.recording(rec["id"]) or {}), "musicbrainz")
                 break
     if artists:
-        out["tags"] += weighted(lastfm_tags(lastfm("track.gettoptags", artist=artists[0], track=title)), "lastfm")
+        out["tags"] += weighted(lastfm_tags(lastfm_optional("track.gettoptags", artist=artists[0], track=title)), "lastfm")
     return out

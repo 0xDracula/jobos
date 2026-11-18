@@ -109,3 +109,24 @@ def test_fetch_releases_keeps_releases_since_the_date(monkeypatch):
     r = candidates.fetch_releases({"since": "2026-11-01", "artists": [{"id": "a1", "name": "Cairokee", "deezer_id": "1"}]})
     assert [x["title"] for x in r["releases"]] == ["New EP"]
     assert r["releases"][0]["tracks"] == [{"title": "Song", "deezer_id": "51", "artists": ["Cairokee"], "duration_ms": 180_000}]
+
+
+def test_fetch_candidates_gives_lastfm_s_unfilled_share_to_youtube_music(monkeypatch):
+    monkeypatch.setattr(config, "LASTFM_API_KEY", "k")
+    monkeypatch.setattr(config, "LISTENBRAINZ_TOKEN", None)
+
+    def refused(tracks, seeds, n):
+        raise artists.LastfmUnavailable("Last.fm refused the API key")
+
+    asked = {}
+
+    def radio(seeds, n, yt=None):
+        asked["n"] = n
+        return []
+
+    monkeypatch.setattr(candidates, "lastfm_similar", refused)
+    monkeypatch.setattr(candidates, "ytmusic_radio", radio)
+    monkeypatch.setattr(candidates, "deezer_similar", lambda seeds, n: [])
+    r = candidates.fetch_candidates({"tracks": [], "artists": []})
+    assert asked["n"] == candidates.LIMITS["ytmusic"] + candidates.LIMITS["lastfm"]
+    assert r["errors"]["lastfm"] == "LastfmUnavailable: Last.fm refused the API key"
