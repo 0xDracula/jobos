@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
-import { Aref_Ruqaa, Caveat, Manrope, Readex_Pro } from "next/font/google";
-import type { ReactNode } from "react";
+import { Aref_Ruqaa, Caveat, Manrope, Noto_Sans_Arabic } from "next/font/google";
+import type { CSSProperties, ReactNode } from "react";
 
 import { AppShell } from "@/components/shell";
 
@@ -8,9 +8,16 @@ import "./globals.css";
 import { Providers } from "./providers";
 
 const manrope = Manrope({ subsets: ["latin"], variable: "--font-manrope", display: "swap" });
-const readex = Readex_Pro({ subsets: ["arabic"], variable: "--font-readex", display: "swap", preload: false });
+const arabic = Noto_Sans_Arabic({ subsets: ["arabic"], variable: "--font-arabic", display: "swap", preload: false });
 const caveat = Caveat({ subsets: ["latin"], variable: "--font-caveat", display: "swap", preload: false });
 const ruqaa = Aref_Ruqaa({ subsets: ["arabic"], weight: ["400", "700"], variable: "--font-ruqaa", display: "swap", preload: false });
+
+const face = (f: { style: { fontFamily: string } }) => f.style.fontFamily.split(",")[0].trim();
+const fallback = (f: { style: { fontFamily: string } }) => f.style.fontFamily.split(",").slice(1).join(",").trim();
+const STACKS = {
+  "--stack-sans": [face(manrope), face(arabic), fallback(manrope), "ui-sans-serif", "system-ui", "sans-serif"].filter(Boolean).join(", "),
+  "--stack-hand": [face(caveat), face(ruqaa), "cursive"].join(", "),
+} as CSSProperties;
 
 const SPLASH: [number, number, number][] = [
   [375, 667, 2],
@@ -62,7 +69,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html
       lang="en"
       suppressHydrationWarning
-      className={[manrope, readex, caveat, ruqaa].map((f) => f.variable).join(" ")}
+      style={STACKS}
+      className={[manrope, arabic, caveat, ruqaa].map((f) => f.variable).join(" ")}
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: prefsScript }} />

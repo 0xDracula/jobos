@@ -204,9 +204,9 @@
   --color-over: var(--over);
   --color-over-ink: var(--over-ink);
   --color-seg-on: var(--seg-on);
-  --font-display: var(--font-manrope), var(--font-readex), ui-sans-serif, system-ui, sans-serif;
-  --font-sans: var(--font-manrope), var(--font-readex), ui-sans-serif, system-ui, sans-serif;
-  --font-hand: var(--font-caveat), var(--font-ruqaa), cursive;
+  --font-display: var(--stack-sans, ui-sans-serif, system-ui, sans-serif);
+  --font-sans: var(--stack-sans, ui-sans-serif, system-ui, sans-serif);
+  --font-hand: var(--stack-hand, cursive);
   --radius-chip: 10px;
   --radius-button: 12px;
   --radius-card: 16px;

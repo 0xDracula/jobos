@@ -1,6 +1,6 @@
 export const HAND_UNICODE_RANGE = "U+0000-05FF, U+0700-074F, U+0780-086F, U+0900-FB4F, U+FE00-FE6F, U+FF00-10FFFF";
 
-export const HAND_FALLBACK = "var(--font-caveat), var(--font-ruqaa), cursive";
+export const HAND_FALLBACK = "var(--stack-hand, cursive)";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const FONT_URL = /^\/api\/fonts\/[0-9a-f]{64}\.woff2$/;

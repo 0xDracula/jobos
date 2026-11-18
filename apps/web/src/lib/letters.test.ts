@@ -26,8 +26,8 @@ test("font faces and the fallback chain", () => {
   ];
   const ready = readyFonts(fonts);
   assert.deepEqual([...ready], [ME]);
-  assert.equal(handFontFamily(ME, ready), `"jobbos-hand-${ME}", var(--font-caveat), var(--font-ruqaa), cursive`);
-  assert.equal(handFontFamily(HER, ready), "var(--font-caveat), var(--font-ruqaa), cursive");
+  assert.equal(handFontFamily(ME, ready), `"jobbos-hand-${ME}", var(--stack-hand, cursive)`);
+  assert.equal(handFontFamily(HER, ready), "var(--stack-hand, cursive)");
   const css = fontFaceCss(fonts);
   assert.equal(css.split("@font-face").length - 1, 1);
   assert.match(css, /unicode-range:U\+0000-05FF/);
