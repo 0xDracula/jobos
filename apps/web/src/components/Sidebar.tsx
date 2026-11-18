@@ -6,9 +6,10 @@ import { usePathname } from "next/navigation";
 
 import { Avatar } from "@/avatar";
 import { cn } from "@/lib/cn";
+import { useMode } from "@/lib/pair";
 import { useIsAdmin, useMe } from "@/lib/session";
 
-import { SECTIONS, sectionActive, UnreadBadge } from "./nav";
+import { sectionActive, UnreadBadge, useSections } from "./nav";
 import { PixelIcon } from "./pixel/PixelIcon";
 
 const tile = "grid size-12 place-items-center rounded-[14px] text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink";
@@ -18,22 +19,24 @@ export function Sidebar() {
   const me = useMe().data;
   const admin = useIsAdmin();
   const onSettings = pathname.startsWith("/settings");
+  const sections = useSections();
+  const solo = useMode() === "solo";
   return (
     <nav aria-label="Main" className="fixed inset-y-0 left-0 z-30 hidden w-[88px] flex-col items-center gap-2 border-e border-line bg-sidebar pb-5 pt-5 lg:flex">
       <Link href="/" aria-label="Jobbos, Today" className="mb-1 grid size-12 place-items-center rounded-[14px]">
         <PixelIcon name="record" size={34} />
       </Link>
-      <Link
+      {!solo && <Link
         href="/search/"
         aria-label="Search"
         aria-current={pathname.startsWith("/search") ? "page" : undefined}
         className={cn(tile, "mb-2 border border-line bg-surface", pathname.startsWith("/search") && "text-accent-strong")}
       >
         <Search className="size-[22px]" />
-      </Link>
+      </Link>}
       <ul className="grid gap-1">
-        {SECTIONS.map((s) => {
-          const active = sectionActive(pathname, s) && !pathname.startsWith("/search");
+        {sections.map((s) => {
+          const active = sectionActive(pathname, s) && (solo || !pathname.startsWith("/search"));
           const Icon = s.icon;
           return (
             <li key={s.href}>

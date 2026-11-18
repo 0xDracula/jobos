@@ -158,7 +158,15 @@ export type Invite = {
   responded_at: string | null;
 };
 
-export type InviteView = { display_name: string; username: string; message: string; status: "pending" | "declined"; expires_at: string };
+export type InviteView = {
+  display_name: string;
+  username: string;
+  message: string;
+  status: "pending" | "declined";
+  expires_at: string;
+  link_kind?: "partner" | "friend";
+  from?: { id: string; display_name: string };
+};
 
 export type PlaybackState = {
   device_id: string;

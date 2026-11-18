@@ -37,5 +37,5 @@ export async function signOut() {
 
 export function nextPath(): string {
   const next = new URLSearchParams(window.location.search).get("next");
-  return next && next.startsWith("/") && !next.startsWith("//") && !isPublicPath(next) ? next : "/";
+  return next && next.startsWith("/") && !next.startsWith("//") && (!isPublicPath(next) || next.startsWith("/invite/")) ? next : "/";
 }

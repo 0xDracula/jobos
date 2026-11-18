@@ -1,4 +1,5 @@
 import logging
+import re
 import threading
 import time
 from contextlib import asynccontextmanager
@@ -6,7 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Query, Request
 from yt_dlp import version as ytdlp_version
 
-from . import ingest, links, status, ytdlp_update
+from . import ingest, links, start, status, ytdlp_update
 from . import search as search_module
 
 log = logging.getLogger("jobbos.media")
@@ -98,6 +99,32 @@ def radio(
         return {"results": search_module.radio(video_id, limit)}
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"radio failed: {e}") from e
+
+
+@app.get("/start/chart")
+def start_chart(country: str = Query("ZZ", pattern="^[A-Za-z]{2}$")) -> dict:
+    try:
+        return {"artists": start.chart_artists(country)}
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"chart failed: {e}") from e
+
+
+@app.get("/start/artists/{browse_id}")
+def start_artist(browse_id: str) -> dict:
+    if not re.fullmatch(r"[A-Za-z0-9_-]{10,64}", browse_id):
+        raise HTTPException(status_code=400, detail="invalid artist")
+    try:
+        return start.artist(browse_id)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"artist failed: {e}") from e
+
+
+@app.get("/start/search")
+def start_search(q: str = Query(min_length=1, max_length=200)) -> dict:
+    try:
+        return {"artists": start.search_artists(q)}
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"artist search failed: {e}") from e
 
 
 @app.get("/link")

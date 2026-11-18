@@ -1,7 +1,9 @@
 "use client";
 
 import { Check, ChevronRight, Expand, Headphones, Lock, Play, Plus, Search, Send } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { Avatar } from "@/avatar";
@@ -11,13 +13,16 @@ import { Handwriting } from "@/components/letters/Handwriting";
 import { useNames } from "@/components/letters/Letters";
 import { Artwork, LevelMeter } from "@/components/media";
 import { MixShelf } from "@/components/mixes/Mixes";
-import { PixelIcon } from "@/components/pixel/PixelIcon";
+import { PixelIcon, type PixelIconName } from "@/components/pixel/PixelIcon";
 import { MoodChip, MoodPicker } from "@/components/profile/Mood";
+import { request } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { useCountdowns } from "@/lib/dates";
 import { lettersKeys, useLetterCounts, usePicks, useRefetchAt, useSongOfTheDay, useWindowNote, type Note } from "@/lib/letters";
 import { useMixes } from "@/lib/mixes";
 import { useProfile, useQuestion } from "@/lib/profiles";
+import { useOurSong } from "@/lib/keepsakes";
+import { useMode, usePair } from "@/lib/pair";
 import { useMe, useMembers } from "@/lib/session";
 import { sendMessage, useChat, usePresence, type Person } from "@/lib/social";
 import { toast } from "@/lib/toast";
@@ -28,6 +33,8 @@ import { listenAlong } from "@/player/together";
 import { useCity, useWeather } from "@/room/data";
 import { useLamp, type LampState } from "@/room/lamp";
 import { localTime, RoomView } from "@/room/ui/RoomView";
+
+import { SoloToday } from "./SoloToday";
 
 type User = { id: string; display_name: string };
 
@@ -100,19 +107,21 @@ function Greeting() {
   );
 }
 
-function RoomBand() {
+export function RoomBand({ search = true }: { search?: boolean } = {}) {
   const over = "border border-line-strong bg-over text-over-ink";
   return (
     <section aria-label="Room" className="today-band relative h-[190px] overflow-hidden bg-surface-2 lg:mx-6 lg:mt-5 lg:h-[240px] lg:rounded-[22px]">
       <RoomView band />
       <div aria-hidden className="today-scrim pointer-events-none absolute inset-0 z-[2]" />
       <Greeting />
-      <Link href="/search/" aria-label="Search" className={cn(over, "absolute end-3 top-[max(env(safe-area-inset-top),12px)] z-[3] grid size-10 place-items-center rounded-full lg:hidden")}>
-        <Search className="size-5" />
-      </Link>
+      {search && (
+        <Link href="/search/" aria-label="Search" className={cn(over, "absolute end-3 top-[max(env(safe-area-inset-top),12px)] z-[3] grid size-10 place-items-center rounded-full lg:hidden")}>
+          <Search className="size-5" />
+        </Link>
+      )}
       <Link
         href="/room/"
-        className={cn(over, "absolute bottom-[44px] end-3 z-[3] inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-[12.5px] font-extrabold lg:bottom-5 lg:end-5 lg:h-9 lg:px-3.5 lg:text-[13px]")}
+        className={cn(over, "absolute end-3 z-[3] inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-[12.5px] font-extrabold lg:bottom-5 lg:end-5 lg:h-9 lg:px-3.5 lg:text-[13px]", search ? "bottom-[44px]" : "bottom-3.5")}
       >
         <Expand className="size-3.5" />
         Room
@@ -155,7 +164,7 @@ function MoodSlot({ user, mine }: { user: User; mine: boolean }) {
   );
 }
 
-function PersonCard({ user, mine, person, lamp }: { user: User; mine: boolean; person: Person | undefined; lamp: LampState }) {
+function PersonCard({ user, mine, person, lamp, friend }: { user: User; mine: boolean; person: Person | undefined; lamp: LampState; friend: boolean }) {
   const myTrack = usePlayer(selectTrack);
   const myPlaying = usePlayer((s) => s.playing);
   const playing: Playing | null = mine
@@ -226,7 +235,7 @@ function PersonCard({ user, mine, person, lamp }: { user: User; mine: boolean; p
             Listen along
           </button>
         )}
-        <div className="flex items-center gap-2 border-t border-line pt-3 text-[13.5px]">
+        {!friend && <div className="flex items-center gap-2 border-t border-line pt-3 text-[13.5px]">
           <span className={cn("grid size-8 place-items-center rounded-[10px]", (mine ? lamp.sending : !!lamp.received) && glow)}>
             <LampGlyph on={mine ? lamp.sending : !!lamp.received} size={15} />
           </span>
@@ -250,34 +259,53 @@ function PersonCard({ user, mine, person, lamp }: { user: User; mine: boolean; p
               {lamp.received && <span className="tabular text-[12.5px] font-semibold text-muted">{clock(lamp.received.sent_at)}</span>}
             </>
           )}
-        </div>
+        </div>}
       </div>
     </section>
   );
 }
 
-function Duet({ me, other }: { me: User; other: User | null }) {
+function Duet({ me, other, friend }: { me: User; other: User | null; friend: boolean }) {
   const presence = usePresence().data;
   const lamp = useLamp();
   const person = presence?.people.find((p) => p.id === other?.id);
   const lit = lamp.sending || !!lamp.received;
+  const middle = "absolute start-1/2 top-[30px] z-[5] grid size-[50px] -translate-x-1/2 place-items-center rounded-full border border-line-strong bg-surface-2 shadow-[0_0_0_5px_var(--bg)] lg:hidden";
+  const along = async () => {
+    const p = person?.playing;
+    if (!p) {
+      toast("Nothing playing");
+      return;
+    }
+    try {
+      await listenAlong(p.track_id, p.position_ms + Math.max(0, Date.now() - Date.parse(p.at)));
+    } catch {
+      toast("Listen together unavailable");
+    }
+  };
   return (
     <div className={cn("relative z-[4] -mt-[30px] grid px-4 lg:contents", other ? "grid-cols-2" : "grid-cols-1")}>
-      <PersonCard user={me} mine person={undefined} lamp={lamp} />
+      <PersonCard user={me} mine person={undefined} lamp={lamp} friend={friend} />
       {other && (
         <>
-          <button
-            type="button"
-            onClick={() => void lamp.toggle()}
-            aria-label={lamp.sending ? "Switch off your lamp" : "Light your lamp"}
-            aria-pressed={lamp.sending}
-            className="absolute start-1/2 top-[30px] z-[5] grid size-[50px] -translate-x-1/2 place-items-center rounded-full border border-line-strong bg-surface-2 shadow-[0_0_0_5px_var(--bg)] lg:hidden"
-          >
-            <span className={cn("grid size-10 place-items-center rounded-full", lit && glow)}>
-              <LampGlyph on={lit} />
-            </span>
-          </button>
-          <PersonCard user={other} mine={false} person={person} lamp={lamp} />
+          {friend ? (
+            <button type="button" onClick={() => void along()} aria-label="Listen along" className={middle}>
+              <Headphones className="size-5" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => void lamp.toggle()}
+              aria-label={lamp.sending ? "Switch off your lamp" : "Light your lamp"}
+              aria-pressed={lamp.sending}
+              className={middle}
+            >
+              <span className={cn("grid size-10 place-items-center rounded-full", lit && glow)}>
+                <LampGlyph on={lit} />
+              </span>
+            </button>
+          )}
+          <PersonCard user={other} mine={false} person={person} lamp={lamp} friend={friend} />
         </>
       )}
     </div>
@@ -534,7 +562,7 @@ function Letters() {
   );
 }
 
-function NowMusic() {
+export function NowMusic() {
   const mixes = useMixes().data;
   const current = mixes?.find((m) => m.current)?.kind;
   const [hour, setHour] = useState<number | null>(null);
@@ -544,27 +572,65 @@ function NowMusic() {
   return <MixShelf title={title} kinds={kinds} />;
 }
 
+function FirstSteps({ friend }: { friend: boolean }) {
+  const pair = usePair().data?.pair;
+  const ourSong = useOurSong().data?.track;
+  if (!pair || Date.now() - Date.parse(pair.created_at) > 7 * 86_400_000) return null;
+  const steps = [
+    !friend && !ourSong && { href: "/song/", icon: "record" as PixelIconName, title: "Our song", meta: "Choose" },
+    { href: "/chat/", icon: "bubble" as PixelIconName, title: "Send a song", meta: "Chat" },
+    { href: "/together/", icon: "headphones" as PixelIconName, title: "Listen together", meta: "Start" },
+  ].filter((x): x is { href: string; icon: PixelIconName; title: string; meta: string } => !!x);
+  return (
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-2.5 sm:grid-cols-3">
+      {steps.map((st) => (
+        <Link key={st.href} href={st.href} className={cn(card, "flex items-center gap-3 p-3 transition-colors hover:border-line-strong")}>
+          <PixelIcon name={st.icon} size={32} />
+          <span className="min-w-0 flex-1">
+            <span className="block text-[15px] font-extrabold">{st.title}</span>
+            <span className="block text-[13px] font-semibold text-muted">{st.meta}</span>
+          </span>
+          <ChevronRight className="size-5 text-muted" />
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+function useFirstRun() {
+  const router = useRouter();
+  const start = useQuery({ queryKey: ["start"], queryFn: () => request<{ show: boolean }>("/api/start"), staleTime: 5 * 60_000 });
+  useEffect(() => {
+    if (start.data?.show && !new URLSearchParams(window.location.search).has("welcome")) router.replace("/start/");
+  }, [start.data?.show, router]);
+}
+
 export function Today() {
   const me = useMe().data;
   const members = useMembers().data;
+  const mode = useMode();
+  useFirstRun();
   if (!me) return null;
+  if (mode === "solo") return <SoloToday />;
+  const friend = mode === "friend";
   const other = members?.find((u) => u.id !== me.id) ?? null;
   return (
     <div>
       <RoomBand />
       <div className="mx-auto max-w-[1400px] lg:grid lg:grid-cols-[290px_minmax(0,1fr)_290px] lg:items-start lg:gap-6 lg:px-6 lg:pt-5">
-        <Duet me={me} other={other} />
+        <Duet me={me} other={other} friend={friend} />
         <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-2.5 px-4 pt-6 lg:col-start-2 lg:row-start-1 lg:px-0 lg:pt-0">
           <h2 className="font-display text-xl lg:text-[22px]">Between you</h2>
           <ContinueHere className="w-full" />
+          <FirstSteps friend={friend} />
           <SongOfTheDay />
-          <WindowNote />
+          {!friend && <WindowNote />}
           <Question me={me} other={other} />
           <div className="grid grid-cols-[minmax(0,1fr)] gap-2.5 sm:grid-cols-2">
             <ComingUp />
             {other && <ChatCard other={other} />}
           </div>
-          <Letters />
+          {!friend && <Letters />}
           <div className="mt-4">
             <NowMusic />
           </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown, BellOff, Check, CheckCheck, Clock, Headphones, Lamp, Music2, Pencil, Pin, PinOff, Play, Reply, RotateCcw, Search, Send, Smile, Trash2, X } from "lucide-react";
+import { ArrowDown, BellOff, Check, CheckCheck, Clock, Headphones, Lamp, MessageCircle, Music2, Pencil, Pin, PinOff, Play, Reply, RotateCcw, Search, Send, Smile, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentProps } from "react";
@@ -12,6 +12,7 @@ import { MoodChip } from "@/components/profile/Mood";
 import { SwapSheet } from "@/components/SwapSheet";
 import { Artwork } from "@/components/media";
 import { PixelIcon } from "@/components/pixel/PixelIcon";
+import { LinkRow } from "@/components/today/SoloToday";
 import { Button, IconButton, Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { groupMessages } from "@/lib/chatGroups";
@@ -21,6 +22,7 @@ import { effectOf, jumboEmoji, playEffect } from "@/lib/effects";
 import { fmtTime, plural } from "@/lib/format";
 import { moodOf, useProfile } from "@/lib/profiles";
 import { keys, queryClient } from "@/lib/queries";
+import { useMode } from "@/lib/pair";
 import { useMe, useMembers } from "@/lib/session";
 import {
   jumpTo, loadNewer, loadOlder, notifyTyping, retryMessage, sendMessage, showLatest, socialApi, socialKeys, typing, useChat, useChatEffects,
@@ -315,6 +317,20 @@ function ChatAction({ label, pressed, children, className, ...props }: Component
 }
 
 export default function ChatPage() {
+  const mode = useMode();
+  if (mode === "solo") {
+    return (
+      <div className="mx-auto grid min-h-[60vh] max-w-md content-center justify-items-center gap-3 px-4 text-center">
+        <span className="grid size-14 place-items-center rounded-[16px] bg-surface-2 text-muted">
+          <MessageCircle className="size-[26px]" />
+        </span>
+        <p className="font-display text-lg">No one linked</p>
+        <div className="mt-2 w-full">
+          <LinkRow />
+        </div>
+      </div>
+    );
+  }
   return (
     <Suspense>
       <Chat />

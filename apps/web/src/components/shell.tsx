@@ -14,6 +14,7 @@ import { isPublicPath, useMe, useMembers } from "@/lib/session";
 import { startSocial } from "@/lib/social";
 import { startProfiles } from "@/lib/profiles";
 import { startGift } from "@/lib/gift";
+import { startPair } from "@/lib/pair";
 import { startTogetherState } from "@/lib/together";
 import { startSessionEvents } from "@/lib/sessions";
 import { startRadioWatch } from "@/player/radio";
@@ -22,7 +23,7 @@ import { dismiss, useToasts } from "@/lib/toast";
 import { usePlayer } from "@/player/store";
 
 import { CommandPalette } from "./CommandPalette";
-import { SECTIONS, sectionActive, UnreadBadge } from "./nav";
+import { sectionActive, UnreadBadge, useSections } from "./nav";
 import { Sidebar } from "./Sidebar";
 import { GlobalDialogs } from "./dialogs";
 import { KeepsakeDialogs } from "./KeepsakeDialogs";
@@ -34,10 +35,11 @@ import { SkyBackdrop, SkyToggle } from "./sky/PageHero";
 
 function TabBar() {
   const pathname = usePathname();
+  const sections = useSections();
   return (
     <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-sidebar pb-[env(safe-area-inset-bottom)] lg:hidden">
       <ul className="mx-auto grid max-w-md grid-cols-4">
-        {SECTIONS.map((sec) => {
+        {sections.map((sec) => {
           const active = sectionActive(pathname, sec);
           const Icon = sec.icon;
           return (
@@ -150,6 +152,7 @@ function AuthGate({ children }: { children: ReactNode }) {
     startTogetherSync(me.data.id);
     startRadioWatch();
     startGift();
+    startPair();
     startProfiles();
   }, [me.data]);
   useEffect(() => {
@@ -171,6 +174,14 @@ export function AppShell({ children }: { children: ReactNode }) {
         {children}
         <Toasts />
       </main>
+    );
+  }
+  if (pathname === "/start" || pathname.startsWith("/start/")) {
+    return (
+      <AuthGate>
+        <main>{children}</main>
+        <Toasts />
+      </AuthGate>
     );
   }
   return <AuthGate>{appFrame(pathname, children)}</AuthGate>;

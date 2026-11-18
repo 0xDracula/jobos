@@ -13,11 +13,13 @@ import { PixelIcon } from "@/components/pixel/PixelIcon";
 import { KEEPSAKES, type Keepsake } from "@/components/Shelf";
 import { PageHero } from "@/components/sky/PageHero";
 import { ComingUp } from "@/components/today/Today";
+import { LinkRow } from "@/components/today/SoloToday";
 import { SectionTitle } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useCountdowns } from "@/lib/dates";
 import { useOurSong } from "@/lib/keepsakes";
 import { useJar, useLetterCounts } from "@/lib/letters";
+import { useMode } from "@/lib/pair";
 import { playTracks } from "@/player/controls";
 
 const main = (href: string) => KEEPSAKES.filter((k) => k.href === href);
@@ -28,6 +30,8 @@ const GROUPS: { title: string; items: Keepsake[] }[] = [
   { title: "Dates", items: DATE_KEEPSAKES },
   { title: "Together", items: [...TOGETHER_KEEPSAKES, ...["/dedications/", "/mixtapes/", "/scrapbook/", "/favorites/", "/stars/"].flatMap(main)] },
 ];
+
+const PARTNER_ONLY = new Set(["/letters/", "/jar/", "/promises/", "/story/", "/reminds/", "/stars/", "/song/"]);
 
 function OurSong() {
   const q = useOurSong().data;
@@ -103,6 +107,21 @@ function Tiles({ items }: { items: Keepsake[] }) {
 
 export default function UsPage() {
   const hasCountdown = !!useCountdowns().data?.countdowns.length;
+  const mode = useMode();
+  if (mode === "solo") {
+    return (
+      <>
+        <PageHero title="Us" />
+        <div className="max-w-xl">
+          <LinkRow />
+        </div>
+      </>
+    );
+  }
+  const friend = mode === "friend";
+  const groups = GROUPS.map((g) =>
+    friend ? { title: g.title === "Letters and notes" ? "Songs and notes" : g.title, items: g.items.filter((k) => !PARTNER_ONLY.has(k.href)) } : g,
+  ).filter((g) => g.items.length);
   return (
     <>
       <PageHero
@@ -115,7 +134,7 @@ export default function UsPage() {
       />
       <div className="grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[340px_minmax(0,1fr)] lg:items-start lg:gap-12">
         <div className={cn("grid grid-cols-[minmax(0,1fr)] content-start gap-8 lg:sticky lg:top-10")}>
-          <OurSong />
+          {!friend && <OurSong />}
           {hasCountdown && (
             <section>
               <SectionTitle action={<Link href="/calendar/" className="text-[13px] font-bold text-muted hover:text-ink">Calendar</Link>}>Coming up</SectionTitle>
@@ -124,7 +143,7 @@ export default function UsPage() {
           )}
         </div>
         <div className="grid grid-cols-[minmax(0,1fr)] content-start gap-8">
-          {GROUPS.map((g) => (
+          {groups.map((g) => (
             <section key={g.title}>
               <SectionTitle>{g.title}</SectionTitle>
               <Tiles items={g.items} />

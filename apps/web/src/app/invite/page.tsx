@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { AuthCard, FormError, onSubmit, TextInput, tokenFromPath } from "@/components/AuthCard";
 import { Button, Spinner } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
+import { pairApi } from "@/lib/pair";
 import type { InviteView } from "@/lib/types";
 
 type Stage = "loading" | "invalid" | "invite" | "form" | "declined";
@@ -19,6 +20,7 @@ export default function InvitePage() {
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [signedIn, setSignedIn] = useState<string | null>(null);
 
   useEffect(() => {
     const t = tokenFromPath("invite");
@@ -32,7 +34,13 @@ export default function InvitePage() {
       .then(({ invite }) => {
         setInvite(invite);
         setDisplayName(invite.display_name);
-        setUsername(invite.username || "partner");
+        setUsername(invite.link_kind ? invite.username : invite.username || "partner");
+        if (invite.link_kind) {
+          api
+            .me()
+            .then(({ user }) => setSignedIn(user.display_name))
+            .catch(() => setSignedIn(null));
+        }
         setStage(invite.status === "declined" ? "declined" : "invite");
       })
       .catch(() => setStage("invalid"));
@@ -60,6 +68,18 @@ export default function InvitePage() {
     try {
       await api.acceptInvite(token, { display_name: displayName.trim(), username: username.trim().toLowerCase(), password });
       window.location.assign("/?welcome=1");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Server unreachable");
+      setBusy(false);
+    }
+  };
+
+  const linkAsMe = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      await pairApi.link(token);
+      window.location.assign("/");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Server unreachable");
       setBusy(false);
@@ -96,8 +116,17 @@ export default function InvitePage() {
       </AuthCard>
     );
   }
+  const kind = invite?.link_kind;
+  const title = kind ? `Invite from ${invite?.from?.display_name ?? "someone"}` : invite?.display_name ? `For ${invite.display_name}` : "Invite";
   return (
-    <AuthCard title={invite?.display_name ? `For ${invite.display_name}` : "Invite"}>
+    <AuthCard title={title}>
+      {kind && (
+        <p className="-mt-2 mb-5">
+          <span className="inline-flex h-6 items-center rounded-full bg-accent-soft px-2.5 text-xs font-extrabold text-accent-strong">
+            {kind === "partner" ? "Partner" : "Friend"}
+          </span>
+        </p>
+      )}
       {invite?.message && (
         <p dir="auto" className="mb-5 whitespace-pre-line font-hand text-[22px] leading-snug">
           {invite.message}
@@ -115,6 +144,19 @@ export default function InvitePage() {
           </Button>
         )}
       </div>
+      {kind && (
+        <div className="mt-4 border-t border-line pt-4 text-center">
+          {signedIn ? (
+            <Button className="w-full" onClick={() => void linkAsMe()} disabled={busy}>
+              Link as {signedIn}
+            </Button>
+          ) : (
+            <a href={`/login/?next=${encodeURIComponent(`/invite/${token}`)}`} className="text-sm font-extrabold text-muted hover:text-ink">
+              Log in instead
+            </a>
+          )}
+        </div>
+      )}
     </AuthCard>
   );
 }

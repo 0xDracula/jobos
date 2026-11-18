@@ -3,14 +3,18 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
 
-import { AvatarEditor } from "@/avatar";
+import { Avatar, AvatarEditor } from "@/avatar";
 import { AccountSettings } from "@/components/AccountSettings";
 import { ReplayWelcome } from "@/components/letters/LettersLayer";
 import { PageHero } from "@/components/sky/PageHero";
-import { ConfirmDialog } from "@/components/dialogs";
+import { ConfirmDialog, Dialog } from "@/components/dialogs";
+import { LinkRow } from "@/components/today/SoloToday";
 import { Artwork } from "@/components/media";
 import { Button, Empty, Segmented, Switch } from "@/components/ui";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
+import { cn } from "@/lib/cn";
+import { afterPairChange, pairApi, usePair, type PairKind } from "@/lib/pair";
+import { toast } from "@/lib/toast";
 import { deviceName, isIOS } from "@/lib/device";
 import { install, useInstall } from "@/lib/install";
 import { fmtBytes } from "@/lib/format";
@@ -35,6 +39,115 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
       <span className="font-bold">{label}</span>
       {children}
     </div>
+  );
+}
+
+const sinceDate = (iso: string) => new Date(iso).toLocaleDateString([], { day: "numeric", month: "short", year: "numeric" });
+
+function UnlinkDialog({ open, onOpenChange, name }: { open: boolean; onOpenChange: (o: boolean) => void; name: string }) {
+  const [keep, setKeep] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const unlink = async () => {
+    setBusy(true);
+    try {
+      await pairApi.unlink(keep);
+      onOpenChange(false);
+      afterPairChange();
+      toast("Unlinked");
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : "Unlink unavailable");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const option = (value: boolean, title: string) => (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={keep === value}
+      onClick={() => setKeep(value)}
+      className={cn(
+        "flex w-full items-center gap-3 rounded-[14px] border-[1.5px] bg-surface-2 p-3.5 text-start",
+        keep === value ? "border-accent" : "border-transparent",
+      )}
+    >
+      <span className={cn("grid size-[22px] shrink-0 place-items-center rounded-full border-2", keep === value ? "border-accent" : "border-line-strong")}>
+        {keep === value && <span className="size-2.5 rounded-full bg-accent" />}
+      </span>
+      <span className="text-[15px] font-extrabold">{title}</span>
+    </button>
+  );
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange} title={`Unlink ${name}`}>
+      <p className="text-[13.5px] font-extrabold text-muted">Chat, letters and memories</p>
+      <div role="radiogroup" aria-label="Shared history" className="mt-2.5 grid gap-2">
+        {option(true, "Keep")}
+        {option(false, "Delete for both of you")}
+      </div>
+      <div className="mt-5 flex justify-end gap-2">
+        <Button variant="ghost" onClick={() => onOpenChange(false)}>
+          Cancel
+        </Button>
+        <Button variant="danger" onClick={() => void unlink()} disabled={busy}>
+          Unlink
+        </Button>
+      </div>
+    </Dialog>
+  );
+}
+
+function LinkedAccount() {
+  const pair = usePair().data?.pair;
+  const [unlinking, setUnlinking] = useState(false);
+  const setKind = async (kind: PairKind) => {
+    try {
+      await pairApi.setKind(kind);
+      afterPairChange();
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : "Change unavailable");
+    }
+  };
+  if (pair === undefined) return null;
+  if (!pair?.partner) {
+    return (
+      <section className="mb-10">
+        <h2 className="mb-3 font-display text-xl font-semibold">Linked account</h2>
+        <LinkRow />
+      </section>
+    );
+  }
+  const partner = pair.partner;
+  return (
+    <Section title="Linked account">
+      <div className="flex min-h-14 items-center gap-3 px-3 py-2">
+        <span className="overflow-hidden rounded-full bg-surface-2">
+          <Avatar userId={partner.id} size={40} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span dir="auto" className="block truncate font-extrabold">
+            {partner.display_name}
+          </span>
+          <span className="block text-[13px] font-semibold text-muted">Since {sinceDate(pair.created_at)}</span>
+        </span>
+      </div>
+      <Row label="Kind">
+        <Segmented<PairKind>
+          label="Kind"
+          value={pair.kind}
+          onChange={(v) => void setKind(v)}
+          options={[
+            ["partner", "Partner"],
+            ["friend", "Friend"],
+          ]}
+        />
+      </Row>
+      <Row label="Unlink">
+        <Button variant="danger" size="sm" onClick={() => setUnlinking(true)}>
+          Unlink
+        </Button>
+      </Row>
+      <UnlinkDialog open={unlinking} onOpenChange={setUnlinking} name={partner.display_name} />
+    </Section>
   );
 }
 
@@ -169,6 +282,7 @@ export default function SettingsPage() {
       <PageHero title="Settings" />
       <div className="lg:columns-2 lg:gap-8 [&>*]:break-inside-avoid">
       <AccountSettings />
+      <LinkedAccount />
       <AvatarEditor />
       <Section title="Appearance">
         <Row label="Theme">

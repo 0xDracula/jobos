@@ -284,6 +284,7 @@ func New(d Deps) http.Handler {
 			r.Get("/me", a.me)
 			r.Get("/members", a.members)
 			a.registerPairRoutes(r)
+			a.registerStartRoutes(r)
 			r.Get("/ws", a.websocket)
 			r.Get("/presence", a.presence)
 			r.Put("/quiet", a.setQuiet)

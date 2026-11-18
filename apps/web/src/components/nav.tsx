@@ -1,10 +1,13 @@
 "use client";
 
-import { Disc3, Heart, MessageCircle, Sun } from "lucide-react";
+import { Disc3, Heart, MessageCircle, Search, Sun, UserRound } from "lucide-react";
 
+import { useMode } from "@/lib/pair";
 import { usePresence } from "@/lib/social";
 
 export type Section = { href: string; label: string; icon: typeof Sun; prefixes: string[] };
+
+const MUSIC_PREFIXES = ["/music", "/library", "/discover", "/playlist", "/album", "/artist", "/mix", "/together"];
 
 export const SECTIONS: Section[] = [
   { href: "/", label: "Today", icon: Sun, prefixes: ["/room"] },
@@ -12,7 +15,7 @@ export const SECTIONS: Section[] = [
     href: "/music/",
     label: "Music",
     icon: Disc3,
-    prefixes: ["/music", "/library", "/discover", "/search", "/playlist", "/album", "/artist", "/mix", "/together"],
+    prefixes: [...MUSIC_PREFIXES, "/search"],
   },
   { href: "/chat/", label: "Chat", icon: MessageCircle, prefixes: ["/chat"] },
   {
@@ -26,6 +29,17 @@ export const SECTIONS: Section[] = [
     ],
   },
 ];
+
+export const SOLO_SECTIONS: Section[] = [
+  { href: "/", label: "Today", icon: Sun, prefixes: ["/room"] },
+  { href: "/music/", label: "Music", icon: Disc3, prefixes: MUSIC_PREFIXES },
+  { href: "/search/", label: "Search", icon: Search, prefixes: ["/search"] },
+  { href: "/you/", label: "You", icon: UserRound, prefixes: ["/you", "/profile", "/stats", "/recaps", "/settings", "/link"] },
+];
+
+export function useSections(): Section[] {
+  return useMode() === "solo" ? SOLO_SECTIONS : SECTIONS;
+}
 
 const under = (pathname: string, prefix: string) => pathname === prefix || pathname.startsWith(`${prefix}/`);
 

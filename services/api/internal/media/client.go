@@ -140,3 +140,15 @@ func (c *Client) Link(ctx context.Context, link string) (*Link, error) {
 func (c *Client) Status(ctx context.Context) (json.RawMessage, error) {
 	return c.get(ctx, c.base+"/status")
 }
+
+func (c *Client) StartChart(ctx context.Context, country string) (json.RawMessage, error) {
+	return c.get(ctx, c.base+"/start/chart?country="+url.QueryEscape(country))
+}
+
+func (c *Client) StartArtist(ctx context.Context, browseID string) (json.RawMessage, error) {
+	return c.get(ctx, c.base+"/start/artists/"+url.PathEscape(browseID))
+}
+
+func (c *Client) StartSearch(ctx context.Context, query string) (json.RawMessage, error) {
+	return c.get(ctx, c.base+"/start/search?q="+url.QueryEscape(query))
+}

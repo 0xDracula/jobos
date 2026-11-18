@@ -184,6 +184,9 @@ func (s *Store) EnqueueCandidates(ctx context.Context, userID uuid.UUID, now tim
 		}
 		p.Artists = append(p.Artists, sa)
 	}
+	if err := s.startSeeds(ctx, userID, &p); err != nil {
+		return false, err
+	}
 	for id, n := range names {
 		p.Library = append(p.Library, libraryRef{ID: id, Title: n.Title, Artists: n.Artists})
 	}
