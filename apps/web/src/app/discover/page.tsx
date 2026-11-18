@@ -144,10 +144,10 @@ export default function DiscoverPage() {
       <div className="grid grid-cols-1 gap-12">
         <HolidaySection />
         <MixShelf title="Made for you" kinds={MADE_FOR_YOU} />
-        <ReleasesShelf />
-        <WeatherMixSection />
         <TimeMixShelf kinds={TIME_MIXES} />
         <MixShelf title="Moods" kinds={MOOD_MIXES} />
+        <ReleasesShelf />
+        <WeatherMixSection />
         <RadioSection />
       </div>
     </>

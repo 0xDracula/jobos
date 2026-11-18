@@ -276,3 +276,21 @@ func TestSongKeyIgnoresVideoSuffixes(t *testing.T) {
 		t.Error("two songs match")
 	}
 }
+
+func TestMixReasonsStayWithTheirMix(t *testing.T) {
+	now := time.Date(2026, 11, 18, 12, 0, 0, 0, time.UTC)
+	ours, liked := uuid.New(), uuid.New()
+	sig := &TrackSignal{Liked: true, Imported: true, Score: 3, LastEngaged: now.Add(-90 * 24 * time.Hour)}
+	d := &RecData{Now: now, OurSong: ours, Taste: &Taste{Artists: map[uuid.UUID]float64{}, Tags: map[string]float64{}},
+		names: map[uuid.UUID]trackName{ours: {Title: "Ghir Enta"}}}
+	c := &Cand{TrackID: liked, Signal: sig}
+	if r := d.reason(MixYourSong, c); r.Label != "Similar to Ghir Enta" {
+		t.Errorf("your song reason %q", r.Label)
+	}
+	if r := d.reason(MixRediscover, c); r.Label != "Rediscover" {
+		t.Errorf("rediscover reason %q", r.Label)
+	}
+	if r := d.reason(MixDaily, c); r.Label != "From your playlist" {
+		t.Errorf("daily reason %q", r.Label)
+	}
+}

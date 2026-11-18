@@ -818,8 +818,12 @@ func (s *Store) GenerateMixes(ctx context.Context, userID uuid.UUID, kinds []str
 		return nil, err
 	}
 	built := map[string][]*Cand{}
+	reasons := map[string][]Reason{}
 	for _, kind := range kinds {
 		built[kind] = d.Build(kind)
+		for _, c := range built[kind] {
+			reasons[kind] = append(reasons[kind], c.Reason)
+		}
 	}
 	added := map[*Cand]bool{}
 	var queue []uuid.UUID
@@ -847,9 +851,9 @@ func (s *Store) GenerateMixes(ctx context.Context, userID uuid.UUID, kinds []str
 	counts := map[string]int{}
 	for _, kind := range kinds {
 		items := make([]MixItem, 0, len(built[kind]))
-		for _, c := range built[kind] {
+		for i, c := range built[kind] {
 			if c.TrackID != uuid.Nil {
-				items = append(items, MixItem{TrackID: c.TrackID, Reason: c.Reason, New: c.New()})
+				items = append(items, MixItem{TrackID: c.TrackID, Reason: reasons[kind][i], New: c.New()})
 			}
 		}
 		if len(items) < mixSpecs[kind].Min {
