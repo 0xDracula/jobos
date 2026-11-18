@@ -218,6 +218,12 @@ func (s *Store) CompleteJob(ctx context.Context, id int64, result json.RawMessag
 		err = completeTrackTags(ctx, tx, payload, result)
 	case KindProcessFont:
 		err = completeFont(ctx, tx, payload, result)
+	case KindAnalyzeModels:
+		err = completeModels(ctx, tx, payload, result)
+	case KindFetchCandidates:
+		err = completeCandidates(ctx, tx, payload, result)
+	case KindFetchReleases:
+		err = completeReleases(ctx, tx, payload, result)
 	}
 	if err != nil {
 		return err
@@ -259,6 +265,9 @@ func completeDownload(ctx context.Context, tx pgx.Tx, payload, result []byte, pr
 		return err
 	}
 	if linked.RowsAffected() == 1 {
+		if err := enqueueModels(ctx, tx, assetID, a.Path); err != nil {
+			return err
+		}
 		if _, err := enqueueEnrich(ctx, tx, p.TrackID, priority); err != nil {
 			return err
 		}
@@ -299,6 +308,8 @@ func sourceKey(kind string, payload []byte) string {
 		return "ytdlp"
 	case KindEnrichArtist, KindFetchTags:
 		return "enrichment"
+	case KindFetchCandidates, KindFetchReleases:
+		return "recommendations"
 	}
 	return ""
 }

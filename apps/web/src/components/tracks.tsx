@@ -203,9 +203,12 @@ type RowProps = {
   onPlay: () => void;
   onRemove?: () => void;
   showAlbum?: boolean;
+  note?: TrackNote;
 };
 
-export const TrackRow = memo(function TrackRow({ track, index, current, playing, liked, hidden, onPlay, onRemove, showAlbum }: RowProps) {
+export type TrackNote = { label: string; isNew?: boolean };
+
+export const TrackRow = memo(function TrackRow({ track, index, current, playing, liked, hidden, onPlay, onRemove, showAlbum, note }: RowProps) {
   const unavailable = unavailableLabel(track);
   const source = track.source?.provider;
   return (
@@ -245,6 +248,14 @@ export const TrackRow = memo(function TrackRow({ track, index, current, playing,
             {showAlbum && track.album ? ` · ${track.album}` : ""}
           </span>
         </div>
+        {note && (
+          <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs font-bold">
+            {note.isNew && <span className="shrink-0 rounded-full bg-accent-soft px-1.5 py-px text-[11px] text-accent-strong">New</span>}
+            <span dir="auto" className="truncate text-muted">
+              {note.label}
+            </span>
+          </div>
+        )}
       </div>
       <DedicationMark track={track} />
       <div className="pointer-events-none flex shrink-0 items-center gap-2">
@@ -269,12 +280,14 @@ export function TrackList({
   numbered,
   showAlbum,
   onRemove,
+  notes,
 }: {
   tracks: Track[];
   context: PlayContext;
   numbered?: boolean;
   showAlbum?: boolean;
   onRemove?: (track: Track) => void;
+  notes?: Record<string, TrackNote>;
 }) {
   const liked = useLikedIds();
   const hidden = useHiddenIds();
@@ -298,6 +311,7 @@ export function TrackList({
           onPlay={handlers[i]}
           onRemove={onRemove ? () => onRemove(t) : undefined}
           showAlbum={showAlbum}
+          note={notes?.[t.id]}
         />
       ))}
     </ul>

@@ -6,7 +6,9 @@ import { useState } from "react";
 import { Dialog } from "@/components/dialogs";
 import { SongPicker } from "@/components/letters/SongPicker";
 import { Button, Field, inputClass } from "@/components/ui";
+import { Artwork } from "@/components/media";
 import { cn } from "@/lib/cn";
+import { MOOD_MIX, useMix } from "@/lib/mixes";
 import { MOODS, moodOf, profileKeys, profilesApi, type Mood, type MoodKey } from "@/lib/profiles";
 import { queryClient } from "@/lib/queries";
 import { shareSong } from "@/lib/social";
@@ -93,6 +95,40 @@ export function MoodPicker({ current, onDone }: { current: Mood | null | undefin
   );
 }
 
+function MoodSuggestions({ mood, picked, onPick }: { mood: MoodKey; picked: Track | null; onPick: (t: Track) => void }) {
+  const tracks = useMix(MOOD_MIX[mood] ?? null).data?.tracks.slice(0, 6);
+  if (!tracks?.length) return null;
+  return (
+    <div className="grid gap-1.5">
+      <span className="text-sm font-bold text-muted">Suggestions</span>
+      <div className="grid grid-cols-2 gap-1.5">
+        {tracks.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => onPick(t)}
+            aria-pressed={picked?.id === t.id}
+            className={cn(
+              "flex min-w-0 items-center gap-2 rounded-button border-2 border-panel-line p-1.5 text-start",
+              picked?.id === t.id ? "bg-accent-soft" : "bg-panel",
+            )}
+          >
+            <Artwork src={t.artwork_thumb_url} className="size-9 shrink-0 rounded-[4px]" />
+            <span className="min-w-0">
+              <span dir="auto" className="block truncate text-sm font-bold">
+                {t.title}
+              </span>
+              <span dir="auto" className="block truncate text-xs font-semibold text-muted">
+                {t.artists.join(", ")}
+              </span>
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function MoodReply({ mood, name }: { mood: Mood; name: string }) {
   const [open, setOpen] = useState(false);
   const [track, setTrack] = useState<Track | null>(null);
@@ -113,6 +149,7 @@ export function MoodReply({ mood, name }: { mood: Mood; name: string }) {
       <Dialog open={open} onOpenChange={setOpen} title={`A song for ${name}`}>
         <div className="grid gap-3">
           <SongPicker value={track} onChange={setTrack} />
+          {open && <MoodSuggestions mood={mood.mood} picked={track} onPick={setTrack} />}
           <Field label="Note">
             <input dir="auto" value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} className={inputClass} />
           </Field>

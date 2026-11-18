@@ -4,6 +4,7 @@ import { Play } from "lucide-react";
 import Link from "next/link";
 
 import { Loading } from "@/components/common";
+import { MixShelf, ReleasesShelf, TimeMixShelf } from "@/components/mixes/Mixes";
 import { Artwork } from "@/components/media";
 import { PixelIcon, type PixelIconName } from "@/components/pixel/PixelIcon";
 import { PageHero } from "@/components/sky/PageHero";
@@ -13,13 +14,13 @@ import { ApiError } from "@/lib/api";
 import { plural } from "@/lib/format";
 import { holidayActive, useRoomConfig } from "@/lib/gift";
 import { useOurSong } from "@/lib/keepsakes";
-import { MOOD_LABELS, WEATHER_CONDITIONS, useWeatherMix } from "@/lib/mixes";
+import { MADE_FOR_YOU, MOOD_LABELS, MOOD_MIXES, TIME_MIXES, WEATHER_CONDITIONS, useWeatherMix } from "@/lib/mixes";
 import { usePlaylists } from "@/lib/queries";
 import { playTracks } from "@/player/controls";
 import { MOODS, startRadio } from "@/player/radio";
 import { selectTrack, usePlayer } from "@/player/store";
 
-const MIX_CONTEXT = { type: "queue" as const, id: "weather-mix", name: "Weather mix" };
+const MIX_CONTEXT = { type: "queue" as const, id: "mix:weather", name: "Weather mix" };
 
 function WeatherMixSection() {
   const q = useWeatherMix();
@@ -142,7 +143,11 @@ export default function DiscoverPage() {
       <DiscoverHero />
       <div className="grid grid-cols-1 gap-12">
         <HolidaySection />
+        <MixShelf title="Made for you" kinds={MADE_FOR_YOU} />
+        <ReleasesShelf />
         <WeatherMixSection />
+        <TimeMixShelf kinds={TIME_MIXES} />
+        <MixShelf title="Moods" kinds={MOOD_MIXES} />
         <RadioSection />
       </div>
     </>

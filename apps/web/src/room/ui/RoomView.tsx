@@ -11,7 +11,7 @@ import { avatarFrames } from "@/avatar/draw";
 import { lookOf, type AvatarLook } from "@/avatar/look";
 import type { AvatarFrames } from "@/avatar/types";
 import { ContinueHere } from "@/components/ContinueHere";
-import { SongOfTheDayHome } from "@/components/letters/SongOfTheDay";
+import { PicksHome, SongOfTheDayHome } from "@/components/letters/SongOfTheDay";
 import { DailyQuestionHome } from "@/components/question/DailyQuestion";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui";
 import { ApiError } from "@/lib/api";
@@ -641,6 +641,7 @@ export function RoomView() {
       <div className="pointer-events-none absolute inset-x-3 top-[calc(max(env(safe-area-inset-top),12px)+56px)] flex flex-col items-center gap-2 lg:top-20">
         <ContinueHere className="pointer-events-auto w-full max-w-xl" />
         <SongOfTheDayHome className="pointer-events-auto w-full max-w-xl" />
+        <PicksHome className="pointer-events-auto w-full max-w-xl" />
         <DailyQuestionHome className="pointer-events-auto w-full max-w-xl" />
       </div>
 

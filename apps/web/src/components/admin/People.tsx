@@ -15,6 +15,7 @@ import { Artwork } from "../media";
 import { Button, Empty, Field, Segmented, inputClass } from "../ui";
 
 import { ListeningTimeline } from "./Listening";
+import { Recommendations } from "./Recommendations";
 import { LinkDialog, Line, Panel, when } from "./parts";
 
 const SIGNALS: Record<string, string> = {
@@ -240,6 +241,7 @@ export function People() {
     <>
       <PlayingNow />
       <ListeningTimeline />
+      <Recommendations />
       <Accounts />
       <Invites />
       <Visibility />

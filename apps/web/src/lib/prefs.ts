@@ -52,6 +52,7 @@ export type Prefs = {
   eqGains: number[];
   effect: Effect;
   vinyl: boolean;
+  autoplay: boolean;
 };
 
 export const DEFAULT_PREFS: Prefs = {
@@ -72,6 +73,7 @@ export const DEFAULT_PREFS: Prefs = {
   eqGains: [...EQ_PRESETS.flat],
   effect: "none",
   vinyl: false,
+  autoplay: true,
 };
 
 export const PREFS_KEY = "jobbos.prefs";

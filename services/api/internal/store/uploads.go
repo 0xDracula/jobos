@@ -110,6 +110,9 @@ func completeUpload(ctx context.Context, tx pgx.Tx, payload, result []byte, prio
 		p.TrackID, p.SourceID, assetID); err != nil {
 		return err
 	}
+	if err := enqueueModels(ctx, tx, assetID, r.Asset.Path); err != nil {
+		return err
+	}
 	if r.Cover != nil {
 		if err := setTrackCover(ctx, tx, p.TrackID, *r.Cover); err != nil {
 			return err

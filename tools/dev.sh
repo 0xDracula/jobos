@@ -6,6 +6,9 @@ trap 'trap - EXIT; kill 0' EXIT INT TERM
 make --no-print-directory api 2>&1 | sed -u 's/^/[api]    /' &
 make --no-print-directory media 2>&1 | sed -u 's/^/[media]  /' &
 make --no-print-directory worker 2>&1 | sed -u 's/^/[worker] /' &
+if [ -s "${MODELS_DIR:-.data/models}/discogs-effnet-bsdynamic-1.onnx" ]; then
+  make --no-print-directory worker-heavy 2>&1 | sed -u 's/^/[heavy]  /' &
+fi
 if [ "${WEB_DEV:-}" = "1" ]; then
   make --no-print-directory web 2>&1 | sed -u 's/^/[web]    /' &
   echo "[dev]    web app (dev server): http://127.0.0.1:3000/"

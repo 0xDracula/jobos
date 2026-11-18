@@ -161,6 +161,18 @@ func run(log *slog.Logger) error {
 			}
 		}
 	}()
+	go func() {
+		tick := time.NewTicker(5 * time.Minute)
+		defer tick.Stop()
+		for {
+			httpapi.RefreshRecommendations(ctx, deps, time.Now())
+			select {
+			case <-ctx.Done():
+				return
+			case <-tick.C:
+			}
+		}
+	}()
 	if cfg.BackupDir != "" {
 		script := cfg.BackupScript
 		if script == "" {

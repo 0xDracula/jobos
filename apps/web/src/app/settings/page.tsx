@@ -9,7 +9,7 @@ import { ReplayWelcome } from "@/components/letters/LettersLayer";
 import { PageHero } from "@/components/sky/PageHero";
 import { ConfirmDialog } from "@/components/dialogs";
 import { Artwork } from "@/components/media";
-import { Button, Empty, Segmented } from "@/components/ui";
+import { Button, Empty, Segmented, Switch } from "@/components/ui";
 import { api } from "@/lib/api";
 import { deviceName, isIOS } from "@/lib/device";
 import { install, useInstall } from "@/lib/install";
@@ -35,6 +35,18 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
       <span className="font-bold">{label}</span>
       {children}
     </div>
+  );
+}
+
+function Playback() {
+  const autoplay = usePrefs((p) => p.autoplay);
+  const set = usePrefs((p) => p.set);
+  return (
+    <Section title="Playback">
+      <Row label="Autoplay">
+        <Switch label="Autoplay" checked={autoplay} onCheckedChange={(on) => set({ autoplay: on })} />
+      </Row>
+    </Section>
   );
 }
 
@@ -184,6 +196,7 @@ export default function SettingsPage() {
           />
         </Row>
       </Section>
+      <Playback />
       <LocationSettings />
       <RoomPrefs />
       <App />

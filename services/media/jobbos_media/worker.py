@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import logging
 import os
 import signal
@@ -9,7 +10,7 @@ from pathlib import Path
 
 import httpx
 
-from . import analysis, artists, config, enrich, fonts, ingest, lyrics, match, photos, ytdlp_update
+from . import analysis, artists, candidates, config, enrich, fonts, ingest, lyrics, match, photos, ytdlp_update
 
 log = logging.getLogger("jobbos.worker")
 
@@ -106,6 +107,20 @@ def handle_fetch_tags(payload: dict) -> dict:
     return artists.fetch_track_tags(payload)
 
 
+def handle_models(payload: dict) -> dict:
+    from . import models
+
+    return models.analyze(media_path(payload["path"]))
+
+
+def handle_candidates(payload: dict) -> dict:
+    return candidates.fetch_candidates(payload)
+
+
+def handle_releases(payload: dict) -> dict:
+    return candidates.fetch_releases(payload)
+
+
 def handle_update_ytdlp(payload: dict) -> dict:
     return ytdlp_update.update()
 
@@ -124,6 +139,12 @@ HANDLERS = {
     "update_ytdlp": handle_update_ytdlp,
     "enrich_artist": handle_enrich_artist,
     "fetch_tags": handle_fetch_tags,
+    "fetch_candidates": handle_candidates,
+    "fetch_releases": handle_releases,
+}
+
+HEAVY_HANDLERS = {
+    "analyze_models": handle_models,
 }
 
 
@@ -148,12 +169,25 @@ def describe(kind: str, payload: dict, result: dict) -> str:
         return f"{len(result['tags'])} tags {payload['title']!r}"
     if kind == "update_ytdlp":
         return f"yt-dlp {result['result']}: {result['previous']} -> {result['version']}"
+    if kind == "analyze_models":
+        styles = ", ".join(st["name"] for st in result["styles"][:2]) or "-"
+        return f"happy {result['happy']}, sad {result['sad']}, voice {result['voice']}, {styles} {payload['path']}"
+    if kind == "fetch_candidates":
+        counts = ", ".join(f"{k} {v}" for k, v in result["counts"].items())
+        errors = f"; errors: {', '.join(result['errors'])}" if result["errors"] else ""
+        return f"{len(result['candidates'])} candidates ({counts}){errors}"
+    if kind == "fetch_releases":
+        return f"{len(result['releases'])} releases"
     if kind == "analyze_audio":
         return f"{result['tempo_bpm']} BPM, {result['musical_key']}, energy {result['energy']} {payload['path']}"
     return "done"
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Jobbos job worker")
+    parser.add_argument("--queue", choices=["default", "heavy"], default="default")
+    queue = parser.parse_args().queue
+    handlers = HEAVY_HANDLERS if queue == "heavy" else HANDLERS
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     logging.getLogger("httpx").setLevel(logging.WARNING)
     worker_id = f"{socket.gethostname()}:{os.getpid()}"
@@ -168,13 +202,13 @@ def main() -> None:
     headers = {"Authorization": f"Bearer {config.WORKER_TOKEN}"}
     downloads = Breaker()
     with httpx.Client(base_url=config.API_URL, headers=headers, timeout=30) as http:
-        log.info("worker %s polling %s", worker_id, config.API_URL)
+        log.info("worker %s polling %s (%s queue)", worker_id, config.API_URL, queue)
         while not stopping:
-            kinds = [k for k in HANDLERS if not (k == "download_track" and downloads.is_open())]
+            kinds = [k for k in handlers if not (k == "download_track" and downloads.is_open())]
             try:
                 r = http.post(
                     "/internal/jobs/claim",
-                    json={"queue": "default", "worker": worker_id, "kinds": kinds, "downloads_paused_s": downloads.remaining_s()},
+                    json={"queue": queue, "worker": worker_id, "kinds": kinds, "downloads_paused_s": downloads.remaining_s()},
                 )
             except httpx.HTTPError as e:
                 log.warning("API unreachable: %s", e)
@@ -192,7 +226,7 @@ def main() -> None:
             job = r.json()
             log.info("job %s %s started", job["id"], job["kind"])
             try:
-                handler = HANDLERS[job["kind"]]
+                handler = handlers[job["kind"]]
                 result = handler(job["payload"])
                 http.post(f"/internal/jobs/{job['id']}/complete", json={"result": result}).raise_for_status()
                 log.info("job %s %s", job["id"], describe(job["kind"], job["payload"], result))

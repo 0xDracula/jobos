@@ -39,6 +39,7 @@ const EVENTS: [string, string, boolean][] = [
   ["swaps", "Song swaps", false],
   ["together", "Listen together", true],
   ["lamp", "Lamp", false],
+  ["releases", "New releases", false],
 ];
 
 function urlBase64ToBytes(base64: string): Uint8Array<ArrayBuffer> {

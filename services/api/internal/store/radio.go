@@ -11,15 +11,16 @@ import (
 )
 
 type MixTrack struct {
-	ID        uuid.UUID
-	ArtistIDs []uuid.UUID
-	Tags      []string
-	Energy    *float32
-	Valence   *float32
-	Tempo     *float32
-	Liked     bool
-	Playlists int
-	Picked    bool
+	ID                                       uuid.UUID
+	ArtistIDs                                []uuid.UUID
+	Tags                                     []string
+	Energy                                   *float32
+	Valence                                  *float32
+	Tempo                                    *float32
+	Happy, Sad, Relaxed, Aggressive, Arousal *float32
+	Liked                                    bool
+	Playlists                                int
+	Picked                                   bool
 }
 
 func (s *Store) MixCandidates(ctx context.Context, userID uuid.UUID) ([]MixTrack, error) {
@@ -29,7 +30,8 @@ func (s *Store) MixCandidates(ctx context.Context, userID uuid.UUID) ([]MixTrack
 					select tt.tag_id from track_tags tt where tt.track_id = t.id
 					union select at.tag_id from artist_tags at join track_artists ta on ta.artist_id = at.artist_id where ta.track_id = t.id
 				) x join tags tg on tg.id = x.tag_id), '{}'),
-			ma.energy, ma.valence, ma.tempo_bpm,
+			ma.energy, coalesce(ma.model_valence, ma.valence), ma.tempo_bpm,
+			ma.mood_happy, ma.mood_sad, ma.mood_relaxed, ma.mood_aggressive, ma.arousal,
 			exists (select 1 from likes l where l.user_id = $1 and l.track_id = t.id),
 			(select count(*) from playlist_items pi where pi.track_id = t.id),
 			exists (select 1 from picks p where p.track_id = t.id and p.author_id <> $1 and not p.placeholder)
@@ -44,7 +46,8 @@ func (s *Store) MixCandidates(ctx context.Context, userID uuid.UUID) ([]MixTrack
 	}
 	return pgx.CollectRows(rows, func(r pgx.CollectableRow) (MixTrack, error) {
 		var m MixTrack
-		return m, r.Scan(&m.ID, &m.ArtistIDs, &m.Tags, &m.Energy, &m.Valence, &m.Tempo, &m.Liked, &m.Playlists, &m.Picked)
+		return m, r.Scan(&m.ID, &m.ArtistIDs, &m.Tags, &m.Energy, &m.Valence, &m.Tempo,
+			&m.Happy, &m.Sad, &m.Relaxed, &m.Aggressive, &m.Arousal, &m.Liked, &m.Playlists, &m.Picked)
 	})
 }
 
@@ -79,6 +82,40 @@ type Seed struct {
 	Tags    map[string]float64
 	Energy  *float64
 	Valence *float64
+	Sound   map[uuid.UUID]float64
+}
+
+func SoundCloseness(emb *Embeddings, seeds []uuid.UUID, cands []MixTrack) map[uuid.UUID]float64 {
+	var centroid []float32
+	for _, id := range seeds {
+		v := emb.Get(id)
+		if v == nil {
+			continue
+		}
+		if centroid == nil {
+			centroid = make([]float32, len(v))
+		}
+		for i, x := range v {
+			centroid[i] += x
+		}
+	}
+	if centroid == nil {
+		return nil
+	}
+	centroid = unit(centroid)
+	var ids []uuid.UUID
+	var sims []float64
+	for _, t := range cands {
+		if v := emb.Get(t.ID); v != nil {
+			ids = append(ids, t.ID)
+			sims = append(sims, Dot(v, centroid))
+		}
+	}
+	out := make(map[uuid.UUID]float64, len(ids))
+	for i, r := range PercentileRanks(sims) {
+		out[ids[i]] = r
+	}
+	return out
 }
 
 type Steer struct {
@@ -151,6 +188,9 @@ func Score(t MixTrack, seed Seed, steer Steer) float64 {
 	if seed.Energy != nil && seed.Valence != nil && t.Energy != nil && t.Valence != nil {
 		d := math.Hypot(float64(*t.Energy)-*seed.Energy, float64(*t.Valence)-*seed.Valence)
 		audio = 1 - math.Min(1, d/math.Sqrt2)
+	}
+	if sound, ok := seed.Sound[t.ID]; ok {
+		audio = 0.4*audio + 0.6*sound
 	}
 	affinity := 0.0
 	if t.Liked {

@@ -115,6 +115,63 @@ export function SongOfTheDayHome({ className }: { className?: string }) {
   );
 }
 
+export function PicksHome({ className }: { className?: string }) {
+  const q = usePicks();
+  const names = useNames();
+  const picks = q.data?.for_me ?? [];
+  const newest = picks.reduce((at, p) => (p.created_at > at ? p.created_at : at), "");
+  const key = picks.length ? `${picks.length}.${newest}` : "";
+  const [hidden, setHidden] = useState(true);
+  useEffect(() => {
+    if (!key) return;
+    try {
+      setHidden(localStorage.getItem("jobbos.picks-home") === key);
+    } catch {
+      setHidden(false);
+    }
+  }, [key]);
+  if (!picks.length || hidden) return null;
+  const tracks = picks.map((p) => p.track);
+  const name = `Picks from ${names(picks[0].author_id)}`;
+  const context = { type: "queue" as const, id: "picks", name };
+  const dismiss = () => {
+    setHidden(true);
+    try {
+      localStorage.setItem("jobbos.picks-home", key);
+    } catch {
+    }
+  };
+  return (
+    <section aria-label={name} className={cn("flex items-center gap-3 rounded-card bg-surface-solid/80 p-3 shadow-soft backdrop-blur", className)}>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-accent-strong">
+          <Sparkles className="size-4" /> {name}
+        </div>
+        <div className="no-scrollbar mt-1.5 flex gap-1.5 overflow-x-auto">
+          {tracks.slice(0, 8).map((t, i) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => playTracks(tracks, i, context)}
+              aria-label={`Play ${t.title}`}
+              title={`${t.title} · ${t.artists.join(", ")}`}
+              className="shrink-0 transition-transform duration-150 hover:-translate-y-0.5"
+            >
+              <Artwork src={t.artwork_thumb_url ?? t.artwork_url} className="size-12 rounded-[6px]" />
+            </button>
+          ))}
+        </div>
+      </div>
+      <IconButton label={`Play ${name}`} onClick={() => playTracks(tracks, 0, context)} className="shrink-0 bg-accent text-on-accent">
+        <Play className="fill-current" />
+      </IconButton>
+      <IconButton label="Dismiss" size="sm" onClick={dismiss}>
+        <X />
+      </IconButton>
+    </section>
+  );
+}
+
 export function PicksRow({ title }: { title?: string }) {
   const q = usePicks();
   const names = useNames();

@@ -6,9 +6,10 @@ MIGRATIONS_DIR ?= $(CURDIR)/db/migrations
 WEB_ROOT ?= $(CURDIR)/apps/web/out
 GEOIP_DB ?= $(CURDIR)/.data/geo/dbip-city-lite.mmdb
 MAP_DIR ?= $(CURDIR)/.data/map
+MODELS_DIR ?= $(CURDIR)/.data/models
 COMPOSE := docker compose -f deploy/compose.dev.yaml
 
-.PHONY: db-up db-down db-psql api media worker dev web web-install web-build geoip map test test-api test-media test-web
+.PHONY: db-up db-down db-psql api media worker worker-heavy dev web web-install web-build geoip map models test test-api test-media test-web
 
 db-up:
 	$(COMPOSE) up -d --wait
@@ -28,6 +29,9 @@ media:
 worker:
 	cd services/media && uv run python -m jobbos_media.worker
 
+worker-heavy:
+	cd services/media && uv run python -m jobbos_media.worker --queue heavy
+
 dev: db-up
 	./tools/dev.sh
 
@@ -45,6 +49,9 @@ geoip:
 
 map:
 	./tools/fetch-map.sh
+
+models:
+	./tools/fetch-models.sh
 
 test: test-api test-media test-web
 

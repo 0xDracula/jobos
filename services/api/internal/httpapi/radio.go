@@ -8,6 +8,7 @@ import (
 	"hash/fnv"
 	"math/rand/v2"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -31,9 +32,10 @@ var moods = map[string][2]float64{
 
 type radioRequest struct {
 	Seed struct {
-		Type string     `json:"type"`
-		ID   *uuid.UUID `json:"id"`
-		Mood string     `json:"mood"`
+		Type string      `json:"type"`
+		ID   *uuid.UUID  `json:"id"`
+		Mood string      `json:"mood"`
+		IDs  []uuid.UUID `json:"ids"`
 	} `json:"seed"`
 	Exclude []uuid.UUID `json:"exclude"`
 	Skipped []uuid.UUID `json:"skipped"`
@@ -91,8 +93,14 @@ func (a *api) seedFor(ctx context.Context, in radioRequest, cands []store.MixTra
 				from = append(from, t)
 			}
 		}
+	case "recent":
+		for _, id := range in.Seed.IDs {
+			if t, ok := byID[id]; ok {
+				from = append(from, t)
+			}
+		}
 	default:
-		return store.Seed{}, errors.New("seed type must be track, artist, playlist or mood")
+		return store.Seed{}, errors.New("seed type must be track, artist, playlist, mood or recent")
 	}
 	var artists []uuid.UUID
 	for _, t := range from {
@@ -106,7 +114,35 @@ func (a *api) seedFor(ctx context.Context, in radioRequest, cands []store.MixTra
 	if in.Seed.Type == "artist" {
 		seed.Artists[*in.Seed.ID] = 1
 	}
+	if emb := a.embeddings(ctx); emb != nil && len(from) > 0 {
+		ids := make([]uuid.UUID, len(from))
+		for i, t := range from {
+			ids[i] = t.ID
+		}
+		seed.Sound = store.SoundCloseness(emb, ids, cands)
+	}
 	return seed, nil
+}
+
+var embCache struct {
+	sync.Mutex
+	at  time.Time
+	emb *store.Embeddings
+}
+
+func (a *api) embeddings(ctx context.Context) *store.Embeddings {
+	embCache.Lock()
+	defer embCache.Unlock()
+	if embCache.emb != nil && time.Since(embCache.at) < 10*time.Minute {
+		return embCache.emb
+	}
+	emb, err := a.Store.LoadEmbeddings(ctx)
+	if err != nil {
+		a.Log.Warn("radio embeddings", "err", err)
+		return embCache.emb
+	}
+	embCache.at, embCache.emb = time.Now(), emb
+	return emb
 }
 
 func (a *api) radio(w http.ResponseWriter, r *http.Request) {

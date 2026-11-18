@@ -9,6 +9,9 @@ FFMPEG = os.environ.get("FFMPEG", "ffmpeg")
 FFPROBE = os.environ.get("FFPROBE", "ffprobe")
 MUSICBRAINZ_CONTACT = os.environ.get("MUSICBRAINZ_CONTACT", "").strip() or None
 LASTFM_API_KEY = os.environ.get("LASTFM_API_KEY", "").strip() or None
+LISTENBRAINZ_TOKEN = os.environ.get("LISTENBRAINZ_TOKEN", "").strip() or None
+MODELS_DIR = Path(os.environ.get("MODELS_DIR", ".data/models")).resolve()
+MODEL_THREADS = int(os.environ.get("MODEL_THREADS", "2"))
 
 TARGET_LUFS = -14.0
 TARGET_TRUE_PEAK = -1.0

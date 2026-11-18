@@ -1,4 +1,5 @@
-import { api } from "@/lib/api";
+import { api, request } from "@/lib/api";
+import { mixContext, type Mix } from "@/lib/mixes";
 import { usePrefs } from "@/lib/prefs";
 import { keys, queryClient } from "@/lib/queries";
 import type { Track } from "@/lib/types";
@@ -10,6 +11,7 @@ import { endSleepAmbient, startSleepAmbient } from "./ambient";
 import { useRoom } from "./state";
 
 const CALM: RadioSeed = { type: "mood", mood: "calm", name: "Calm" };
+const CALM_MIX_MIN = 5;
 const SLEEP_AMBIENT_LEVEL = 0.5;
 
 function playShuffled(tracks: Track[], context: PlayContext): boolean {
@@ -28,6 +30,11 @@ async function playSleepMusic(choice: string | null): Promise<boolean> {
       const list = await queryClient.query({ queryKey: keys.playlist(choice), queryFn: () => api.playlist(choice) });
       if (playShuffled(list.tracks, { type: "playlist", id: list.id, name: list.name })) return true;
     }
+  } catch {
+  }
+  try {
+    const mix = await request<Mix>("/api/mixes/calm");
+    if (mix.tracks.length >= CALM_MIX_MIN && playShuffled(mix.tracks, mixContext(mix.kind, mix.title))) return true;
   } catch {
   }
   return startRadio(CALM);

@@ -31,6 +31,7 @@ import (
 
 type Store interface {
 	SessionsStore
+	RecsStore
 	ChatStore
 	ProfilesStore
 	LettersStore
@@ -340,10 +341,12 @@ func New(d Deps) http.Handler {
 				a.registerLettersAdminRoutes(r)
 				a.registerMemoriesAdminRoutes(r)
 				a.registerDatesAdminRoutes(r)
+				a.registerMixAdminRoutes(r)
 			})
 			a.registerWorldRoutes(r)
 			a.registerGiftRoutes(r)
 			a.registerRadioRoutes(r)
+			a.registerMixRoutes(r)
 			a.registerSessionRoutes(r)
 			a.registerChatRoutes(r)
 			a.registerProfileRoutes(r)

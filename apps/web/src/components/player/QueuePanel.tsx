@@ -1,16 +1,17 @@
 "use client";
 
-import { GripVertical, Headphones, ListX, LogOut, Save, X } from "lucide-react";
+import { GripVertical, Headphones, ListPlus, ListX, LogOut, Save, X } from "lucide-react";
 import { Reorder, useDragControls } from "motion/react";
 import { useMemo, useState, type KeyboardEvent } from "react";
 import { useShallow } from "zustand/react/shallow";
 
 import { cn } from "@/lib/cn";
+import { useSimilar } from "@/lib/mixes";
 import { useCreatePlaylist } from "@/lib/queries";
 import { useMe } from "@/lib/session";
 import { useTogether } from "@/lib/together";
 import { toast } from "@/lib/toast";
-import { clearQueue, jumpTo, removeFromQueue, reorderUpcoming } from "@/player/controls";
+import { addToQueue, clearQueue, jumpTo, removeFromQueue, reorderUpcoming } from "@/player/controls";
 import { usePlayer, type QueueItem } from "@/player/store";
 import { leaveSession, startFromQueue } from "@/player/together";
 
@@ -35,6 +36,39 @@ function TogetherButton({ disabled }: { disabled: boolean }) {
   );
 }
 
+function SoundsLikeRows({ trackId, queued }: { trackId: string | undefined; queued: Set<string> }) {
+  const similar = useSimilar(trackId ?? null).data?.filter((t) => !queued.has(t.id)).slice(0, 5);
+  if (!similar?.length) return null;
+  return (
+    <>
+      <h3 className="px-1.5 pb-1 pt-4 text-xs font-extrabold uppercase tracking-wider text-muted">Sounds like</h3>
+      {similar.map((t) => (
+        <div key={t.id} className="flex items-center gap-3 rounded-button p-1.5">
+          <Artwork src={t.artwork_thumb_url} className="size-11 shrink-0 rounded-chip" />
+          <span className="min-w-0 flex-1">
+            <span dir="auto" className="block truncate font-bold">
+              {t.title}
+            </span>
+            <span dir="auto" className="block truncate text-sm font-semibold text-muted">
+              {t.artists.join(", ")}
+            </span>
+          </span>
+          <IconButton
+            label={`Add ${t.title} to queue`}
+            size="sm"
+            onClick={() => {
+              addToQueue([t]);
+              toast("Added to queue");
+            }}
+          >
+            <ListPlus className="size-5" />
+          </IconButton>
+        </div>
+      ))}
+    </>
+  );
+}
+
 const SHOWN = 150;
 
 export function QueuePanel() {
@@ -43,6 +77,7 @@ export function QueuePanel() {
   const create = useCreatePlaylist();
   const current = queue[index];
   const upcoming = useMemo(() => queue.slice(index + 1, index + 1 + SHOWN), [queue, index]);
+  const queuedIds = useMemo(() => new Set(queue.map((q) => q.track.id)), [queue]);
   const more = Math.max(0, queue.length - index - 1 - SHOWN);
 
   const move = (item: QueueItem, by: number) => {
@@ -82,6 +117,7 @@ export function QueuePanel() {
           <p className="px-1.5 py-3 font-semibold text-muted">Queue empty</p>
         )}
         {more > 0 && <p className="py-3 text-center text-sm font-bold text-muted">+{more} songs</p>}
+        <SoundsLikeRows trackId={current?.track.id} queued={queuedIds} />
       </div>
       <NamePromptDialog
         open={saving}

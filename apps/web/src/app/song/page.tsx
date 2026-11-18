@@ -5,6 +5,7 @@ import { NotebookPen, Play } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { Loading } from "@/components/common";
+import { SoundsLike } from "@/components/mixes/Mixes";
 import { Artwork } from "@/components/media";
 import { Button, Empty } from "@/components/ui";
 import { api } from "@/lib/api";
@@ -111,6 +112,9 @@ export default function OurSongPage() {
         </section>
       )}
       <Lyrics track={track} />
+      <div className="mt-10">
+        <SoundsLike trackId={track.id} title={track.title} />
+      </div>
     </div>
   );
 }
