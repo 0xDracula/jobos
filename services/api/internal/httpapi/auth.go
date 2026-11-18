@@ -54,10 +54,19 @@ func isAdmin(r *http.Request) bool {
 
 func (a *api) authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		serve := func(u *store.User) {
+			p, err := a.pairFor(r.Context(), u.ID)
+			if err != nil {
+				a.serverError(w, "load pair", err)
+				return
+			}
+			ctx := withSpace(context.WithValue(r.Context(), userKey, u), u.ID, p)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		}
 		if c, err := r.Cookie(sessionCookie); err == nil && c.Value != "" {
 			u, _, err := a.Store.Session(r.Context(), auth.HashToken(c.Value), auth.SessionTTL)
 			if err == nil {
-				next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), userKey, u)))
+				serve(u)
 				return
 			}
 			if !errors.Is(err, store.ErrNotFound) {
@@ -66,7 +75,7 @@ func (a *api) authenticate(next http.Handler) http.Handler {
 			}
 		}
 		if a.AutoUser != nil {
-			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), userKey, a.AutoUser)))
+			serve(a.AutoUser)
 			return
 		}
 		writeError(w, http.StatusUnauthorized, "Sign in to continue")
@@ -188,9 +197,18 @@ func (a *api) invitePage(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "This link isn't valid anymore")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"invite": map[string]any{
+	out := map[string]any{
 		"display_name": inv.DisplayName, "username": inv.Username, "message": inv.Message, "status": inv.Status, "expires_at": inv.ExpiresAt,
-	}})
+	}
+	if inv.LinkKind != nil && inv.CreatedBy != nil {
+		out["link_kind"] = *inv.LinkKind
+		for _, u := range a.allMembers(r.Context()) {
+			if u.ID == *inv.CreatedBy {
+				out["from"] = map[string]any{"id": u.ID, "display_name": u.DisplayName, "avatar": u.Avatar}
+			}
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"invite": out})
 }
 
 var usernameOK = func(s string) bool {
@@ -250,8 +268,15 @@ func (a *api) acceptInvite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.Store.Audit(r.Context(), &u.ID, "invite.accept", u.Username, nil)
-	if err := a.applyHerPlaylist(r.Context()); err != nil {
-		a.Log.Warn("her playlist", "err", err)
+	forgetPairs()
+	a.team.mu.Lock()
+	a.team.at = time.Time{}
+	a.team.mu.Unlock()
+	if p, err := a.pairFor(r.Context(), u.ID); err == nil && p != nil {
+		a.pairChanged(r.Context(), p)
+		if err := a.applyHerPlaylist(withSpace(r.Context(), u.ID, p)); err != nil {
+			a.Log.Warn("her playlist", "err", err)
+		}
 	}
 	if err := a.startSession(w, r, u.ID); err != nil {
 		a.serverError(w, "start session", err)

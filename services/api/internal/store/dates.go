@@ -260,7 +260,7 @@ func (s *Store) SetRecapNote(ctx context.Context, authorID uuid.UUID, period str
 		return nil, err
 	}
 	rows, err := s.pool.Query(ctx, `insert into recap_notes (id, author_id, period, starts_on, body) values ($1, $2, $3, $4::date, $5)
-		on conflict (author_id, period, starts_on) do update set body = excluded.body, placeholder = false, updated_at = now()
+		on conflict (pair_id, author_id, period, starts_on) do update set body = excluded.body, placeholder = false, updated_at = now()
 		returning `+recapNoteCols, newID(), authorID, period, day, body)
 	if err != nil {
 		return nil, err

@@ -24,6 +24,10 @@ func (a *api) visibility(ctx context.Context) map[string]string {
 	out := map[string]string{}
 	if raw, err := a.Store.AppSetting(ctx, "visibility"); err == nil && raw != nil {
 		_ = json.Unmarshal(raw, &out)
+	} else if err == nil && a.pairStore() != nil {
+		for _, s := range visibilitySignals {
+			out[s] = "shared"
+		}
 	}
 	return out
 }
@@ -49,6 +53,22 @@ type memberCache struct {
 }
 
 func (a *api) memberList(ctx context.Context) []store.User {
+	sp := spaceOf(ctx)
+	if sp == nil || a.pairStore() == nil {
+		return a.allMembers(ctx)
+	}
+	if sp.pair != nil {
+		return sp.pair.Members
+	}
+	for _, u := range a.allMembers(ctx) {
+		if u.ID == sp.me {
+			return []store.User{u}
+		}
+	}
+	return nil
+}
+
+func (a *api) allMembers(ctx context.Context) []store.User {
 	a.team.mu.Lock()
 	defer a.team.mu.Unlock()
 	if time.Since(a.team.at) < time.Minute && a.team.users != nil {
@@ -97,7 +117,7 @@ func (a *api) registerRealtime() {
 		return
 	}
 	a.Hub.OnPresence = func(c realtime.PresenceChange) {
-		ctx := context.Background()
+		ctx := a.spaceFor(context.Background(), c.User)
 		if !c.LastSeen.IsZero() {
 			_ = a.Store.TouchLastSeen(ctx, c.User, c.LastSeen)
 		}
@@ -114,6 +134,7 @@ func (a *api) registerRealtime() {
 		}
 	}
 	a.Hub.Handle("chat.typing", func(ctx context.Context, user uuid.UUID, e realtime.Event, _ func(realtime.Event)) {
+		ctx = a.spaceFor(ctx, user)
 		subject := a.member(ctx, user)
 		if subject == nil {
 			return

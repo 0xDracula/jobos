@@ -54,18 +54,28 @@ func run(log *slog.Logger) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	pool, err := pgxpool.New(ctx, cfg.DatabaseURL)
+	owner, err := pgxpool.New(ctx, cfg.DatabaseURL)
 	if err != nil {
 		return err
 	}
-	defer pool.Close()
-	applied, err := db.Migrate(ctx, pool, cfg.MigrationsDir)
+	applied, err := db.Migrate(ctx, owner, cfg.MigrationsDir)
+	owner.Close()
 	if err != nil {
 		return err
 	}
 	for _, name := range applied {
 		log.Info("migration applied", "file", name)
 	}
+	poolCfg, err := pgxpool.ParseConfig(cfg.DatabaseURL)
+	if err != nil {
+		return err
+	}
+	store.ConfigurePool(poolCfg)
+	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
 
 	st := store.New(pool)
 	st.BackgroundDownloadInterval = cfg.BackgroundDownloadInterval

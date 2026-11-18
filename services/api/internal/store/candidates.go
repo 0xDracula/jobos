@@ -115,7 +115,7 @@ func (s *Store) EnqueueCandidates(ctx context.Context, userID uuid.UUID, now tim
 		TrackID *uuid.UUID `json:"track_id"`
 	}
 	var raw []byte
-	if err := s.pool.QueryRow(ctx, `select value from app_settings where key = 'our_song'`).Scan(&raw); err == nil {
+	if err := s.pool.QueryRow(ctx, pairSettingSQL, userID, "our_song").Scan(&raw); err == nil {
 		if json.Unmarshal(raw, &ours) == nil && ours.TrackID != nil {
 			add(*ours.TrackID)
 		}

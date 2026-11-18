@@ -165,7 +165,7 @@ func (s *Store) UserCities(ctx context.Context) ([]UserCity, error) {
 	rows, err := s.pool.Query(ctx, `select u.id, u.display_name,
 			coalesce((select value from user_settings where user_id = u.id and key = 'location.manual'),
 				(select value from user_settings where user_id = u.id and key = 'location.detected'))
-		from users u order by u.created_at`)
+		from users u where u.id in (select jobbos_people()) order by u.created_at`)
 	if err != nil {
 		return nil, err
 	}

@@ -214,7 +214,7 @@ func (s *Store) LoadRecs(ctx context.Context, userID uuid.UUID, now time.Time, l
 		}
 	}
 	var raw json.RawMessage
-	if err := s.pool.QueryRow(ctx, `select value from app_settings where key = 'our_song'`).Scan(&raw); err == nil {
+	if err := s.pool.QueryRow(ctx, pairSettingSQL, userID, "our_song").Scan(&raw); err == nil {
 		var v struct {
 			TrackID *uuid.UUID `json:"track_id"`
 		}
@@ -224,7 +224,7 @@ func (s *Store) LoadRecs(ctx context.Context, userID uuid.UUID, now time.Time, l
 	} else if !errors.Is(err, pgx.ErrNoRows) {
 		return nil, err
 	}
-	if err := s.pool.QueryRow(ctx, `select display_name from users where id <> $1 order by role = 'admin' desc limit 1`, userID).
+	if err := s.pool.QueryRow(ctx, partnerNameSQL, userID).
 		Scan(&d.OtherName); err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return nil, err
 	}

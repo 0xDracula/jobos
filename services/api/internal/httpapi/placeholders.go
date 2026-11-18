@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"sort"
 	"time"
+
+	"jobbos/api/internal/store"
 )
 
 //go:embed placeholders
@@ -28,6 +30,24 @@ func registerPlaceholders(s placeholderSet) { placeholderSets = append(placehold
 
 func SeedPlaceholders(ctx context.Context, d Deps) error {
 	a := &api{Deps: d}
+	if a.pairStore() != nil {
+		var admin *store.User
+		for _, u := range a.allMembers(ctx) {
+			if u.Role == "admin" {
+				u := u
+				admin = &u
+				break
+			}
+		}
+		if admin == nil {
+			return nil
+		}
+		p, err := a.pairFor(ctx, admin.ID)
+		if err != nil || p == nil {
+			return err
+		}
+		ctx = withSpace(ctx, admin.ID, p)
+	}
 	for _, s := range placeholderSets {
 		key := "placeholders." + s.Name
 		var done map[string]any

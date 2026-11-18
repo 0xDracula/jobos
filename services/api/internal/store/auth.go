@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -141,15 +142,18 @@ type Invite struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	ExpiresAt   time.Time  `json:"expires_at"`
 	RespondedAt *time.Time `json:"responded_at"`
+	LinkKind    *string    `json:"link_kind"`
+	CreatedBy   *uuid.UUID `json:"created_by"`
 }
 
 const inviteCols = `id, display_name, username, message,
 	case when status in ('pending', 'declined') and expires_at <= now() then 'expired' else status end,
-	created_at, expires_at, responded_at`
+	created_at, expires_at, responded_at, link_kind, created_by`
 
 func scanInvite(row pgx.Row) (*Invite, error) {
 	var i Invite
-	err := row.Scan(&i.ID, &i.DisplayName, &i.Username, &i.Message, &i.Status, &i.CreatedAt, &i.ExpiresAt, &i.RespondedAt)
+	err := row.Scan(&i.ID, &i.DisplayName, &i.Username, &i.Message, &i.Status, &i.CreatedAt, &i.ExpiresAt, &i.RespondedAt,
+		&i.LinkKind, &i.CreatedBy)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -160,6 +164,72 @@ func (s *Store) CreateInvite(ctx context.Context, by uuid.UUID, displayName, use
 	return scanInvite(s.pool.QueryRow(ctx, `insert into invites (id, token_hash, display_name, username, message, created_by, expires_at)
 		values ($1, $2, $3, $4, $5, $6, now() + $7::interval) returning `+inviteCols,
 		newID(), tokenHash, displayName, username, message, by, ttl.String()))
+}
+
+func (s *Store) CreateLinkInvite(ctx context.Context, by uuid.UUID, kind string, tokenHash []byte, ttl time.Duration) (*Invite, error) {
+	if !ValidPairKind(kind) {
+		return nil, fmt.Errorf("unknown pair kind %q", kind)
+	}
+	return scanInvite(s.pool.QueryRow(ctx, `insert into invites (id, token_hash, display_name, username, message, created_by, expires_at, link_kind)
+		values ($1, $2, '', '', '', $3, now() + $4::interval, $5) returning `+inviteCols,
+		newID(), tokenHash, by, ttl.String(), kind))
+}
+
+func (s *Store) LinkInvites(ctx context.Context, by uuid.UUID) ([]Invite, error) {
+	rows, err := s.pool.Query(ctx, `select `+inviteCols+` from invites
+		where created_by = $1 and link_kind is not null and status in ('pending', 'declined') and expires_at > now()
+		order by created_at desc`, by)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Invite
+	for rows.Next() {
+		i, err := scanInvite(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *i)
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) RevokeOwnInvite(ctx context.Context, id, by uuid.UUID) error {
+	tag, err := s.pool.Exec(ctx, `update invites set status = 'revoked'
+		where id = $1 and created_by = $2 and link_kind is not null and status in ('pending', 'declined')`, id, by)
+	if err == nil && tag.RowsAffected() == 0 {
+		return ErrInviteClosed
+	}
+	return err
+}
+
+func (s *Store) AcceptLinkInvite(ctx context.Context, tokenHash []byte, userID uuid.UUID) (*Pair, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var inviteID uuid.UUID
+	var kind *string
+	var by *uuid.UUID
+	err = tx.QueryRow(ctx, `select id, link_kind, created_by from invites
+		where token_hash = $1 and status in ('pending', 'declined') and expires_at > now() for update`, tokenHash).Scan(&inviteID, &kind, &by)
+	if errors.Is(err, pgx.ErrNoRows) || err == nil && (kind == nil || by == nil) {
+		return nil, ErrInviteClosed
+	}
+	if err != nil {
+		return nil, err
+	}
+	if _, err := linkTx(ctx, tx, *by, userID, *kind); err != nil {
+		return nil, err
+	}
+	if _, err := tx.Exec(ctx, `update invites set status = 'accepted', responded_at = now(), user_id = $2 where id = $1`, inviteID, userID); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return s.ActivePair(ctx, userID)
 }
 
 func (s *Store) Invites(ctx context.Context) ([]Invite, error) {
@@ -216,7 +286,10 @@ func (s *Store) AcceptInvite(ctx context.Context, tokenHash []byte, displayName,
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	var inviteID uuid.UUID
-	err = tx.QueryRow(ctx, `select id from invites where token_hash = $1 and status in ('pending', 'declined') and expires_at > now() for update`, tokenHash).Scan(&inviteID)
+	var kind *string
+	var by *uuid.UUID
+	err = tx.QueryRow(ctx, `select id, link_kind, created_by from invites
+		where token_hash = $1 and status in ('pending', 'declined') and expires_at > now() for update`, tokenHash).Scan(&inviteID, &kind, &by)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrInviteClosed
 	}
@@ -241,6 +314,11 @@ func (s *Store) AcceptInvite(ctx context.Context, tokenHash []byte, displayName,
 	}
 	if _, err := tx.Exec(ctx, `update invites set status = 'accepted', responded_at = now(), user_id = $2 where id = $1`, inviteID, u.ID); err != nil {
 		return nil, err
+	}
+	if kind != nil && by != nil {
+		if _, err := linkTx(ctx, tx, *by, u.ID, *kind); err != nil {
+			return nil, err
+		}
 	}
 	return &u, tx.Commit(ctx)
 }
@@ -301,7 +379,7 @@ func (s *Store) TouchLastSeen(ctx context.Context, userID uuid.UUID, at time.Tim
 }
 
 func (s *Store) LastSeen(ctx context.Context) (map[uuid.UUID]*time.Time, error) {
-	rows, err := s.pool.Query(ctx, `select id, last_seen_at from users`)
+	rows, err := s.pool.Query(ctx, `select id, last_seen_at from users where id in (select jobbos_people())`)
 	if err != nil {
 		return nil, err
 	}

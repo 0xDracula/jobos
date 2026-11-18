@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -10,8 +11,9 @@ import (
 
 func TestTogetherListsNeverNull(t *testing.T) {
 	a := &api{}
-	a.room.state = roomState{Active: true, SessionID: uuid.New()}
-	b, err := json.Marshal(a.together())
+	ctx := context.Background()
+	a.roomOf(ctx).state = roomState{Active: true, SessionID: uuid.New()}
+	b, err := json.Marshal(a.together(ctx))
 	if err != nil {
 		t.Fatal(err)
 	}

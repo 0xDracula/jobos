@@ -154,12 +154,13 @@ func (a *api) updateListening(w http.ResponseWriter, r *http.Request) {
 		a.serverError(w, "update session", err)
 		return
 	}
-	a.room.mu.Lock()
-	if a.room.state.Active && a.room.state.SessionID == id && a.room.state.Title != title {
-		a.room.state.Title = title
-		a.room.state.Version++
+	rm := a.roomOf(r.Context())
+	rm.mu.Lock()
+	if rm.state.Active && rm.state.SessionID == id && rm.state.Title != title {
+		rm.state.Title = title
+		rm.state.Version++
 	}
-	a.room.mu.Unlock()
+	rm.mu.Unlock()
 	a.publishRoom(r.Context())
 	a.sessionChanged(r.Context(), id)
 	w.WriteHeader(http.StatusNoContent)
@@ -182,7 +183,7 @@ func (a *api) deleteListening(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *api) afterItemsChange(ctx context.Context, id uuid.UUID) {
-	if st := a.together(); st.Active && st.SessionID == id {
+	if st := a.together(ctx); st.Active && st.SessionID == id {
 		if err := a.reloadLiveQueue(ctx, id); err != nil {
 			a.Log.Warn("reload live setlist", "err", err)
 		}
@@ -211,7 +212,7 @@ func (a *api) addSessionItems(w http.ResponseWriter, r *http.Request) {
 	if in.At != nil {
 		at = *in.At
 	}
-	if st := a.together(); in.Next && st.Active && st.SessionID == id {
+	if st := a.together(r.Context()); in.Next && st.Active && st.SessionID == id {
 		at = st.Index + 1
 	}
 	if err := a.Store.AddSessionItems(r.Context(), id, uid(r), in.TrackIDs, at); errors.Is(err, store.ErrSessionState) {
@@ -234,7 +235,7 @@ func (a *api) removeSessionItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	key := chi.URLParam(r, "key")
-	if st := a.together(); st.Active && st.SessionID == id && st.currentKey() == key {
+	if st := a.together(r.Context()); st.Active && st.SessionID == id && st.currentKey() == key {
 		writeError(w, http.StatusConflict, "the song playing now can't be removed")
 		return
 	}
@@ -305,7 +306,7 @@ func (a *api) startListening(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := r.Context()
 	var endIdle *uuid.UUID
-	if st := a.together(); st.Active && st.SessionID != id && len(st.Members) == 0 {
+	if st := a.together(ctx); st.Active && st.SessionID != id && len(st.Members) == 0 {
 		idle := st.SessionID
 		endIdle = &idle
 	}
@@ -329,8 +330,8 @@ func (a *api) startListening(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	me := currentUser(r)
-	a.goLive(sess, me.ID)
-	a.saveLive(true)
+	a.goLive(ctx, sess, me.ID)
+	a.saveLive(ctx, true)
 	a.publishRoom(ctx)
 	a.sessionChanged(ctx, id)
 	for _, u := range a.others(ctx, me.ID) {
@@ -344,7 +345,7 @@ func (a *api) endListening(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if st := a.together(); !st.Active || st.SessionID != id {
+	if st := a.together(r.Context()); !st.Active || st.SessionID != id {
 		writeError(w, http.StatusConflict, "this session isn't live")
 		return
 	}
@@ -425,6 +426,10 @@ func sessionEvents(ctx context.Context, a *api, _ *store.User, from, to time.Tim
 }
 
 func SendSessionReminders(ctx context.Context, d Deps, now time.Time) {
+	(&api{Deps: d}).forEachPair(ctx, func(ctx context.Context) { sendSessionReminders(ctx, d, now) })
+}
+
+func sendSessionReminders(ctx context.Context, d Deps, now time.Time) {
 	if d.Store == nil {
 		return
 	}

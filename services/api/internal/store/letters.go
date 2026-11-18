@@ -648,14 +648,14 @@ func (s *Store) SongsOfTheDay(ctx context.Context, authorID uuid.UUID, through s
 
 func (s *Store) SetSongOfTheDay(ctx context.Context, authorID uuid.UUID, date string, trackID uuid.UUID, note string) error {
 	_, err := s.pool.Exec(ctx, `insert into songs_of_the_day (author_id, date, track_id, note) values ($1, $2, $3, $4)
-		on conflict (author_id, date) do update set track_id = excluded.track_id, note = excluded.note, auto = false,
+		on conflict (pair_id, author_id, date) do update set track_id = excluded.track_id, note = excluded.note, auto = false,
 			placeholder = false, updated_at = now()`, authorID, date, trackID, note)
 	return missingRef(err)
 }
 
 func (s *Store) AutoSongOfTheDay(ctx context.Context, authorID uuid.UUID, date string, trackID uuid.UUID) (*SongOfTheDay, error) {
 	if _, err := s.pool.Exec(ctx, `insert into songs_of_the_day (author_id, date, track_id, auto) values ($1, $2, $3, true)
-		on conflict (author_id, date) do nothing`, authorID, date, trackID); err != nil {
+		on conflict (pair_id, author_id, date) do nothing`, authorID, date, trackID); err != nil {
 		return nil, err
 	}
 	return s.SongOfTheDayOn(ctx, authorID, date, false)
@@ -702,7 +702,7 @@ func scanFont(row pgx.Row) (HandwritingFont, error) {
 }
 
 func (s *Store) HandwritingFonts(ctx context.Context) ([]HandwritingFont, error) {
-	rows, err := s.pool.Query(ctx, fontSelect+` order by user_id`)
+	rows, err := s.pool.Query(ctx, fontSelect+` where user_id in (select jobbos_people()) order by user_id`)
 	if err != nil {
 		return nil, err
 	}

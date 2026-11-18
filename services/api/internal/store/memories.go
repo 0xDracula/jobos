@@ -911,7 +911,7 @@ func (s *Store) CollectionItems(ctx context.Context, withPlaceholders bool) ([]C
 
 func (s *Store) AddToCollection(ctx context.Context, userID, trackID uuid.UUID, reason string, placeholder bool) (CollectionItem, bool, error) {
 	rows, err := s.pool.Query(ctx, `insert into collection_items (id, user_id, track_id, reason, placeholder) values ($1, $2, $3, $4, $5)
-		on conflict (user_id, track_id) do nothing returning `+collectionCols, newID(), userID, trackID, reason, placeholder)
+		on conflict (pair_id, user_id, track_id) do nothing returning `+collectionCols, newID(), userID, trackID, reason, placeholder)
 	if err != nil {
 		if isForeignKey(err) {
 			return CollectionItem{}, false, ErrNotFound

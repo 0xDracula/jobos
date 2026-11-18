@@ -68,7 +68,7 @@ func CleanFavorites(in map[string][]string) (map[string][]string, error) {
 
 func (s *Store) FavoriteLists(ctx context.Context) ([]FavoriteList, error) {
 	rows, err := s.pool.Query(ctx, `select u.id, coalesce(f.items, '{}'), f.updated_at from users u
-		left join favorite_lists f on f.user_id = u.id order by u.created_at`)
+		left join favorite_lists f on f.user_id = u.id where u.id in (select jobbos_people()) order by u.created_at`)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +91,7 @@ func (s *Store) SetFavorites(ctx context.Context, userID uuid.UUID, items map[st
 	}
 	l := FavoriteList{UserID: userID, Items: items}
 	err = s.pool.QueryRow(ctx, `insert into favorite_lists (user_id, items) values ($1, $2)
-		on conflict (user_id) do update set items = excluded.items, updated_at = now() returning updated_at`, userID, raw).Scan(&l.UpdatedAt)
+		on conflict (pair_id, user_id) do update set items = excluded.items, updated_at = now() returning updated_at`, userID, raw).Scan(&l.UpdatedAt)
 	return l, err
 }
 
@@ -349,6 +349,7 @@ type PlayCount struct {
 func (s *Store) PlayCounts(ctx context.Context, trackID uuid.UUID) ([]PlayCount, error) {
 	rows, err := s.pool.Query(ctx, `select u.id, count(e.id) from users u
 		left join listening_events e on e.user_id = u.id and e.track_id = $1 and e.event = 'start'
+		where u.id in (select jobbos_people())
 		group by u.id, u.created_at order by u.created_at`, trackID)
 	if err != nil {
 		return nil, err

@@ -24,10 +24,9 @@ func (a *api) me(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *api) members(w http.ResponseWriter, r *http.Request) {
-	users, err := a.Store.Members(r.Context())
-	if err != nil {
-		a.serverError(w, "list members", err)
-		return
+	users := a.memberList(r.Context())
+	if users == nil {
+		users = []store.User{}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"users": users})
 }

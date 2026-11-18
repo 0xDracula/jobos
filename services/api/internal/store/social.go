@@ -12,16 +12,36 @@ import (
 
 func (s *Store) AppSetting(ctx context.Context, key string) (json.RawMessage, error) {
 	var v []byte
-	err := s.pool.QueryRow(ctx, `select value from app_settings where key = $1`, key).Scan(&v)
+	var err error
+	if isPairSetting(key) {
+		pairID, ok := PairFrom(ctx)
+		if !ok {
+			return nil, nil
+		}
+		err = s.pool.QueryRow(ctx, `select value from pair_settings where pair_id = $1 and key = $2`, pairID, key).Scan(&v)
+	} else {
+		err = s.pool.QueryRow(ctx, `select value from app_settings where key = $1`, key).Scan(&v)
+	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
 	return v, err
 }
 
+var ErrNotLinked = errors.New("not linked")
+
 func (s *Store) SetAppSetting(ctx context.Context, key string, value json.RawMessage) error {
 	if !settingKeyRE.MatchString(key) || len(value) == 0 || len(value) > 64<<10 || !json.Valid(value) {
 		return errors.New("invalid app setting")
+	}
+	if isPairSetting(key) {
+		pairID, ok := PairFrom(ctx)
+		if !ok {
+			return ErrNotLinked
+		}
+		_, err := s.pool.Exec(ctx, `insert into pair_settings (pair_id, key, value, updated_at) values ($1, $2, $3, now())
+			on conflict (pair_id, key) do update set value = excluded.value, updated_at = now()`, pairID, key, []byte(value))
+		return err
 	}
 	_, err := s.pool.Exec(ctx, `insert into app_settings (key, value, updated_at) values ($1, $2, now())
 		on conflict (key) do update set value = excluded.value, updated_at = now()`, key, []byte(value))
@@ -188,7 +208,7 @@ func (s *Store) ReactChat(ctx context.Context, userID, id uuid.UUID, emoji strin
 func (s *Store) ReadChat(ctx context.Context, userID, id uuid.UUID) (time.Time, error) {
 	var at time.Time
 	err := s.pool.QueryRow(ctx, `insert into chat_reads (user_id, message_id, read_at) values ($1, $2, now())
-		on conflict (user_id) do update set message_id = excluded.message_id, read_at = now()
+		on conflict (pair_id, user_id) do update set message_id = excluded.message_id, read_at = now()
 		where chat_reads.message_id is null or
 			(select created_at from chat_messages where id = excluded.message_id) >= (select created_at from chat_messages where id = chat_reads.message_id)
 		returning read_at`, userID, id).Scan(&at)
@@ -323,7 +343,7 @@ type Swap struct {
 
 func (s *Store) SetSwap(ctx context.Context, week time.Time, userID, trackID uuid.UUID, note string) error {
 	_, err := s.pool.Exec(ctx, `insert into song_swaps (id, week, user_id, track_id, note) values ($1, $2, $3, $4, $5)
-		on conflict (week, user_id) do update set track_id = excluded.track_id, note = excluded.note, updated_at = now()`,
+		on conflict (pair_id, week, user_id) do update set track_id = excluded.track_id, note = excluded.note, updated_at = now()`,
 		newID(), week, userID, trackID, note)
 	return err
 }

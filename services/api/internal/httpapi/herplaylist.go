@@ -31,11 +31,7 @@ func (a *api) applyHerPlaylist(ctx context.Context) error {
 	if !ok {
 		return nil
 	}
-	members, err := a.Store.Members(ctx)
-	if err != nil {
-		return err
-	}
-	for _, m := range members {
+	for _, m := range a.memberList(ctx) {
 		if m.Role == "member" {
 			return a.Store.SetPlaylistRecipient(ctx, id, &m.ID)
 		}

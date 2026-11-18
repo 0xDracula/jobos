@@ -21,6 +21,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"jobbos/api/internal/devui"
 	"jobbos/api/internal/importer"
@@ -222,7 +223,7 @@ type api struct {
 	workers  map[string]workerSeen
 	limits   limits
 	team     memberCache
-	room     together
+	rooms    rooms
 	playing  sync.Map
 }
 
@@ -282,6 +283,7 @@ func New(d Deps) http.Handler {
 			r.Post("/tracks/batch", a.tracksByID)
 			r.Get("/me", a.me)
 			r.Get("/members", a.members)
+			a.registerPairRoutes(r)
 			r.Get("/ws", a.websocket)
 			r.Get("/presence", a.presence)
 			r.Put("/quiet", a.setQuiet)
@@ -1035,6 +1037,11 @@ func jobID(w http.ResponseWriter, r *http.Request) (int64, bool) {
 }
 
 func (a *api) serverError(w http.ResponseWriter, what string, err error) {
+	var pe *pgconn.PgError
+	if errors.As(err, &pe) && pe.Code == "42501" || errors.Is(err, store.ErrNotLinked) {
+		writeError(w, http.StatusConflict, "Not linked")
+		return
+	}
 	a.Log.Error(what, "err", err)
 	writeError(w, http.StatusInternalServerError, "internal error")
 }

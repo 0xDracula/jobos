@@ -378,6 +378,10 @@ func swapRevealWeek(now time.Time, loc *time.Location, notified string) (string,
 }
 
 func SendSwapReveal(ctx context.Context, d Deps, now time.Time) {
+	(&api{Deps: d}).forEachPair(ctx, func(ctx context.Context) { sendSwapReveal(ctx, d, now) })
+}
+
+func sendSwapReveal(ctx context.Context, d Deps, now time.Time) {
 	if d.Store == nil {
 		return
 	}

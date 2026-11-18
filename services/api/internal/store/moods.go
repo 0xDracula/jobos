@@ -17,7 +17,7 @@ type Mood struct {
 }
 
 func (s *Store) Moods(ctx context.Context) ([]Mood, error) {
-	rows, err := s.pool.Query(ctx, `select user_id, mood, note, set_at, expires_at from moods where expires_at > now()`)
+	rows, err := s.pool.Query(ctx, `select user_id, mood, note, set_at, expires_at from moods where expires_at > now() and user_id in (select jobbos_people())`)
 	if err != nil {
 		return nil, err
 	}

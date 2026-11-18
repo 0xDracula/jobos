@@ -291,6 +291,7 @@ func (s *Store) PlayCountsIn(ctx context.Context, trackID uuid.UUID, w Window) (
 	rows, err := s.pool.Query(ctx, `select u.id, count(e.id) from users u
 		left join listening_events e on e.user_id = u.id and e.track_id = $1 and e.event = 'start'
 			and ($2::timestamptz is null or e.created_at >= $2) and ($3::timestamptz is null or e.created_at < $3)
+		where u.id in (select jobbos_people())
 		group by u.id, u.created_at order by u.created_at`, trackID, w.From, w.To)
 	if err != nil {
 		return nil, err
@@ -319,7 +320,7 @@ func (s *Store) ActivityByDay(ctx context.Context, w Window, tz string) ([]DayAc
 	rows, err := s.pool.Query(ctx, `select e.user_id, to_char((e.created_at at time zone $1)::date, 'YYYY-MM-DD'),
 			count(*) filter (where e.event = 'progress'), count(*) filter (where e.event = 'start'), count(*) filter (where e.event = 'skip')
 		from listening_events e where e.event in ('progress', 'start', 'skip') and ($2::timestamptz is null or e.created_at >= $2)
-			and ($3::timestamptz is null or e.created_at < $3)
+			and ($3::timestamptz is null or e.created_at < $3) and e.user_id in (select jobbos_people())
 		group by 1, 2 order by 2`, tz, w.From, w.To)
 	if err != nil {
 		return nil, err

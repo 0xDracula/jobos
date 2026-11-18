@@ -82,6 +82,10 @@ func reminderWhen(r dueReminder, hasTime bool, now time.Time, loc *time.Location
 }
 
 func SendCalendarReminders(ctx context.Context, d Deps, now time.Time) {
+	(&api{Deps: d}).forEachPair(ctx, func(ctx context.Context) { sendCalendarReminders(ctx, d, now) })
+}
+
+func sendCalendarReminders(ctx context.Context, d Deps, now time.Time) {
 	a := &api{Deps: d}
 	a.linkMemberBirthdays(ctx)
 	dates, err := d.Store.ImportantDates(ctx, nil, false)

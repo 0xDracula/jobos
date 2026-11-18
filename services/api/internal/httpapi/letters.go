@@ -483,7 +483,7 @@ func (a *api) watchLetterUnlocks() {
 		tick := time.NewTicker(time.Minute)
 		defer tick.Stop()
 		for range tick.C {
-			a.notifyLetterUnlocks(context.Background())
+			a.forEachPair(context.Background(), a.notifyLetterUnlocks)
 		}
 	}()
 }
