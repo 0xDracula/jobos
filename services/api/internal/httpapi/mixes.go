@@ -371,6 +371,29 @@ func (a *api) refreshRecommendations(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, result)
 }
 
+var lastBackfill struct {
+	sync.Mutex
+	at time.Time
+}
+
+func backfillModels(ctx context.Context, d Deps, now time.Time) {
+	lastBackfill.Lock()
+	due := now.Sub(lastBackfill.at) >= time.Hour
+	if due {
+		lastBackfill.at = now
+	}
+	lastBackfill.Unlock()
+	if !due {
+		return
+	}
+	n, err := d.Store.BackfillModels(ctx)
+	if err != nil {
+		d.Log.Warn("recommendations: backfill models", "err", err)
+	} else if n > 0 {
+		d.Log.Info("model analysis queued", "files", n)
+	}
+}
+
 type recsState struct {
 	CandidatesRequested time.Time `json:"candidates_requested"`
 	Analyzed            float64   `json:"analyzed"`
@@ -385,6 +408,7 @@ func RefreshRecommendations(ctx context.Context, d Deps, now time.Time) {
 	loc := a.homeTZ()
 	local := now.In(loc)
 	day := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, loc)
+	backfillModels(ctx, d, now)
 	users, err := d.Store.Members(ctx)
 	if err != nil {
 		d.Log.Warn("recommendations: members", "err", err)
