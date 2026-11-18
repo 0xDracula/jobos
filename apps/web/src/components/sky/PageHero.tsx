@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, type ReactNode, type RefObject } from "react";
+import { useEffect, useRef, type ReactNode, type RefObject } from "react";
 
 import { cn } from "@/lib/cn";
 import { usePrefs } from "@/lib/prefs";
@@ -213,48 +213,19 @@ export function seedOf(text: string) {
 }
 
 export function PageHero({ title, meta, children, actions }: { title: ReactNode; meta?: ReactNode; children?: ReactNode; actions?: ReactNode }) {
-  const theme = useResolvedTheme();
-  const seed = seedOf(typeof title === "string" ? title : "page");
-  const textRef = useRef<HTMLDivElement>(null);
-  const actionsRef = useRef<HTMLDivElement>(null);
-  const toggleRef = useRef<HTMLDivElement>(null);
-  const childrenRef = useRef<HTMLDivElement>(null);
-  const clear = useMemo(() => ({ all: [textRef, actionsRef, toggleRef], clouds: [childrenRef] }), []);
   return (
-    <section className="bleed relative isolate -mt-[max(env(safe-area-inset-top),24px)] mb-8 overflow-hidden lg:-mt-10">
-      <div aria-hidden className={cn("absolute inset-0 transition-opacity duration-700", theme === "night" ? "opacity-100" : "opacity-0")}>
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,#0d0f2b_0%,#15163b_55%,var(--bg)_100%)]" />
-        <City theme="night" seed={seed} clear={clear} />
-      </div>
-      <div aria-hidden className={cn("absolute inset-0 transition-opacity duration-700", theme === "day" ? "opacity-100" : "opacity-0")}>
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,#9fcbee_0%,#cfe3f3_40%,#f9dccb_78%,var(--bg)_100%)]" />
-        <City theme="day" seed={seed} clear={clear} />
-      </div>
-      <div className="relative mx-auto max-w-6xl px-4 pb-24 pt-[calc(max(env(safe-area-inset-top),24px)+6px)] lg:px-10 lg:pb-28 lg:pt-12">
-        <div className="flex items-start gap-3">
-          <div className="min-w-0 flex-1">
-            <div ref={textRef} className="w-fit max-w-full">
-              <h1 className={cn("font-display text-[34px] font-semibold leading-tight text-balance lg:text-[44px]", theme === "night" ? "text-[#f8f2fb] [text-shadow:0_2px_12px_#0d0f2b]" : "text-[#2c2340] [text-shadow:0_1px_10px_#d4e6f4]")}>
-                {title}
-              </h1>
-              {meta && <p className={cn("mt-1 font-bold", theme === "night" ? "text-[#cfc6ea] [text-shadow:0_1px_8px_#0d0f2b]" : "text-[#4f4466] [text-shadow:0_1px_8px_#d4e6f4]")}>{meta}</p>}
-            </div>
-          </div>
-          {actions && (
-            <div ref={actionsRef} className="shrink-0">
-              {actions}
-            </div>
-          )}
-          <div ref={toggleRef} className="-me-2 -mt-1 shrink-0">
-            <SkyToggle />
-          </div>
+    <section className="mb-6 lg:mb-8">
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <h1 className="font-display text-[30px] leading-tight text-balance lg:text-[40px]">{title}</h1>
+          {meta && <p className="mt-1.5 font-semibold text-muted">{meta}</p>}
         </div>
-        {children && (
-          <div ref={childrenRef} className="mt-5">
-            {children}
-          </div>
-        )}
+        {actions && <div className="shrink-0">{actions}</div>}
+        <div className="-me-2 shrink-0">
+          <SkyToggle />
+        </div>
       </div>
+      {children && <div className="mt-5">{children}</div>}
     </section>
   );
 }

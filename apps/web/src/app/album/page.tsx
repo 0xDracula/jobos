@@ -36,7 +36,7 @@ function AlbumBody({ album: a }: { album: Album }) {
       <header className="mb-6 flex flex-col gap-5 sm:flex-row sm:items-end">
         <Artwork src={a.artwork_url} alt={a.title} eager className="size-48 shrink-0 rounded-card shadow-soft lg:size-56" />
         <div className="min-w-0">
-          <div className="text-xs font-extrabold uppercase tracking-wider text-muted">Album</div>
+          <div className="text-xs font-extrabold text-muted">Album</div>
           <h1 dir="auto" className="font-display text-[30px] font-semibold leading-tight lg:text-[40px]">
             {a.title}
           </h1>

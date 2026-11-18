@@ -231,7 +231,7 @@ export const TrackRow = memo(function TrackRow({ track, index, current, playing,
       <div className={cn("pointer-events-none relative size-12 shrink-0", (unavailable || hidden) && "opacity-45")}>
         <Artwork src={track.artwork_thumb_url} className="size-12 rounded-chip" />
         {current && (
-          <span className="absolute inset-0 grid place-items-center rounded-chip bg-[#1e1b3a]/40 text-white">
+          <span className="absolute inset-0 grid place-items-center rounded-chip bg-[#0b0d11]/40 text-white">
             <LevelMeter playing={playing} />
           </span>
         )}

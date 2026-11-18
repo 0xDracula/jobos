@@ -34,7 +34,7 @@ function ClippingCard({ c, mine, name, onDelete }: { c: Clipping; mine: boolean;
             {l.text}
           </p>
         ))}
-        <p dir="auto" className="mt-3 text-xs font-extrabold uppercase tracking-wide opacity-60">
+        <p dir="auto" className="mt-3 text-xs font-extrabold opacity-60">
           {c.track ? `${c.track.title} · ${c.track.artists.join(", ")}` : "—"}
         </p>
         <p className="text-xs font-bold opacity-50">{name}</p>

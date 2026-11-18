@@ -127,7 +127,7 @@ export function CommandPalette() {
       shouldFilter={false}
       value={selected}
       onValueChange={setSelected}
-      overlayClassName="fixed inset-0 z-[95] bg-[#1e1b3a]/30 backdrop-blur-[2px]"
+      overlayClassName="fixed inset-0 z-[95] bg-[#0b0d11]/30 backdrop-blur-[2px]"
       contentClassName="fixed left-1/2 top-[12dvh] z-[96] w-[calc(100vw-24px)] max-w-xl -translate-x-1/2 overflow-hidden rounded-sheet shadow-soft [background:var(--surface-solid)]"
       onKeyDown={(e) => {
         if (e.key === "Enter" && e.shiftKey && selected.startsWith("song-")) {
@@ -150,7 +150,7 @@ export function CommandPalette() {
       <Command.List className="max-h-[min(60dvh,460px)] overflow-y-auto overscroll-contain p-2">
         <Command.Empty className="px-3 py-6 text-center font-semibold text-muted">No results</Command.Empty>
         {tracks.length > 0 && (
-          <Command.Group heading="Songs" className="[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-extrabold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-muted">
+          <Command.Group heading="Songs" className="[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-extrabold [&_[cmdk-group-heading]]:text-muted">
             {tracks.map((t, i) => (
               <Command.Item
                 key={t.id}
@@ -175,7 +175,7 @@ export function CommandPalette() {
           </Command.Group>
         )}
         {shownActions.length > 0 && (
-          <Command.Group heading="Actions" className="[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-extrabold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-muted">
+          <Command.Group heading="Actions" className="[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-extrabold [&_[cmdk-group-heading]]:text-muted">
             {shownActions.map((a) => (
               <Command.Item
                 key={a.id}

@@ -100,7 +100,7 @@ export function SongChip({ track, name, className }: { track: Track | null | und
       }}
       aria-label={`Play ${track.title}`}
       className={cn(
-        "inline-flex min-h-11 max-w-full items-center gap-2 rounded-full border-2 border-panel-line bg-panel py-1 pe-3 ps-1 text-start shadow-soft transition-transform hover:-translate-y-0.5",
+        "inline-flex min-h-11 max-w-full items-center gap-2 rounded-full border border-line bg-panel py-1 pe-3 ps-1 text-start shadow-soft transition-transform hover:-translate-y-0.5",
         className,
       )}
     >
@@ -137,7 +137,7 @@ export function SongField({ value, onChange, label = "Song" }: { value: Track | 
     <div className="grid gap-1.5">
       <span className="text-sm font-semibold text-muted">{label}</span>
       {value ? (
-        <div className="flex items-center gap-3 rounded-[12px] border-2 border-panel-line bg-panel p-2">
+        <div className="flex items-center gap-3 rounded-[12px] border border-line bg-panel p-2">
           <Artwork src={value.artwork_thumb_url} className="size-11 shrink-0 rounded-[8px]" />
           <span className="min-w-0 flex-1">
             <span dir="auto" className="block truncate font-bold">
@@ -294,7 +294,7 @@ export function PhotoField({ value, onChange, label = "Photo" }: { value: Photo 
       <span className="text-sm font-semibold text-muted">{label}</span>
       <div className="flex flex-wrap items-center gap-3">
         {value && (
-          <span className="relative size-20 shrink-0 overflow-hidden rounded-[8px] border-2 border-panel-line">
+          <span className="relative size-20 shrink-0 overflow-hidden rounded-[8px] border border-line">
             <PhotoImage photo={value} className="size-full" />
           </span>
         )}
@@ -352,7 +352,7 @@ export function PhotosField({ value, onChange, max = 12 }: { value: Photo[]; onC
         <ul className="flex flex-wrap gap-2">
           {value.map((p, i) => (
             <li key={p.id} className="grid w-24 gap-1">
-              <span className="relative block aspect-square overflow-hidden rounded-[8px] border-2 border-panel-line">
+              <span className="relative block aspect-square overflow-hidden rounded-[8px] border border-line">
                 <PhotoImage photo={p} className="size-full" />
               </span>
               <span className="flex justify-between">
@@ -398,7 +398,7 @@ export function DayField({ label, value, onChange, required }: { label: string; 
   );
 }
 
-export const panelClass = "rounded-[12px] border-2 border-b-[5px] border-panel-line bg-panel";
+export const panelClass = "rounded-card border border-panel-line bg-panel";
 
 export const paperTokens = {
   "--text": "#3b2f3f",

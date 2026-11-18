@@ -92,7 +92,7 @@ function MemoryView({ m, night, onClose, onEdit }: { m: Memory; night: boolean; 
   const portrait = (m.photo?.height ?? 1) > (m.photo?.width ?? 1);
   return (
     <motion.div
-      className="fixed inset-0 z-[75] grid place-items-center overflow-y-auto bg-[#1e1b3a]/60 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[75] grid place-items-center overflow-y-auto bg-[#0b0d11]/60 p-4 backdrop-blur-sm"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}

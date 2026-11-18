@@ -90,7 +90,7 @@ function Entry({ e, onEdit }: { e: GlossaryEntry; onEdit: () => void }) {
           <h3 dir="auto" className="font-display text-2xl font-semibold leading-tight">
             {e.term}
           </h3>
-          <span className="text-xs font-extrabold uppercase tracking-wide text-accent-strong">{KIND_LABELS[e.kind]}</span>
+          <span className="text-xs font-extrabold text-accent-strong">{KIND_LABELS[e.kind]}</span>
           {(e.placeholder || e.photo?.placeholder) && <PlaceholderMark />}
         </div>
         {e.started_on && <p className="mt-0.5 text-sm font-bold text-muted">Since {fmtDay(e.started_on)}</p>}
@@ -106,7 +106,7 @@ function Entry({ e, onEdit }: { e: GlossaryEntry; onEdit: () => void }) {
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2">
         {e.photo && (
-          <button type="button" onClick={() => setZoom(true)} aria-label="Photo" className="size-20 overflow-hidden rounded-[8px] border-2 border-panel-line sm:size-24">
+          <button type="button" onClick={() => setZoom(true)} aria-label="Photo" className="size-20 overflow-hidden rounded-[8px] border border-line sm:size-24">
             <PhotoImage photo={e.photo} className="size-full" />
           </button>
         )}

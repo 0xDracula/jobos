@@ -1,7 +1,7 @@
 "use client";
 
-import { RoomView } from "@/room/ui/RoomView";
+import { Today } from "@/components/today/Today";
 
 export default function HomePage() {
-  return <RoomView />;
+  return <Today />;
 }

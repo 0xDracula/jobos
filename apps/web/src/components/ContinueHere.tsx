@@ -43,21 +43,21 @@ export function ContinueHere({ className }: { className?: string }) {
     }
   };
   return (
-    <section aria-label="Continue here" className={cn("flex items-center gap-4 rounded-card bg-surface-solid/80 p-3 shadow-soft backdrop-blur", className)}>
-      <Artwork src={t.artwork_thumb_url} className="size-16 shrink-0 rounded-button" />
+    <section aria-label="Continue here" className={cn("flex items-center gap-3 rounded-card border border-line bg-surface p-3", className)}>
+      <Artwork src={t.artwork_thumb_url} className="size-14 shrink-0 rounded-[10px]" />
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-accent-strong">
-          <MonitorSmartphone className="size-4" /> Continue here
-        </div>
-        <div dir="auto" className="truncate font-bold">
+        <div dir="auto" className="truncate text-[15px] font-extrabold">
           {t.title}
         </div>
-        <div className="truncate text-sm font-semibold text-muted">
-          {other.device_name} · {fmtMs(other.position_ms)}
+        <div className="flex items-center gap-1.5 truncate text-[13px] font-semibold text-muted">
+          <MonitorSmartphone className="size-3.5 shrink-0" />
+          <span className="truncate">
+            {other.device_name} · {fmtMs(other.position_ms)}
+          </span>
         </div>
       </div>
-      <Button variant="primary" onClick={() => void resume()} disabled={busy} className="shrink-0">
-        <Play className="size-5 fill-current" /> Continue
+      <Button variant="primary" size="sm" onClick={() => void resume()} disabled={busy} className="shrink-0">
+        <Play className="size-4 fill-current" /> Continue
       </Button>
       <IconButton label="Dismiss" size="sm" onClick={() => setDismissed(true)}>
         <X />

@@ -65,7 +65,7 @@ export function OccasionCard({ events, dates }: { events: CalendarEvent[]; dates
   if (!occasions.length) return null;
   const letters = events.filter((e) => e.kind === "letter_unlock");
   return (
-    <section className="relative overflow-hidden rounded-[12px] border-2 border-b-[5px] border-panel-line bg-panel p-4 sm:p-5">
+    <section className="relative overflow-hidden rounded-card border border-panel-line bg-panel p-4 sm:p-5">
       <Confetti />
       <div className="relative grid gap-4">
         {occasions.map((o) => {
@@ -76,7 +76,7 @@ export function OccasionCard({ events, dates }: { events: CalendarEvent[]; dates
                 <EventIcon event={o} size={72} />
               </motion.span>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-extrabold uppercase tracking-wide text-muted">Today</p>
+                <p className="text-sm font-extrabold text-muted">Today</p>
                 <h2 dir="auto" className="font-display text-2xl font-semibold leading-tight sm:text-3xl">
                   {o.title}
                 </h2>

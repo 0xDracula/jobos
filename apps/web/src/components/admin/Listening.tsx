@@ -127,7 +127,7 @@ function Chart({ data, people, nameOf }: { data: Timeline; people: string[]; nam
 function SongList({ title, list, unit }: { title: string; list: Played[]; unit: "play" | "skip" }) {
   return (
     <div className="min-w-0">
-      <p className="mb-1 text-xs font-extrabold uppercase tracking-wide text-muted">{title}</p>
+      <p className="mb-1 text-xs font-extrabold text-muted">{title}</p>
       {list.length === 0 ? (
         <p className="text-sm font-semibold text-muted">None</p>
       ) : (

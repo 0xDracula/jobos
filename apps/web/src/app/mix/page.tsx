@@ -39,7 +39,7 @@ function MixView() {
       <header className="mb-6 flex flex-col gap-5 sm:flex-row sm:items-end">
         <MixCover src={m.cover_url} title={m.title} className="size-44 shrink-0 rounded-card shadow-soft lg:size-56" />
         <div className="min-w-0">
-          <div className="text-xs font-extrabold uppercase tracking-wider text-muted">Mix</div>
+          <div className="text-xs font-extrabold text-muted">Mix</div>
           <h1 className="font-display text-[30px] font-semibold leading-tight lg:text-[40px]">{m.title}</h1>
           <p className="mt-1 text-sm font-bold text-muted">{meta}</p>
         </div>

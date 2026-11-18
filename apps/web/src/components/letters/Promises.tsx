@@ -16,7 +16,7 @@ import { toast } from "@/lib/toast";
 
 import { Handwriting, useHandFont } from "./Handwriting";
 
-const panel = "rounded-[10px] border-2 border-b-[5px] border-panel-line bg-panel";
+const panel = "rounded-card border border-panel-line bg-panel";
 
 function PromiseRow({ p, mine, onEdit, onDelete }: { p: PromiseEntry; mine: boolean; onEdit: () => void; onDelete: () => void }) {
   const tz = useHomeZone();

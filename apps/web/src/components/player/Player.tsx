@@ -106,8 +106,8 @@ function MiniPlayer() {
       onPanEnd={(_, info) => {
         if (info.offset.y < -30 || info.velocity.y < -400) expand();
       }}
-      style={{ borderRadius: 24, ...tintStyle(accent) }}
-      className="glass fixed inset-x-2 bottom-[calc(4.6rem+env(safe-area-inset-bottom))] z-40 overflow-hidden shadow-soft [touch-action:pan-x] lg:inset-x-auto lg:bottom-4 lg:left-[calc(16rem+1.5rem)] lg:right-6"
+      style={{ borderRadius: 16, ...tintStyle(accent) }}
+      className="fixed inset-x-2 bottom-[calc(4.6rem+env(safe-area-inset-bottom))] border border-line bg-surface-2 z-40 overflow-hidden shadow-soft [touch-action:pan-x] lg:inset-x-auto lg:bottom-4 lg:left-[calc(88px+1.5rem)] lg:right-6"
     >
       <div className="flex items-center gap-2 p-2 lg:gap-4 lg:px-3">
         <button
@@ -301,7 +301,7 @@ function NowPlaying() {
         <div className="min-w-0 flex-1 max-lg:text-center lg:flex-none lg:basis-72">
           {context && (
             <>
-              <div className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-muted">{CONTEXT_LABELS[context.type]}</div>
+              <div className="text-[11px] font-extrabold tracking-[0.12em] text-muted">{CONTEXT_LABELS[context.type]}</div>
               <div dir="auto" className="truncate text-sm font-bold">
                 {context.name}
               </div>

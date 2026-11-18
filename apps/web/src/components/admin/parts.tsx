@@ -36,7 +36,7 @@ export function Line({ label, children, sub }: { label: ReactNode; children?: Re
 export function Stat({ label, value, tone }: { label: string; value: ReactNode; tone?: "good" | "warn" | "bad" }) {
   return (
     <div className="rounded-card bg-surface p-3">
-      <div className="text-xs font-extrabold uppercase tracking-wide text-muted">{label}</div>
+      <div className="text-xs font-extrabold text-muted">{label}</div>
       <div
         className={cn(
           "tabular font-display text-2xl font-semibold",

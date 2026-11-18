@@ -83,7 +83,7 @@ export function Recommendations() {
                 {plural(u.metrics.recommended.plays, "recommended play")} · {plural(u.metrics.own.plays, "own play")} · last 30 days
               </p>
               <div className="text-sm">
-                <p className="mb-1 text-xs font-extrabold uppercase tracking-wide text-muted">Candidates</p>
+                <p className="mb-1 text-xs font-extrabold text-muted">Candidates</p>
                 {u.candidates ? (
                   <p className="font-semibold">
                     {u.candidates.total} · {when(u.candidates.refreshed_at)} ·{" "}
@@ -99,7 +99,7 @@ export function Recommendations() {
                 )}
               </div>
               <div className="text-sm">
-                <p className="mb-1 text-xs font-extrabold uppercase tracking-wide text-muted">Taste groups</p>
+                <p className="mb-1 text-xs font-extrabold text-muted">Taste groups</p>
                 {u.groups?.length ? (
                   <ul className="flex flex-wrap gap-1.5">
                     {u.groups.map((g) => (
@@ -114,7 +114,7 @@ export function Recommendations() {
                 )}
               </div>
               <div className="text-sm">
-                <p className="mb-1 text-xs font-extrabold uppercase tracking-wide text-muted">Mixes</p>
+                <p className="mb-1 text-xs font-extrabold text-muted">Mixes</p>
                 <p className="font-semibold">
                   {(u.mixes ?? [])
                     .filter((m) => m.count > 0)

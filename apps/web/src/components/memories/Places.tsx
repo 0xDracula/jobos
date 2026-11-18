@@ -354,7 +354,7 @@ function PlaceEditor({
           {mapOn ? (
             <div className="grid gap-1.5">
               <span className="text-sm font-semibold text-muted">Pin</span>
-              <div className="flex flex-wrap items-center justify-between gap-2 rounded-[12px] border-2 border-panel-line bg-panel p-2 ps-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-[12px] border border-line bg-panel p-2 ps-3">
                 <span className="tabular text-sm font-bold">
                   {draft.lat.toFixed(5)}, {draft.lon.toFixed(5)}
                 </span>

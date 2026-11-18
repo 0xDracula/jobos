@@ -24,7 +24,7 @@ function SongChip({ welcome, started, onPlay }: { welcome: Welcome; started: boo
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: started ? 1 : 0, y: started ? 0 : 12 }}
-      className="mx-auto mt-6 flex w-full max-w-sm items-center gap-3 rounded-[10px] border-2 border-b-[5px] border-panel-line bg-panel p-2"
+      className="mx-auto mt-6 flex w-full max-w-sm items-center gap-3 rounded-card border border-panel-line bg-panel p-2"
     >
       <Artwork src={song.artwork_thumb_url ?? song.artwork_url} className="size-12 shrink-0 rounded-[5px]" />
       <div className="min-w-0 flex-1">

@@ -46,7 +46,7 @@ function ArtistBody({ artist: a }: { artist: Artist }) {
       <header className="mb-6 flex flex-col items-center gap-5 text-center sm:flex-row sm:items-end sm:text-start">
         <Artwork src={a.image_url} alt={a.name} eager className="size-44 shrink-0 rounded-full shadow-soft lg:size-52" />
         <div className="min-w-0">
-          <div className="text-xs font-extrabold uppercase tracking-wider text-muted">Artist</div>
+          <div className="text-xs font-extrabold text-muted">Artist</div>
           <h1 dir="auto" className="font-display text-[32px] font-semibold leading-tight lg:text-[44px]">
             {a.name}
           </h1>
@@ -230,7 +230,7 @@ function TopSongRow({
       <div className={cn("pointer-events-none relative size-12 shrink-0", unavailable && "opacity-45")}>
         <Artwork src={t?.artwork_thumb_url ?? top.artwork_url} className="size-12 rounded-chip" />
         {(current || busy) && (
-          <span className="absolute inset-0 grid place-items-center rounded-chip bg-[#1e1b3a]/40 text-white">
+          <span className="absolute inset-0 grid place-items-center rounded-chip bg-[#0b0d11]/40 text-white">
             {busy ? <Spinner className="size-5" /> : <LevelMeter playing={playing} />}
           </span>
         )}

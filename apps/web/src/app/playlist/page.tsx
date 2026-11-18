@@ -50,7 +50,7 @@ function PlaylistBody({ playlist: p }: { playlist: Playlist }) {
       <header className="mb-6 flex flex-col gap-5 sm:flex-row sm:items-end">
         <Cover cover={p.cover_url} collage={p.collage} alt={p.name} className="size-44 shrink-0 rounded-card shadow-soft lg:size-56" />
         <div className="min-w-0">
-          <div className="text-xs font-extrabold uppercase tracking-wider text-muted">Playlist</div>
+          <div className="text-xs font-extrabold text-muted">Playlist</div>
           <h1 dir="auto" className="font-display text-[30px] font-semibold leading-tight lg:text-[40px]">
             {p.name}
           </h1>

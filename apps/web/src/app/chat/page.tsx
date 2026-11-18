@@ -12,7 +12,6 @@ import { MoodChip } from "@/components/profile/Mood";
 import { SwapSheet } from "@/components/SwapSheet";
 import { Artwork } from "@/components/media";
 import { PixelIcon } from "@/components/pixel/PixelIcon";
-import { seedOf, SkyScene, type Clear } from "@/components/sky/PageHero";
 import { Button, IconButton, Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { groupMessages } from "@/lib/chatGroups";
@@ -35,7 +34,6 @@ import { joinSession, listenAlong } from "@/player/together";
 
 const QUICK = ["❤️", "😂", "😮", "😢", "🔥", "👍"];
 
-const SKY_SEED = seedOf("chat");
 
 const ON_SKY = "[text-shadow:0_1px_8px_var(--chat-shadow)]";
 
@@ -109,7 +107,7 @@ function SwapCard({ m, mine, nameOf, me }: { m: ChatMessage; mine: boolean; name
     <div className="flex items-center gap-3">
       {t && <Artwork src={t.artwork_thumb_url ?? t.artwork_url} className="size-12 shrink-0 rounded-[10px]" />}
       <div className="min-w-0 flex-1">
-        <p className="text-xs font-extrabold uppercase tracking-wider opacity-70">{!d.pick_by ? "Song swap" : d.pick_by === me ? "Your swap pick" : `${nameOf(d.pick_by)}'s swap pick`}</p>
+        <p className="text-xs font-extrabold opacity-70">{!d.pick_by ? "Song swap" : d.pick_by === me ? "Your swap pick" : `${nameOf(d.pick_by)}'s swap pick`}</p>
         {t && (
           <p dir="auto" className="truncate font-bold">
             {t.title} · {t.artists.join(", ")}
@@ -133,7 +131,7 @@ function SessionCard({ m }: { m: ChatMessage }) {
         <PixelIcon name="headphones" size={36} />
       </span>
       <span className="min-w-0">
-        <span className="block text-xs font-extrabold uppercase tracking-wider opacity-70">Listen together</span>
+        <span className="block text-xs font-extrabold opacity-70">Listen together</span>
         <span dir="auto" className="block truncate font-bold">
           {d.title || m.body}
         </span>
@@ -348,7 +346,6 @@ function Chat() {
   const headRef = useRef<HTMLDivElement>(null);
   const actionsRef = useRef<HTMLDivElement>(null);
   const atBottom = useRef(true);
-  const clear = useMemo<Clear>(() => ({ all: [headRef, actionsRef], clouds: [] }), []);
 
   const other = members.data?.find((u) => u.id !== me?.id) ?? null;
   const otherState = presence.data?.people.find((p) => p.id === other?.id);
@@ -507,9 +504,8 @@ function Chat() {
   };
 
   return (
-    <div className="fixed inset-x-0 top-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] flex flex-col lg:bottom-0 lg:left-64">
-      <SkyScene seed={SKY_SEED} clear={clear} />
-      <header className="relative flex items-center gap-3 px-4 pb-2 pt-[max(env(safe-area-inset-top),14px)] lg:px-8 lg:pt-6">
+    <div className="fixed inset-x-0 top-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] flex flex-col bg-bg lg:bottom-0 lg:left-[88px]">
+      <header className="relative flex items-center gap-3 border-b border-line bg-sidebar px-4 pb-2.5 pt-[max(env(safe-area-inset-top),12px)] lg:px-8 lg:pb-3 lg:pt-4">
         {other && (
           <Link href={`/profile/?id=${other.id}`} aria-label={other.display_name} className="shrink-0 rounded-full bg-[var(--chat-action)]">
             <Avatar userId={other.id} size={44} pose={otherState?.listening ? "listening" : "idle"} />
@@ -543,7 +539,7 @@ function Chat() {
               <button
                 type="button"
                 onClick={() => void joinThem()}
-                className="shrink-0 rounded-full bg-accent-strong px-2.5 py-0.5 text-xs font-extrabold text-on-accent [text-shadow:none]"
+                className="shrink-0 rounded-full bg-accent px-2.5 py-0.5 text-xs font-extrabold text-on-accent [text-shadow:none]"
               >
                 Join
               </button>

@@ -39,7 +39,7 @@ export function Dialog({
   return (
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixDialog.Portal>
-        <RadixDialog.Overlay className="fixed inset-0 z-[80] bg-[#1e1b3a]/30 backdrop-blur-[2px] data-[state=open]:animate-[fade-in_160ms_ease-out]" />
+        <RadixDialog.Overlay className="fixed inset-0 z-[80] bg-[#0b0d11]/30 backdrop-blur-[2px] data-[state=open]:animate-[fade-in_160ms_ease-out]" />
         <RadixDialog.Content
           aria-describedby={undefined}
           className={cn(

@@ -19,11 +19,11 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       ref={ref}
       type={type}
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-button font-semibold transition-[background-color,transform,opacity] active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50",
+        "inline-flex items-center justify-center gap-2 rounded-button font-extrabold transition-[background-color,transform,opacity] active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50",
         size === "md" ? "min-h-11 px-4 text-[15px]" : "min-h-9 px-3 text-sm",
-        variant === "primary" && "bg-accent-strong text-on-accent shadow-soft hover:brightness-110",
-        variant === "soft" && "bg-accent-soft/70 text-ink hover:bg-accent-soft",
-        variant === "ghost" && "text-ink hover:bg-accent-soft/50",
+        variant === "primary" && "bg-accent text-on-accent hover:brightness-105",
+        variant === "soft" && "border border-line bg-surface-2 text-ink hover:bg-surface-3",
+        variant === "ghost" && "text-ink hover:bg-surface-2",
         variant === "danger" && "bg-danger text-white hover:brightness-110",
         className,
       )}
@@ -49,13 +49,13 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
         size === "sm" && "size-9 [&_svg]:size-[18px]",
         size === "md" && "size-11 [&_svg]:size-[22px]",
         size === "lg" && "size-14 [&_svg]:size-7",
-        active ? "text-accent-strong" : "text-ink hover:bg-accent-soft/50",
+        active ? "text-accent-strong" : "text-ink hover:bg-surface-2",
         className,
       )}
       {...props}
     >
       {children}
-      {active && <span aria-hidden className="absolute bottom-1 size-1 rounded-full bg-accent-strong" />}
+      {active && <span aria-hidden className="absolute bottom-1 size-1 rounded-full bg-accent" />}
     </button>
   );
 });
@@ -70,8 +70,8 @@ export function Chip({
       type="button"
       aria-pressed={selected}
       className={cn(
-        "inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3.5 text-sm font-semibold transition-colors",
-        selected ? "border-transparent bg-accent-strong text-on-accent" : "border-line bg-surface-solid/60 text-ink hover:bg-accent-soft/60",
+        "inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3.5 text-sm font-extrabold transition-colors",
+        selected ? "border-transparent bg-ink text-bg" : "border-line bg-surface text-ink-2 hover:bg-surface-2 hover:text-ink",
         className,
       )}
       {...props}
@@ -87,7 +87,7 @@ export function Switch({ label, ...props }: ComponentProps<typeof RadixSwitch.Ro
   return (
     <RadixSwitch.Root
       aria-label={label}
-      className="relative h-7 w-12 shrink-0 rounded-full bg-line transition-colors data-[state=checked]:bg-accent-strong"
+      className="relative h-7 w-12 shrink-0 rounded-full bg-surface-3 transition-colors data-[state=checked]:bg-accent"
       {...props}
     >
       <RadixSwitch.Thumb className="block size-6 translate-x-0.5 rounded-full bg-white shadow transition-transform data-[state=checked]:translate-x-[22px]" />
@@ -129,7 +129,7 @@ export function Segmented<T extends string>({
   label: string;
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className="inline-flex rounded-full border border-line bg-surface-solid/60 p-1">
+    <div role="radiogroup" aria-label={label} className="inline-flex rounded-[11px] bg-surface-2 p-[3px]">
       {options.map(([v, text]) => (
         <button
           key={v}
@@ -138,8 +138,8 @@ export function Segmented<T extends string>({
           aria-checked={value === v}
           onClick={() => onChange(v)}
           className={cn(
-            "min-h-9 rounded-full px-4 text-sm font-semibold transition-colors",
-            value === v ? "bg-accent-strong text-on-accent" : "text-ink hover:bg-accent-soft/60",
+            "min-h-8 rounded-[8px] px-3.5 text-[13px] font-extrabold transition-colors",
+            value === v ? "bg-seg-on text-ink shadow-[0_1px_3px_rgba(0,0,0,0.22)]" : "text-muted hover:text-ink",
           )}
         >
           {text}
@@ -212,7 +212,7 @@ export const MenuSeparator = () => <DropdownMenu.Separator className="mx-2 my-1 
 export function SectionTitle({ children, action }: { children: ReactNode; action?: ReactNode }) {
   return (
     <div className="mb-3 flex items-end justify-between gap-3">
-      <h2 className="font-display text-xl font-semibold">{children}</h2>
+      <h2 className="font-display text-xl">{children}</h2>
       {action}
     </div>
   );
@@ -225,7 +225,7 @@ export function Empty({ children }: { children: ReactNode }) {
 export function PageTitle({ children, sub }: { children: ReactNode; sub?: ReactNode }) {
   return (
     <header className="mb-6">
-      <h1 className="font-display text-[30px] font-semibold leading-tight lg:text-[36px]">{children}</h1>
+      <h1 className="font-display text-[30px] leading-tight lg:text-[40px]">{children}</h1>
       {sub && <p className="mt-1 font-semibold text-muted">{sub}</p>}
     </header>
   );
@@ -241,4 +241,4 @@ export function Field({ label, children }: { label: string; children: ReactNode 
 }
 
 export const inputClass =
-  "min-h-11 w-full rounded-button border border-line bg-surface-solid px-4 text-[16px] font-semibold text-ink outline-none placeholder:text-muted/80 focus:border-accent";
+  "min-h-11 w-full rounded-button border border-line bg-surface px-4 text-[16px] font-semibold text-ink outline-none placeholder:text-muted focus:border-accent";

@@ -124,7 +124,7 @@ export function RecapStory({ recap, onClose }: { recap: Recap; onClose: () => vo
         </div>
         {recap.preview && (
           <div className="flex flex-wrap items-center gap-2 text-sm font-bold text-white/80">
-            <span className="inline-flex items-center rounded-full border border-dashed border-white/50 px-2 py-0.5 text-[11px] font-extrabold uppercase tracking-wide">Preview</span>
+            <span className="inline-flex items-center rounded-full border border-dashed border-white/50 px-2 py-0.5 text-[11px] font-extrabold">Preview</span>
             {recap.hidden.includes("listening") && "Listening history not visible"}
           </div>
         )}

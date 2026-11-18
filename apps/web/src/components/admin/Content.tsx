@@ -114,7 +114,7 @@ function NoteDialog({ note, notes, onClose }: { note: AdminNote | "new" | null; 
           </select>
         </Field>
         <div className="rounded-card bg-[#fff8ec] p-4 text-[#3b2f2a] shadow-soft">
-          <p className="text-xs font-extrabold uppercase tracking-wide opacity-60">Preview</p>
+          <p className="text-xs font-extrabold opacity-60">Preview</p>
           {form.title && (
             <p dir="auto" className="mt-1 font-display text-lg font-semibold">
               {form.title}

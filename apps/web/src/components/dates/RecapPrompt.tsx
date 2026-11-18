@@ -21,17 +21,17 @@ export function RecapPrompt({ compact, className }: { compact?: boolean; classNa
     <Link
       href={recapHref(latest)}
       className={cn(
-        "flex items-center gap-3 rounded-[12px] border-2 border-b-[5px] border-panel-line bg-panel transition-transform duration-150 hover:-translate-y-0.5",
+        "flex items-center gap-3 rounded-card border border-panel-line bg-panel transition-transform duration-150 hover:-translate-y-0.5",
         compact ? "p-2.5" : "p-4",
         className,
       )}
     >
       <PixelIcon name="recap" size={compact ? 36 : 48} className="shrink-0" />
       <span className="min-w-0 flex-1">
-        <span className="block text-xs font-extrabold uppercase tracking-wide text-muted">New</span>
+        <span className="block text-xs font-extrabold text-muted">New</span>
         <span className={cn("block truncate font-extrabold", compact ? "text-base" : "text-lg")}>{recapName(latest)}</span>
       </span>
-      <span className="shrink-0 rounded-full bg-accent-strong px-4 py-2 text-sm font-bold text-on-accent">Open</span>
+      <span className="shrink-0 rounded-full bg-accent px-4 py-2 text-sm font-bold text-on-accent">Open</span>
     </Link>
   );
 }

@@ -48,7 +48,7 @@ function Imports() {
             <Bar
               total={c.total}
               parts={[
-                { label: "Cached", value: c.cached, className: "bg-accent-strong" },
+                { label: "Cached", value: c.cached, className: "bg-accent" },
                 { label: "Matched", value: Math.max(0, c.matched - c.cached), className: "bg-tint/60" },
               ]}
             />

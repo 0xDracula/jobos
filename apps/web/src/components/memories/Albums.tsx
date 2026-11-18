@@ -286,7 +286,7 @@ export function AlbumView({ id, autoplay }: { id: string; autoplay?: boolean }) 
         )}
         {album.track && (
           <div className="flex flex-wrap items-center gap-3">
-            <span className="text-sm font-extrabold uppercase tracking-wide text-muted">Soundtrack</span>
+            <span className="text-sm font-extrabold text-muted">Soundtrack</span>
             <SongChip track={album.track} name={album.name} />
           </div>
         )}

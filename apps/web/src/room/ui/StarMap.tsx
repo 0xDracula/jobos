@@ -48,12 +48,12 @@ export function StarMap() {
   const nameOf = (id: string) => members.data?.find((u) => u.id === id)?.display_name ?? "";
 
   return (
-    <div className="fixed inset-x-0 top-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] flex flex-col overflow-hidden bg-[linear-gradient(180deg,#0b1029_0%,#141a40_55%,#2e3466_100%)] pb-20 text-[#f5eef8] lg:bottom-0 lg:left-64 lg:pb-24">
+    <div className="fixed inset-x-0 top-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] flex flex-col overflow-hidden bg-[linear-gradient(180deg,#0b1029_0%,#141a40_55%,#2e3466_100%)] pb-20 text-[#f5eef8] lg:bottom-0 lg:left-[88px] lg:pb-24">
       <header className="relative z-10 flex items-center gap-3 p-3 pt-[max(env(safe-area-inset-top),12px)] lg:p-5">
         <Link
           href="/"
           aria-label="Room"
-          className="grid size-11 place-items-center rounded-full border border-white/15 bg-[#1e1b3a]/70 backdrop-blur-md"
+          className="grid size-11 place-items-center rounded-full border border-white/15 bg-[#0b0d11]/70 backdrop-blur-md"
         >
           <ArrowLeft className="size-5" />
         </Link>

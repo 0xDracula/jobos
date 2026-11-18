@@ -41,7 +41,7 @@ function SoundsLikeRows({ trackId, queued }: { trackId: string | undefined; queu
   if (!similar?.length) return null;
   return (
     <>
-      <h3 className="px-1.5 pb-1 pt-4 text-xs font-extrabold uppercase tracking-wider text-muted">Sounds like</h3>
+      <h3 className="px-1.5 pb-1 pt-4 text-xs font-extrabold text-muted">Sounds like</h3>
       {similar.map((t) => (
         <div key={t.id} className="flex items-center gap-3 rounded-button p-1.5">
           <Artwork src={t.artwork_thumb_url} className="size-11 shrink-0 rounded-chip" />
@@ -104,9 +104,9 @@ export function QueuePanel() {
         </div>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-6">
-        <h3 className="px-1.5 pb-1 text-xs font-extrabold uppercase tracking-wider text-muted">Now playing</h3>
+        <h3 className="px-1.5 pb-1 text-xs font-extrabold text-muted">Now playing</h3>
         {current && <Row item={current} current playing={playing} />}
-        <h3 className="px-1.5 pb-1 pt-4 text-xs font-extrabold uppercase tracking-wider text-muted">Next</h3>
+        <h3 className="px-1.5 pb-1 pt-4 text-xs font-extrabold text-muted">Next</h3>
         {upcoming.length ? (
           <Reorder.Group axis="y" values={upcoming} onReorder={reorderUpcoming} className="grid grid-cols-1 gap-0.5">
             {upcoming.map((item) => (
@@ -163,7 +163,7 @@ function Row({
         <span className="relative size-11 shrink-0">
           <Artwork src={t.artwork_thumb_url} className="size-11 rounded-chip" />
           {current && (
-            <span className="absolute inset-0 grid place-items-center rounded-chip bg-[#1e1b3a]/40 text-white">
+            <span className="absolute inset-0 grid place-items-center rounded-chip bg-[#0b0d11]/40 text-white">
               <LevelMeter playing={!!playing} />
             </span>
           )}

@@ -38,7 +38,7 @@ export function AddSongsDialog({ sessionId, live, open, onOpenChange }: { sessio
           <input autoFocus type="search" dir="auto" aria-label="Search the library" placeholder="Search the library" value={query} onChange={(e) => setQuery(e.target.value)} className={`${inputClass} ps-11`} />
         </div>
         {live && <Switch label="Play next" checked={next} onCheckedChange={setNext} />}
-        <p className="text-xs font-extrabold uppercase tracking-wider text-muted">{q.length > 1 ? "Results" : "Recently played"}</p>
+        <p className="text-xs font-extrabold text-muted">{q.length > 1 ? "Results" : "Recently played"}</p>
         <ul className="-mx-2 grid max-h-[50dvh] gap-0.5 overflow-y-auto">
           {tracks.map((t) => {
             const done = added.has(t.id);

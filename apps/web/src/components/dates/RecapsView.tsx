@@ -34,7 +34,7 @@ function RecapTile({ r }: { r: RecapEntry }) {
         <Skyline seed={Number(r.starts_on.replaceAll("-", ""))} theme={t} />
         <span className="relative flex items-start justify-between gap-1">
           <PixelIcon name={year ? "rings" : "recap"} size={36} />
-          {!r.opened && <span className="rounded-full bg-accent-strong px-2 py-0.5 text-[11px] font-extrabold uppercase text-on-accent">New</span>}
+          {!r.opened && <span className="rounded-full bg-accent px-2 py-0.5 text-[11px] font-extrabold text-on-accent">New</span>}
         </span>
         <span className="relative mb-[22%] font-display text-[22px] font-semibold leading-tight">{year ? "Our year" : fmtMonthName(r.starts_on)}</span>
       </span>

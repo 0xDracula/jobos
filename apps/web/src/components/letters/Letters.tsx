@@ -30,7 +30,7 @@ import { SongPicker, SongRow } from "./SongPicker";
 
 const KIND_LABEL: Record<Letter["kind"], string> = { welcome: "Welcome letter", standard: "Letter", open_when: "Open when", time_locked: "Time-locked" };
 
-const panel = "rounded-[10px] border-2 border-b-[5px] border-panel-line bg-panel";
+const panel = "rounded-card border border-panel-line bg-panel";
 
 export function useNames() {
   const members = useMembers();
@@ -220,7 +220,7 @@ export function LetterList({ initialTab }: { initialTab?: "received" | "written"
     <>
       <PageHero title="Letters" meta={meta}>
         <div className="flex flex-wrap items-center gap-3">
-          <Link href="/letters/?edit=new" className="inline-flex min-h-11 items-center gap-2 rounded-button bg-accent-strong px-4 font-semibold text-on-accent shadow-soft">
+          <Link href="/letters/?edit=new" className="inline-flex min-h-11 items-center gap-2 rounded-button bg-accent px-4 font-semibold text-on-accent shadow-soft">
             <Plus className="size-5" /> Write
           </Link>
           <Segmented

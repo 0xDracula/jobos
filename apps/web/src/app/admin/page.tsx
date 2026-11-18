@@ -58,7 +58,7 @@ export default function AdminPage() {
               onClick={() => pick(t)}
               className={cn(
                 "min-h-9 shrink-0 rounded-full px-4 text-sm font-semibold transition-colors",
-                tab === t ? "bg-accent-strong text-on-accent" : "text-ink hover:bg-accent-soft/60",
+                tab === t ? "bg-accent text-on-accent" : "text-ink hover:bg-accent-soft/60",
               )}
             >
               {label}

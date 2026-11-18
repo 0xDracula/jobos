@@ -134,7 +134,7 @@ function Profile() {
         </div>
         <div className="grid gap-3">
           <div>
-            <p className="text-xs font-extrabold uppercase tracking-wide text-muted">Favorite song</p>
+            <p className="text-xs font-extrabold text-muted">Favorite song</p>
             {profile?.favorite_track ? (
               <SongRow track={profile.favorite_track}>
                 <IconButton label={`Play ${profile.favorite_track.title}`} onClick={() => playTracks([profile.favorite_track!], 0, { type: "queue", name: "Favorite song" })}>
@@ -146,7 +146,7 @@ function Profile() {
             )}
           </div>
           <div>
-            <p className="text-xs font-extrabold uppercase tracking-wide text-muted">Current obsession</p>
+            <p className="text-xs font-extrabold text-muted">Current obsession</p>
             <p dir="auto" className="font-semibold">
               {profile?.obsession || <span className="text-muted">None yet</span>}
             </p>
@@ -157,7 +157,7 @@ function Profile() {
       <section className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {shared.map(([label, n]) => (
           <div key={label} className="rounded-card bg-surface-solid/60 p-3 shadow-soft">
-            <div className="text-xs font-extrabold uppercase tracking-wide text-muted">{label}</div>
+            <div className="text-xs font-extrabold text-muted">{label}</div>
             <div className="tabular font-display text-2xl font-semibold">{n}</div>
           </div>
         ))}

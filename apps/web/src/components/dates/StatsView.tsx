@@ -90,7 +90,7 @@ function Genres({ genres }: { genres: ListeningStats["top_genres"] }) {
   return (
     <ul className="flex flex-wrap gap-2">
       {genres.map((g) => (
-        <li key={g.name} dir="auto" className="rounded-full border-2 border-panel-line bg-panel px-3 py-1 text-sm font-bold first-letter:uppercase">
+        <li key={g.name} dir="auto" className="rounded-full border border-line bg-panel px-3 py-1 text-sm font-bold first-letter:uppercase">
           {g.name}
         </li>
       ))}

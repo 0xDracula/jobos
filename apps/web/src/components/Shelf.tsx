@@ -14,11 +14,7 @@ import { PixelIcon, type PixelIconName } from "./pixel/PixelIcon";
 export function Plank({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div className={cn("relative", className)}>
-      <div className="no-scrollbar -mx-4 flex snap-x gap-4 overflow-x-auto px-4 pb-5 lg:mx-0 lg:px-0">{children}</div>
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 bottom-1 h-[10px] rounded-[2px] bg-[linear-gradient(var(--plank-hi)_0_3px,var(--plank)_3px)] shadow-[0_5px_0_var(--plank-shade)] max-lg:-mx-4"
-      />
+      <div className="no-scrollbar -mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-1 lg:mx-0 lg:gap-4 lg:px-0">{children}</div>
     </div>
   );
 }
@@ -36,7 +32,7 @@ export function CoverShelf({ tracks, context, label }: { tracks: Track[]; contex
         >
           <Artwork
             src={t.artwork_thumb_url ?? t.artwork_url}
-            className="aspect-square w-full rounded-[6px] shadow-[0_8px_18px_rgba(10,8,30,0.35)] transition-transform duration-200 ease-out group-hover:-translate-y-1"
+            className="aspect-square w-full rounded-[12px] transition-transform duration-200 ease-out group-hover:-translate-y-1"
           />
           <span dir="auto" className="truncate text-sm font-extrabold">
             {t.title}
@@ -71,7 +67,7 @@ export function KeepsakeTiles({ items = KEEPSAKES }: { items?: Keepsake[] }) {
         <Link
           key={k.href}
           href={k.href}
-          className="group grid min-h-[104px] justify-items-center gap-2 rounded-[8px] border-2 border-b-[5px] border-panel-line bg-panel px-1.5 pb-2.5 pt-3.5 text-center text-[13px] font-extrabold leading-tight transition-[transform,background-color] duration-150 hover:-translate-y-0.5 hover:bg-accent-soft/60 active:translate-y-0"
+          className="group grid min-h-[104px] justify-items-center gap-2 rounded-card border border-panel-line bg-panel px-1.5 pb-2.5 pt-3.5 text-center text-[13px] font-extrabold leading-tight transition-[transform,background-color] duration-150 hover:-translate-y-0.5 hover:bg-accent-soft/60 active:translate-y-0"
         >
           <PixelIcon name={k.icon} size={40} className="transition-transform duration-200 group-hover:scale-110" />
           <span>{k.label}</span>

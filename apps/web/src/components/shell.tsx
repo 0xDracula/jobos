@@ -1,6 +1,6 @@
 "use client";
 
-import { House, Library, MessageCircleHeart, Search, WifiOff } from "lucide-react";
+import { WifiOff } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -11,7 +11,7 @@ import { cn } from "@/lib/cn";
 import { soft } from "@/lib/motion";
 import { startRealtime } from "@/lib/realtime";
 import { isPublicPath, useMe, useMembers } from "@/lib/session";
-import { startSocial, usePresence } from "@/lib/social";
+import { startSocial } from "@/lib/social";
 import { startProfiles } from "@/lib/profiles";
 import { startGift } from "@/lib/gift";
 import { startTogetherState } from "@/lib/together";
@@ -22,54 +22,36 @@ import { dismiss, useToasts } from "@/lib/toast";
 import { usePlayer } from "@/player/store";
 
 import { CommandPalette } from "./CommandPalette";
+import { SECTIONS, sectionActive, UnreadBadge } from "./nav";
 import { Sidebar } from "./Sidebar";
 import { GlobalDialogs } from "./dialogs";
 import { KeepsakeDialogs } from "./KeepsakeDialogs";
 import { EffectLayer } from "./chat/Effects";
 import { LettersLayer } from "./letters/LettersLayer";
 import { TogetherBanner } from "./Together";
-import { PixelIcon } from "./pixel/PixelIcon";
 import { PlayerDock } from "./player/Player";
 import { SkyBackdrop, SkyToggle } from "./sky/PageHero";
-
-const NAV = [
-  { href: "/", label: "Home", icon: House },
-  { href: "/search/", label: "Search", icon: Search },
-  { href: "/library/", label: "Library", icon: Library },
-  { href: "/chat/", label: "Chat", icon: MessageCircleHeart },
-] as const;
-
-function UnreadDot({ href }: { href: string }) {
-  const unread = usePresence().data?.unread ?? 0;
-  if (href !== "/chat/" || unread === 0) return null;
-  return (
-    <span className="absolute -end-1.5 -top-1 grid min-w-[18px] place-items-center rounded-full bg-accent-strong px-1 text-[11px] font-extrabold leading-[18px] text-on-accent">
-      {unread > 99 ? "99+" : unread}
-    </span>
-  );
-}
-
-const isActive = (pathname: string, href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href.replace(/\/$/, "")));
 
 function TabBar() {
   const pathname = usePathname();
   return (
-    <nav aria-label="Main" className="glass fixed inset-x-0 bottom-0 z-40 border-x-0 border-b-0 pb-[env(safe-area-inset-bottom)] lg:hidden">
+    <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-sidebar pb-[env(safe-area-inset-bottom)] lg:hidden">
       <ul className="mx-auto grid max-w-md grid-cols-4">
-        {NAV.map(({ href, label, icon: Icon }) => {
-          const active = isActive(pathname, href);
+        {SECTIONS.map((sec) => {
+          const active = sectionActive(pathname, sec);
+          const Icon = sec.icon;
           return (
-            <li key={href}>
+            <li key={sec.href}>
               <Link
-                href={href}
+                href={sec.href}
                 aria-current={active ? "page" : undefined}
-                className={cn("flex min-h-16 flex-col items-center justify-center gap-0.5 text-xs font-bold", active ? "text-accent-strong" : "text-muted")}
+                className={cn("flex min-h-16 flex-col items-center justify-center gap-1 text-xs font-bold", active ? "text-ink" : "text-faint")}
               >
                 <span className="relative">
-                  <Icon className={cn("size-6", active && "fill-accent-soft")} />
-                  <UnreadDot href={href} />
+                  <Icon className={cn("size-6", active && "text-accent-strong")} />
+                  <UnreadBadge href={sec.href} />
                 </span>
-                {label}
+                {sec.label}
               </Link>
             </li>
           );
@@ -191,18 +173,26 @@ export function AppShell({ children }: { children: ReactNode }) {
       </main>
     );
   }
-  return <AuthGate>{appFrame(pathname === "/", children)}</AuthGate>;
+  return <AuthGate>{appFrame(pathname, children)}</AuthGate>;
 }
 
-function appFrame(home: boolean, children: ReactNode) {
+function appFrame(pathname: string, children: ReactNode) {
+  const room = pathname === "/room" || pathname === "/room/";
   return (
     <>
       <div id="app-content">
         <Sidebar />
-        {home ? (
-          <main className="fixed inset-x-0 top-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] lg:bottom-0 lg:left-64">{children}</main>
+        {room ? (
+          <main className="fixed inset-x-0 top-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] lg:bottom-0 lg:left-[88px]">{children}</main>
+        ) : pathname === "/" ? (
+          <main className="overflow-x-clip lg:ps-[88px]">
+            <div className="pb-[calc(10.5rem+env(safe-area-inset-bottom))] lg:pb-32">
+              <OfflineBanner />
+              {children}
+            </div>
+          </main>
         ) : (
-          <main className="overflow-x-clip lg:ps-64">
+          <main className="overflow-x-clip lg:ps-[88px]">
             <div className="mx-auto max-w-6xl px-4 pb-[calc(10.5rem+env(safe-area-inset-bottom))] pt-[max(env(safe-area-inset-top),24px)] lg:px-10 lg:pb-36 lg:pt-10">
               <OfflineBanner />
               {children}

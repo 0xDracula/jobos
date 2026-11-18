@@ -120,7 +120,7 @@ function Cover({ count, onOpen }: { count: number; onOpen: () => void }) {
       <span aria-hidden className="absolute inset-y-0 start-0 w-4 bg-black/20" />
       <span aria-hidden className="pointer-events-none absolute inset-4 rounded-[6px] border-2 border-dashed border-[#ffd98a]/55" />
       <PixelIcon name="star" size={56} />
-      <div className="rounded-[10px] border-2 border-b-[5px] border-[#2e2c48]/25 bg-[#fff4e8] px-7 py-4 shadow-[0_8px_18px_rgba(10,8,30,0.25)]">
+      <div className="rounded-card border border-[#2e2c48]/25 bg-[#fff4e8] px-7 py-4 shadow-[0_8px_18px_rgba(10,8,30,0.25)]">
         <p className="font-display text-[30px] font-semibold leading-tight text-[#a8445e]">Story book</p>
         <p className="mt-0.5 text-sm font-bold text-[#7a6a7e]">{plural(count, "chapter")}</p>
       </div>
@@ -171,7 +171,7 @@ function ChapterPhotos({ chapter, onView, compact }: { chapter: Chapter; onView:
               <button
                 type="button"
                 onClick={() => onView(6)}
-                className="grid size-16 place-items-center rounded-[6px] border-2 border-panel-line bg-panel text-sm font-extrabold text-muted"
+                className="grid size-16 place-items-center rounded-[6px] border border-line bg-panel text-sm font-extrabold text-muted"
               >
                 +{more}
               </button>
@@ -189,7 +189,7 @@ function ChapterText({ chapter, number, total, onEdit }: { chapter: Chapter; num
     <div className="flex flex-1 flex-col gap-4 px-6 pb-5 pt-6 lg:px-9 lg:pt-8">
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-muted">Chapter {number}</p>
+          <p className="text-xs font-extrabold tracking-[0.14em] text-muted">Chapter {number}</p>
           <h2 dir="auto" className="mt-1 break-words font-hand text-[40px] leading-[1.05]">
             {chapter.title}
           </h2>

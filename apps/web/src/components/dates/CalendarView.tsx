@@ -77,7 +77,7 @@ function MonthGrid({
   const cells = useMemo(() => monthGrid(month), [month]);
   return (
     <div>
-      <div className="mb-1 grid grid-cols-7 text-center text-[11px] font-extrabold uppercase tracking-wide text-muted" aria-hidden>
+      <div className="mb-1 grid grid-cols-7 text-center text-[11px] font-extrabold text-muted" aria-hidden>
         {WEEKDAYS.map((w) => (
           <span key={w}>{w}</span>
         ))}
@@ -104,7 +104,7 @@ function MonthGrid({
               <span
                 className={cn(
                   "tabular grid size-6 place-items-center rounded-full text-[13px] font-extrabold",
-                  isToday && "bg-accent-strong text-on-accent",
+                  isToday && "bg-accent text-on-accent",
                 )}
               >
                 {Number(day.slice(8))}

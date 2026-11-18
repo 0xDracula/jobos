@@ -38,7 +38,7 @@ export function Covers({ covers, className }: { covers: string[]; className?: st
 
 function PlannedCard({ s }: { s: ListeningSession }) {
   return (
-    <Link href={`/together/?id=${s.id}`} className="flex items-center gap-3 rounded-[12px] border-2 border-b-[5px] border-panel-line bg-panel p-3 transition-transform hover:-translate-y-0.5">
+    <Link href={`/together/?id=${s.id}`} className="flex items-center gap-3 rounded-card border border-panel-line bg-panel p-3 transition-transform hover:-translate-y-0.5">
       <Covers covers={s.covers} className="size-16 shrink-0" />
       <span className="min-w-0">
         <span dir="auto" className="block truncate font-display text-lg font-semibold">
@@ -100,7 +100,7 @@ export function SessionsHome() {
             <SectionTitle>Live</SectionTitle>
             <Link
               href={`/together/?id=${live.id}`}
-              className="flex flex-wrap items-center gap-4 rounded-[14px] border-2 border-b-[5px] border-panel-line bg-panel p-4 transition-transform hover:-translate-y-0.5"
+              className="flex flex-wrap items-center gap-4 rounded-[14px] border border-panel-line bg-panel p-4 transition-transform hover:-translate-y-0.5"
             >
               <Covers covers={live.covers} className="size-20 shrink-0" />
               <span className="min-w-0 flex-1">
@@ -118,7 +118,7 @@ export function SessionsHome() {
                   </span>
                 ))}
               </span>
-              <span className="inline-flex min-h-11 items-center gap-2 rounded-full bg-accent-strong px-4 font-bold text-on-accent">
+              <span className="inline-flex min-h-11 items-center gap-2 rounded-full bg-accent px-4 font-bold text-on-accent">
                 <Headphones className="size-4" /> Open
               </span>
             </Link>
@@ -141,7 +141,7 @@ export function SessionsHome() {
             <SectionTitle>History</SectionTitle>
             <ul className="grid gap-1.5">
               {ended.map((s) => (
-                <li key={s.id} className="flex items-center gap-3 rounded-[12px] border-2 border-panel-line bg-panel p-2.5">
+                <li key={s.id} className="flex items-center gap-3 rounded-[12px] border border-line bg-panel p-2.5">
                   <Link href={`/together/?id=${s.id}`} className="flex min-w-0 flex-1 items-center gap-3">
                     <Covers covers={s.covers} className="size-12 shrink-0" />
                     <span className="min-w-0">

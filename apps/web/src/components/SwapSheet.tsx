@@ -78,7 +78,7 @@ function PickRow({ s, label, respond, reactedBy }: { s: Swap; label: string; res
     <div className="flex items-center gap-3">
       {s.track ? <Artwork src={s.track.artwork_thumb_url ?? s.track.artwork_url} className="size-12 shrink-0 rounded-[10px]" /> : <div className="size-12 shrink-0 rounded-[10px] bg-accent-soft" />}
       <div className="min-w-0 flex-1">
-        <p className="text-xs font-extrabold uppercase tracking-wide text-muted">{label}</p>
+        <p className="text-xs font-extrabold text-muted">{label}</p>
         <p dir="auto" className="truncate font-bold">{s.track ? s.track.title : "Picked"}</p>
         {s.track && <p dir="auto" className="truncate text-sm text-muted">{s.track.artists.join(", ")}</p>}
         {s.note && <p dir="auto" className="mt-1 text-sm">{s.note}</p>}

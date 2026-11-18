@@ -99,7 +99,7 @@ export function NotePaper({
       )}
       {note.placeholder && <PaperMark />}
       <motion.div initial={play ? { opacity: 0 } : false} animate={{ opacity: 1 }} transition={{ delay: play ? 0.85 : 0, duration: 0.35 }}>
-        {label && <p className="mb-1 text-xs font-extrabold uppercase tracking-wide text-[#a8445e]">{label}</p>}
+        {label && <p className="mb-1 text-xs font-extrabold text-[#a8445e]">{label}</p>}
         <Handwriting authorId={note.author_id} className="whitespace-pre-wrap break-words text-[24px] leading-[1.35]">
           {note.body}
         </Handwriting>

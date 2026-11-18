@@ -18,7 +18,7 @@ export function ReactionBar({ className }: { className?: string }) {
           type="button"
           aria-label={`React ${e}`}
           onClick={() => react(e)}
-          className="grid size-11 place-items-center rounded-full border-2 border-panel-line bg-panel text-xl transition-transform hover:-translate-y-0.5 active:scale-90"
+          className="grid size-11 place-items-center rounded-full border border-line bg-panel text-xl transition-transform hover:-translate-y-0.5 active:scale-90"
         >
           {e}
         </button>

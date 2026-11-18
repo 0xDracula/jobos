@@ -37,7 +37,7 @@ import { useNames } from "./Letters";
 import { NotePaper, PAPER_FIELD } from "./Paper";
 import { SongPicker, SongRow } from "./SongPicker";
 
-const panel = "rounded-[10px] border-2 border-b-[5px] border-panel-line bg-panel";
+const panel = "rounded-card border border-panel-line bg-panel";
 
 const KIND_LABEL: Record<NoteKind, string> = { daily: "Daily note", morning: "Morning note", night: "Night note" };
 
@@ -48,7 +48,7 @@ function NoteOverlay({ note, unfold, onClose }: { note: Note | null; unfold: boo
   return (
     <RadixDialog.Root open={!!note} onOpenChange={(o) => !o && onClose()}>
       <RadixDialog.Portal>
-        <RadixDialog.Overlay className="fixed inset-0 z-[80] bg-[#1e1b3a]/45 backdrop-blur-[3px] data-[state=open]:animate-[fade-in_160ms_ease-out]" />
+        <RadixDialog.Overlay className="fixed inset-0 z-[80] bg-[#0b0d11]/45 backdrop-blur-[3px] data-[state=open]:animate-[fade-in_160ms_ease-out]" />
         <RadixDialog.Content aria-describedby={undefined} className="fixed inset-0 z-[81] grid place-items-center overflow-y-auto p-4 outline-none" onClick={(e) => e.target === e.currentTarget && onClose()}>
           <RadixDialog.Title className="sr-only">{note ? KIND_LABEL[note.kind] : "Note"}</RadixDialog.Title>
           {note && (

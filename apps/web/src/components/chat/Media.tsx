@@ -189,7 +189,7 @@ export function VoiceButton({ replyTo, onSent }: { replyTo: string | null; onSen
         <IconButton label="Cancel voice note" onClick={() => finish(false)}>
           <Trash2 />
         </IconButton>
-        <IconButton label="Send voice note" onClick={() => finish(true)} className="bg-accent-strong text-on-accent hover:bg-accent-strong">
+        <IconButton label="Send voice note" onClick={() => finish(true)} className="bg-accent text-on-accent hover:bg-accent">
           <Square className="fill-current" />
         </IconButton>
       </div>
@@ -225,7 +225,7 @@ export function VoiceButton({ replyTo, onSent }: { replyTo: string | null; onSen
           }
         }}
         className={cn(
-          "grid size-11 shrink-0 touch-none select-none place-items-center rounded-full bg-accent-strong text-on-accent shadow-soft transition-transform",
+          "grid size-11 shrink-0 touch-none select-none place-items-center rounded-full bg-accent text-on-accent shadow-soft transition-transform",
           mode === "hold" && "scale-125 bg-danger",
         )}
       >

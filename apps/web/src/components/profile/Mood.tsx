@@ -109,7 +109,7 @@ function MoodSuggestions({ mood, picked, onPick }: { mood: MoodKey; picked: Trac
             onClick={() => onPick(t)}
             aria-pressed={picked?.id === t.id}
             className={cn(
-              "flex min-w-0 items-center gap-2 rounded-button border-2 border-panel-line p-1.5 text-start",
+              "flex min-w-0 items-center gap-2 rounded-button border border-line p-1.5 text-start",
               picked?.id === t.id ? "bg-accent-soft" : "bg-panel",
             )}
           >

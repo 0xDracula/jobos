@@ -104,7 +104,7 @@ export function MixtapeList() {
   return (
     <>
       <PageHero title="Mixtapes" meta={q.data ? `${received.length} received · ${made.length} made` : undefined}>
-        <Link href="/mixtapes/?edit=new" className="inline-flex min-h-11 items-center gap-2 rounded-button bg-accent-strong px-4 font-semibold text-on-accent shadow-soft">
+        <Link href="/mixtapes/?edit=new" className="inline-flex min-h-11 items-center gap-2 rounded-button bg-accent px-4 font-semibold text-on-accent shadow-soft">
           <Plus className="size-5" /> New mixtape
         </Link>
       </PageHero>
@@ -396,7 +396,7 @@ export function MixtapeEditor({ id }: { id: string | null }) {
         <h2 className="font-display text-lg font-semibold">Songs</h2>
         {(["A", "B"] as const).map((side) => (
           <div key={side} className="rounded-card bg-surface-solid/60 p-2 shadow-soft">
-            <h3 className="px-1 pb-1 text-sm font-extrabold uppercase tracking-wide text-muted">Side {side}</h3>
+            <h3 className="px-1 pb-1 text-sm font-extrabold text-muted">Side {side}</h3>
             {!tracks.some((t) => t.side === side) && <p className="px-1 py-2 text-sm font-semibold text-muted">Empty</p>}
             <ol className="grid gap-1">
               {tracks.map((t, i) =>

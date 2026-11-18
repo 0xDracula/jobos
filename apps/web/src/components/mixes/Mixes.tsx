@@ -24,7 +24,7 @@ function MixCard({ mix }: { mix: MixSummary }) {
       <span className="relative block overflow-hidden rounded-[6px] shadow-soft transition-transform duration-150 group-hover:-translate-y-1">
         <MixCover src={mix.cover_url} title="" className="w-full" />
         {mix.current && (
-          <span className="absolute start-1.5 top-1.5 rounded-full bg-[#14122b]/80 px-2 py-0.5 text-[11px] font-extrabold text-white">Now</span>
+          <span className="absolute start-1.5 top-1.5 rounded-full bg-[#0b0d11]/80 px-2 py-0.5 text-[11px] font-extrabold text-white">Now</span>
         )}
       </span>
       <span className="truncate font-extrabold leading-tight">{mix.title}</span>
@@ -79,7 +79,7 @@ function ReleaseCard({ release: r }: { release: Release }) {
     <button type="button" onClick={() => void play()} disabled={busy} className="group grid w-[138px] shrink-0 snap-start gap-1.5 text-start sm:w-[156px]">
       <span className="relative block overflow-hidden rounded-[6px] shadow-soft transition-transform duration-150 group-hover:-translate-y-1">
         <Artwork src={r.artwork_url} alt="" className="aspect-square w-full" />
-        <span className="absolute bottom-1.5 end-1.5 grid size-9 place-items-center rounded-full bg-[#14122b]/80 text-white">
+        <span className="absolute bottom-1.5 end-1.5 grid size-9 place-items-center rounded-full bg-[#0b0d11]/80 text-white">
           {busy ? <Disc3 className="size-5 animate-spin" /> : <Play className="size-4 fill-current" />}
         </span>
       </span>

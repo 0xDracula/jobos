@@ -1,6 +1,5 @@
 "use client";
 
-import { useQueryClient } from "@tanstack/react-query";
 import { CloudDrizzle, CloudFog, CloudLightning, CloudRain, CloudSnow, Cloud, Ellipsis, Moon, Sun } from "lucide-react";
 import { useReducedMotion } from "motion/react";
 import dynamic from "next/dynamic";
@@ -10,11 +9,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { avatarFrames } from "@/avatar/draw";
 import { lookOf, type AvatarLook } from "@/avatar/look";
 import type { AvatarFrames } from "@/avatar/types";
-import { ContinueHere } from "@/components/ContinueHere";
-import { PicksHome, SongOfTheDayHome } from "@/components/letters/SongOfTheDay";
-import { DailyQuestionHome } from "@/components/question/DailyQuestion";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui";
-import { ApiError } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { useCountdowns } from "@/lib/dates";
 import { useMixtapes, useRoomConfig, useStars } from "@/lib/gift";
@@ -22,7 +17,7 @@ import { useJar, useLetterCounts } from "@/lib/letters";
 import { usePrefs } from "@/lib/prefs";
 import { usePlaylist, useTrackDetail } from "@/lib/queries";
 import { useMe, useMembers } from "@/lib/session";
-import { socialApi, socialKeys, usePresence } from "@/lib/social";
+import { usePresence } from "@/lib/social";
 import { purr, uiSound } from "@/lib/sounds";
 import { toast } from "@/lib/toast";
 import { useTogether } from "@/lib/together";
@@ -39,6 +34,7 @@ import { moodLight, NEUTRAL_LIGHT } from "../light";
 import type { KittenPose } from "../pixel/renderer";
 import { OBJECT_LABELS, ROOM_LABELS, type RoomId } from "../pixel/rooms/types";
 import { fallbackPlace, skyAt } from "../sky";
+import { useLamp } from "../lamp";
 import { startSleepMode } from "../sleep";
 import { openSheet, useRoom } from "../state";
 import { EditPanel } from "./EditPanel";
@@ -193,7 +189,7 @@ function WindowTag({ id, text, above }: { id: string; text: string; above?: bool
       <span
         dir="auto"
         className={cn(
-          "block max-w-[9.5rem] -translate-x-1/2 truncate whitespace-nowrap rounded-full bg-[#1e1b3a]/75 px-1.5 text-[10px] font-bold leading-[15px] text-[#f5eef8] shadow-soft",
+          "block max-w-[9.5rem] -translate-x-1/2 truncate whitespace-nowrap rounded-full bg-[#0b0d11]/75 px-1.5 text-[10px] font-bold leading-[15px] text-[#eef1f6] shadow-soft",
           above && "-translate-y-full",
         )}
       >
@@ -205,21 +201,10 @@ function WindowTag({ id, text, above }: { id: string; text: string; above?: bool
 
 const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 
-const LAMP_EVERY = 10 * 60_000;
-const LAMP_KEY = "jobbos.lamp.sent";
 const UNLOCK_MS = 2800;
 
-const readNumber = (key: string) => {
-  try {
-    return Number(localStorage.getItem(key) ?? 0) || 0;
-  } catch {
-    return 0;
-  }
-};
-
-export function RoomView() {
+export function RoomView({ band = false }: { band?: boolean } = {}) {
   const router = useRouter();
-  const qc = useQueryClient();
   const me = useMe();
   const meId = me.data?.id ?? "";
   const members = useMembers();
@@ -271,7 +256,6 @@ export function RoomView() {
   const [slow, setSlow] = useState(false);
   const [visible, setVisible] = useState(true);
   const [wide, setWide] = useState(false);
-  const [sentUntil, setSentUntil] = useState(0);
   const loaded = usePlayer((s) => s.index >= 0);
   useEffect(() => {
     const t = setTimeout(() => setSlow(true), 300);
@@ -377,50 +361,11 @@ export function RoomView() {
   );
   const artwork = detail.data?.artwork_thumb_url ?? track?.artwork_thumb_url ?? track?.artwork_url ?? null;
 
-  const lamps = presence.data?.lamps ?? [];
-  const nowMs = Date.now();
-  const received = lamps.find((l) => l.to === meId && Date.parse(l.on_until) > nowMs);
-  const sentLamp = lamps.find((l) => l.from === meId && Date.parse(l.on_until) > nowMs);
-  const sending = !!sentLamp || sentUntil > nowMs;
-  const lampSignal = roomClock.lamp ?? (received ? "received" : sending ? "sent" : null);
+  const lamp = useLamp();
+  const lampSignal = roomClock.lamp ?? (lamp.received ? "received" : lamp.sending ? "sent" : null);
   const lampOn = (sky?.lamp ?? 0) > 0.5 || !!lampSignal;
   const otherUser = members.data?.find((u) => u.id !== meId) ?? null;
-  const lastSent = Math.max(readNumber(LAMP_KEY), ...lamps.filter((l) => l.from === meId).map((l) => Date.parse(l.sent_at) || 0));
-  const timeOf = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-  const toggleLamp = async () => {
-    if (sending) {
-      try {
-        await socialApi.lamp(false);
-        setSentUntil(0);
-        toast("Lamp off");
-      } catch {
-        toast("Lamp unavailable");
-      }
-      void qc.invalidateQueries({ queryKey: socialKeys.presence });
-      return;
-    }
-    if (lastSent && Date.now() - lastSent < LAMP_EVERY) {
-      toast(`Lamp available at ${timeOf(lastSent + LAMP_EVERY)}`);
-      return;
-    }
-    try {
-      await socialApi.lamp(true);
-      try {
-        localStorage.setItem(LAMP_KEY, String(Date.now()));
-      } catch {
-      }
-      setSentUntil(Date.now() + (config.data?.lamp_minutes ?? 60) * 60_000);
-      toast(otherUser ? `Lamp on in ${otherUser.display_name}'s room` : "Lamp on");
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 429) {
-        const retry = Date.parse(String((err.body as { retry_at?: string } | null)?.retry_at ?? ""));
-        toast(`Lamp available at ${timeOf(Number.isFinite(retry) ? retry : (lastSent || Date.now()) + LAMP_EVERY)}`);
-      }
-      else if (err instanceof ApiError && err.status === 409) toast(err.message);
-      else toast("Lamp unavailable");
-    }
-    void qc.invalidateQueries({ queryKey: socialKeys.presence });
-  };
+  const toggleLamp = lamp.toggle;
 
   const memberOf = (id: string | undefined) => members.data?.find((u) => u.id === id);
   const myLook = meId ? lookOf(meId, memberOf(meId)?.avatar) : null;
@@ -530,8 +475,8 @@ export function RoomView() {
 
   const Icon = weather.data && !(weather.data.condition === "clear" && night) ? WEATHER_ICON[weather.data.condition] : night ? Moon : Sun;
   const chip = (sky?.night ?? 1) > 0.5
-    ? "border border-white/15 bg-[#1e1b3a]/70 text-[#f5eef8] backdrop-blur-md"
-    : "border border-white/60 bg-[#fff7f0]/80 text-[#3b2f3f] backdrop-blur-md";
+    ? "border border-white/15 bg-[#0b0d11]/70 text-[#eef1f6]"
+    : "border border-black/10 bg-white/85 text-[#14171d]";
   const background: CSSProperties = sky ? { background: `linear-gradient(180deg, ${sky.top}, ${sky.horizon})` } : { background: "var(--bg)" };
   const active = visible && !expanded && !sleepMode;
   const playlistChip = (list: typeof weekendList.data, label: string) =>
@@ -541,7 +486,7 @@ export function RoomView() {
 
   return (
     <div className="relative size-full overflow-hidden" style={background}>
-      <div className="absolute inset-0">
+      <div className={band ? "absolute inset-x-0 bottom-[var(--band-shift,0px)] h-[var(--band-canvas,100%)]" : "absolute inset-0"}>
         {sky && (
           <PixelRoom
             room={room}
@@ -572,8 +517,8 @@ export function RoomView() {
             unlocking={unlocking}
             kittenPose={(roomClock.kitten as KittenPose | null) ?? null}
             reducedMotion={reducedMotion}
-            hotspotIds={hotspotIds}
-            inset={loaded ? (wide ? 96 : 76) : wide ? 16 : 4}
+            hotspotIds={band ? [] : hotspotIds}
+            inset={band ? 0 : loaded ? (wide ? 96 : 76) : wide ? 16 : 4}
             active={active}
             playing={playing}
             onActivate={(id) => hotspots.find((h) => h.id === id)?.action()}
@@ -582,9 +527,9 @@ export function RoomView() {
           />
         )}
       </div>
-      {!ready && slow && <LoadingKitten />}
+      {!ready && slow && !band && <LoadingKitten />}
 
-      {ready && (
+      {ready && !band && (
         <div className="pointer-events-none absolute inset-0 [&>button]:pointer-events-auto" role="group" aria-label="Room">
           {hotspots.map((h) => (
             <HotspotButton key={h.id} h={h} />
@@ -598,6 +543,7 @@ export function RoomView() {
         </div>
       )}
 
+      {!band && (
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start gap-2 p-3 pt-[max(env(safe-area-inset-top),12px)] lg:p-5">
         <button
           type="button"
@@ -638,16 +584,15 @@ export function RoomView() {
         </div>
       </div>
 
-      <div className="pointer-events-none absolute inset-x-3 top-[calc(max(env(safe-area-inset-top),12px)+56px)] flex flex-col items-center gap-2 lg:top-20">
-        <ContinueHere className="pointer-events-auto w-full max-w-xl" />
-        <SongOfTheDayHome className="pointer-events-auto w-full max-w-xl" />
-        <PicksHome className="pointer-events-auto w-full max-w-xl" />
-        <DailyQuestionHome className="pointer-events-auto w-full max-w-xl" />
-      </div>
+      )}
 
-      <RoomSheets sky={sky} place={place} weather={weather.data ?? null} other={other} otherWeather={otherWeather} metrics={metrics} unlocked={unlocked} unlockables={unlockables} milestones={milestones} />
-      <StarDialog star={starOpen} onClose={() => useRoom.setState({ star: null })} />
-      {editing && <EditPanel saved={saved} unlocked={unlocked} favoriteAccent={fav.accent ?? DEFAULT_ACCENT} />}
+      {!band && (
+        <>
+          <RoomSheets sky={sky} place={place} weather={weather.data ?? null} other={other} otherWeather={otherWeather} metrics={metrics} unlocked={unlocked} unlockables={unlockables} milestones={milestones} />
+          <StarDialog star={starOpen} onClose={() => useRoom.setState({ star: null })} />
+          {editing && <EditPanel saved={saved} unlocked={unlocked} favoriteAccent={fav.accent ?? DEFAULT_ACCENT} />}
+        </>
+      )}
       {sleepMode && <SleepOverlay />}
       <span className="sr-only" aria-live="polite">
         {ROOM_LABELS[room]}

@@ -242,7 +242,7 @@ function Browse() {
               key={mood}
               type="button"
               onClick={() => void startRadio({ type: "mood", mood, name: label })}
-              className="flex min-h-16 items-center gap-3 rounded-[8px] border-2 border-b-[5px] border-panel-line bg-panel px-3 text-start font-extrabold transition-transform duration-150 hover:-translate-y-0.5"
+              className="flex min-h-16 items-center gap-3 rounded-card border border-panel-line bg-panel px-3 text-start font-extrabold transition-transform duration-150 hover:-translate-y-0.5"
             >
               <PixelIcon name={MOOD_ICONS[i]} size={32} />
               {label}
@@ -283,7 +283,7 @@ function OnlineRow({
       <div className="pointer-events-none relative size-12 shrink-0">
         <Artwork src={r.thumbnail} className="size-12 rounded-chip" />
         {busy && (
-          <span className="absolute inset-0 grid place-items-center rounded-chip bg-[#1e1b3a]/40 text-white">
+          <span className="absolute inset-0 grid place-items-center rounded-chip bg-[#0b0d11]/40 text-white">
             <Spinner className="size-5" />
           </span>
         )}

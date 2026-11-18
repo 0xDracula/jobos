@@ -54,7 +54,7 @@ export function CountdownCard({ compact, link = true, className }: { compact?: b
   if (!next) return null;
   const face = <CountdownFace c={next} compact={compact} />;
   const box = cn(
-    "block rounded-[12px] border-2 border-b-[5px] border-panel-line bg-panel transition-transform duration-150",
+    "block rounded-card border border-panel-line bg-panel transition-transform duration-150",
     compact ? "p-2.5" : "p-4",
     link && "hover:-translate-y-0.5",
     className,

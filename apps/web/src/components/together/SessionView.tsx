@@ -76,7 +76,7 @@ function Row({
       dragControls={controls}
       onDragEnd={onDragEnd}
       className={cn(
-        "flex items-center gap-2 rounded-[12px] border-2 border-panel-line bg-panel p-2 [touch-action:pan-y]",
+        "flex items-center gap-2 rounded-[12px] border border-line bg-panel p-2 [touch-action:pan-y]",
         current && "border-accent-strong/60",
         played && !current && "opacity-55",
       )}
@@ -278,11 +278,11 @@ export function SessionView({ id }: { id: string }) {
 
       <div className="grid grid-cols-1 gap-8">
         {live && current && (
-          <section className="grid gap-4 rounded-[14px] border-2 border-b-[5px] border-panel-line bg-panel p-4 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
+          <section className="grid gap-4 rounded-[14px] border border-panel-line bg-panel p-4 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
             <Artwork src={current.track?.artwork_thumb_url ?? null} className="size-28 justify-self-center rounded-[12px] shadow-soft sm:justify-self-start" />
             <div className="grid min-w-0 gap-3">
               <div className="min-w-0">
-                <p className="text-xs font-extrabold uppercase tracking-wider text-muted">Now playing</p>
+                <p className="text-xs font-extrabold text-muted">Now playing</p>
                 <p dir="auto" className="truncate font-display text-2xl font-semibold">
                   {current.track?.title}
                 </p>

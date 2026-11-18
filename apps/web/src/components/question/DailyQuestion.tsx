@@ -15,14 +15,14 @@ import { toast } from "@/lib/toast";
 import type { Track } from "@/lib/types";
 import { playTracks } from "@/player/controls";
 
-const panel = "rounded-[12px] border-2 border-b-[5px] border-panel-line bg-panel";
+const panel = "rounded-card border border-panel-line bg-panel";
 
 const dayLabel = (iso: string | null) => (iso ? new Date(`${iso}T12:00:00`).toLocaleDateString([], { weekday: "long", day: "numeric", month: "long" }) : "");
 
 function Answer({ a, name }: { a: DailyAnswer | null; name: string }) {
   return (
     <div className="min-w-0 rounded-[10px] bg-surface p-3">
-      <p className="text-xs font-extrabold uppercase tracking-wide text-muted">{name}</p>
+      <p className="text-xs font-extrabold text-muted">{name}</p>
       {!a ? (
         <p className="mt-1 font-semibold text-muted">No answer</p>
       ) : (
@@ -65,7 +65,7 @@ export function TodayQuestion({ q }: { q: AnsweredQuestion }) {
   return (
     <section className={cn(panel, "grid gap-4 p-4")}>
       <div>
-        <p className="text-xs font-extrabold uppercase tracking-wide text-accent-strong">{q.kind === "song" ? "Music question" : "Question"}</p>
+        <p className="text-xs font-extrabold text-accent-strong">{q.kind === "song" ? "Music question" : "Question"}</p>
         <p dir="auto" className="mt-1 font-display text-2xl font-semibold leading-snug">
           {q.body}
         </p>
@@ -121,7 +121,7 @@ export function PastQuestion({ q }: { q: AnsweredQuestion }) {
   return (
     <li className={cn(panel, "grid gap-3 p-4")}>
       <div>
-        <p className="text-xs font-extrabold uppercase tracking-wide text-muted">{dayLabel(q.asked_on)}</p>
+        <p className="text-xs font-extrabold text-muted">{dayLabel(q.asked_on)}</p>
         <p dir="auto" className="font-display text-lg font-semibold">
           {q.body}
         </p>
@@ -132,7 +132,7 @@ export function PastQuestion({ q }: { q: AnsweredQuestion }) {
           <Answer a={q.theirs} name={other?.display_name ?? ""} />
         ) : (
           <div className="rounded-[10px] bg-surface p-3">
-            <p className="text-xs font-extrabold uppercase tracking-wide text-muted">{other?.display_name}</p>
+            <p className="text-xs font-extrabold text-muted">{other?.display_name}</p>
             <p className="mt-1 font-semibold text-muted">Hidden</p>
           </div>
         )}
@@ -150,12 +150,12 @@ export function DailyQuestionHome({ className }: { className?: string }) {
         <MessageCircleQuestion className="size-6" />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="text-xs font-extrabold uppercase tracking-wider text-accent-strong">Daily question</p>
+        <p className="text-xs font-extrabold text-accent-strong">Daily question</p>
         <p dir="auto" className="line-clamp-2 font-bold">
           {q.body}
         </p>
       </div>
-      <Link href="/question/" className="shrink-0 rounded-button bg-accent-strong px-4 py-2 font-bold text-on-accent shadow-soft">
+      <Link href="/question/" className="shrink-0 rounded-button bg-accent px-4 py-2 font-bold text-on-accent shadow-soft">
         Answer
       </Link>
     </section>

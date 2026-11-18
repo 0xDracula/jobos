@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Aref_Ruqaa, Baloo_Bhaijaan_2, Caveat, Fredoka, Nunito, Tajawal } from "next/font/google";
+import { Aref_Ruqaa, Caveat, Manrope, Readex_Pro } from "next/font/google";
 import type { ReactNode } from "react";
 
 import { AppShell } from "@/components/shell";
@@ -7,16 +7,8 @@ import { AppShell } from "@/components/shell";
 import "./globals.css";
 import { Providers } from "./providers";
 
-const fredoka = Fredoka({ subsets: ["latin"], variable: "--font-fredoka", display: "swap" });
-const nunito = Nunito({ subsets: ["latin"], variable: "--font-nunito", display: "swap" });
-const tajawal = Tajawal({
-  subsets: ["arabic"],
-  weight: ["400", "500", "700", "800"],
-  variable: "--font-tajawal",
-  display: "swap",
-  preload: false,
-});
-const baloo = Baloo_Bhaijaan_2({ subsets: ["arabic"], variable: "--font-baloo", display: "swap", preload: false });
+const manrope = Manrope({ subsets: ["latin"], variable: "--font-manrope", display: "swap" });
+const readex = Readex_Pro({ subsets: ["arabic"], variable: "--font-readex", display: "swap", preload: false });
 const caveat = Caveat({ subsets: ["latin"], variable: "--font-caveat", display: "swap", preload: false });
 const ruqaa = Aref_Ruqaa({ subsets: ["arabic"], weight: ["400", "700"], variable: "--font-ruqaa", display: "swap", preload: false });
 
@@ -58,8 +50,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#fff7f0" },
-    { media: "(prefers-color-scheme: dark)", color: "#1e1b3a" },
+    { media: "(prefers-color-scheme: light)", color: "#f2f3f5" },
+    { media: "(prefers-color-scheme: dark)", color: "#0e1014" },
   ],
 };
 
@@ -70,7 +62,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html
       lang="en"
       suppressHydrationWarning
-      className={[fredoka, nunito, tajawal, baloo, caveat, ruqaa].map((f) => f.variable).join(" ")}
+      className={[manrope, readex, caveat, ruqaa].map((f) => f.variable).join(" ")}
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: prefsScript }} />

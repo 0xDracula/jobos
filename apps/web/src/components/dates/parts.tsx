@@ -45,7 +45,7 @@ export const fmtMonthName = (day: string) => dayDate(day).toLocaleDateString("en
 
 export function DatePanel({ title, action, children, className }: { title?: ReactNode; action?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <section className={cn("min-w-0 rounded-[12px] border-2 border-b-[5px] border-panel-line bg-panel p-4", className)}>
+    <section className={cn("min-w-0 rounded-card border border-panel-line bg-panel p-4", className)}>
       {(title || action) && (
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           {title && <h2 className="font-display text-xl font-semibold">{title}</h2>}
@@ -59,8 +59,8 @@ export function DatePanel({ title, action, children, className }: { title?: Reac
 
 export function Figure({ label, value, sub, className }: { label: string; value: ReactNode; sub?: ReactNode; className?: string }) {
   return (
-    <div className={cn("rounded-[8px] border-2 border-panel-line bg-panel px-3 py-2.5", className)}>
-      <div className="text-xs font-extrabold uppercase tracking-wide text-muted">{label}</div>
+    <div className={cn("rounded-[8px] border border-line bg-panel px-3 py-2.5", className)}>
+      <div className="text-xs font-extrabold text-muted">{label}</div>
       <div className="mt-0.5 text-2xl font-extrabold leading-tight">{value}</div>
       {sub && <div className="text-sm font-semibold text-muted">{sub}</div>}
     </div>

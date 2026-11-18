@@ -15,7 +15,7 @@ import { joinSession, leaveSession } from "@/player/together";
 import { ReactionLayer } from "./together/Reactions";
 import { Button } from "./ui";
 
-const PILL = "pointer-events-none fixed inset-x-0 bottom-[calc(4.6rem+env(safe-area-inset-bottom)+4.75rem)] z-40 flex justify-center px-4 lg:bottom-[calc(1rem+4.75rem)] lg:left-64";
+const PILL = "pointer-events-none fixed inset-x-0 bottom-[calc(4.6rem+env(safe-area-inset-bottom)+4.75rem)] z-40 flex justify-center px-4 lg:bottom-[calc(1rem+4.75rem)] lg:left-[88px]";
 
 function SetlistEnd() {
   const room = useTogether().data;
@@ -29,7 +29,7 @@ function SetlistEnd() {
   };
   return (
     <div className={PILL}>
-      <div className="pointer-events-auto flex flex-wrap items-center justify-center gap-2 rounded-[18px] border-2 border-b-[5px] border-panel-line bg-panel px-3 py-2 shadow-soft">
+      <div className="pointer-events-auto flex flex-wrap items-center justify-center gap-2 rounded-[18px] border border-panel-line bg-panel px-3 py-2 shadow-soft">
         <span className="px-1 text-sm font-bold">Setlist finished</span>
         <Button size="sm" variant="primary" onClick={() => void keepGoing()}>
           <Radio className="size-4" /> Keep going
@@ -61,7 +61,7 @@ export function TogetherBanner() {
       ) : (
         !hidden && (
           <div className={PILL}>
-            <div className="pointer-events-auto flex items-center gap-2 rounded-full border-2 border-panel-line bg-panel py-1.5 pe-1.5 ps-3 shadow-soft">
+            <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-line bg-panel py-1.5 pe-1.5 ps-3 shadow-soft">
               <Headphones aria-hidden className="size-4 shrink-0 text-accent-strong" />
               <Link href={`/together/?id=${room.session_id}`} className="max-w-[55vw] truncate text-sm font-bold">
                 {names.length ? (inside ? `${title} · with ${names.join(", ")}` : `${names.join(", ")} · ${title}`) : title}

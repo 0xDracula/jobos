@@ -23,7 +23,7 @@ import { useNames } from "./Letters";
 import { SongPicker, SongRow } from "./SongPicker";
 import { useSongDialog } from "./stores";
 
-const panel = "rounded-[10px] border-2 border-b-[5px] border-panel-line bg-panel";
+const panel = "rounded-card border border-panel-line bg-panel";
 
 const play = (t: Track, name = "Song of the day") => playTracks([t], 0, { type: "queue", name });
 
@@ -42,7 +42,7 @@ export function SongOfTheDayCard({ className }: { className?: string }) {
         </span>
       </button>
       <div className="min-w-0 flex-1">
-        <p className="text-xs font-extrabold uppercase tracking-wide text-accent-strong">Song of the day</p>
+        <p className="text-xs font-extrabold text-accent-strong">Song of the day</p>
         <p dir="auto" className="truncate font-display text-xl font-semibold">
           {t.title}
         </p>
@@ -87,7 +87,7 @@ export function SongOfTheDayHome({ className }: { className?: string }) {
     <section aria-label="Song of the day" className={cn("flex items-center gap-3 rounded-card bg-surface-solid/80 p-3 shadow-soft backdrop-blur", className)}>
       <Artwork src={t.artwork_thumb_url ?? t.artwork_url} className="size-16 shrink-0 self-start rounded-button" />
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-accent-strong">
+        <div className="flex items-center gap-1.5 text-xs font-extrabold text-accent-strong">
           <Sparkles className="size-4" /> Song of the day
         </div>
         <div dir="auto" className="truncate font-bold">
@@ -144,7 +144,7 @@ export function PicksHome({ className }: { className?: string }) {
   return (
     <section aria-label={name} className={cn("flex items-center gap-3 rounded-card bg-surface-solid/80 p-3 shadow-soft backdrop-blur", className)}>
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-accent-strong">
+        <div className="flex items-center gap-1.5 text-xs font-extrabold text-accent-strong">
           <Sparkles className="size-4" /> {name}
         </div>
         <div className="no-scrollbar mt-1.5 flex gap-1.5 overflow-x-auto">
