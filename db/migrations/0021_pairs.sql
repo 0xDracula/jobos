@@ -50,7 +50,7 @@ declare
   p uuid := gen_random_uuid();
 begin
   if (select count(*) from users) = 2 then
-    insert into pairs (id, kind) values (p, 'partner');
+    insert into pairs (id, kind, created_at) values (p, 'partner', (select max(created_at) from users));
     insert into pair_members (pair_id, user_id) select p, id from users;
   end if;
 end $$;
