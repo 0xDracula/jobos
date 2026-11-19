@@ -49,10 +49,11 @@ export function TogetherBanner() {
   const pathname = usePathname();
   if (!me || !room?.active) return null;
   const inside = room.members.includes(me.id);
-  const hidden = pathname.startsWith("/chat") || pathname.startsWith("/together");
+  const hidden = pathname.startsWith("/chat") || pathname.startsWith("/together") || pathname.startsWith("/jam") || pathname.startsWith("/previews");
   const others = room.members.filter((id) => id !== me.id);
   const names = others.map((id) => members.data?.find((u) => u.id === id)?.display_name ?? "").filter(Boolean);
-  const title = sessionTitle(room);
+  const title = room.jam ? (room.host === me.id ? "Your jam" : "Jam") : sessionTitle(room);
+  const href = room.jam ? `/jam/?id=${room.session_id}` : `/together/?id=${room.session_id}`;
   return (
     <>
       {inside && <ReactionLayer />}
@@ -63,15 +64,15 @@ export function TogetherBanner() {
           <div className={PILL}>
             <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-line bg-panel py-1.5 pe-1.5 ps-3 shadow-soft">
               <Headphones aria-hidden className="size-4 shrink-0 text-accent-strong" />
-              <Link href={`/together/?id=${room.session_id}`} className="max-w-[55vw] truncate text-sm font-bold">
-                {names.length ? (inside ? `${title} · with ${names.join(", ")}` : `${names.join(", ")} · ${title}`) : title}
+              <Link href={href} className="max-w-[55vw] truncate text-sm font-bold">
+                {room.jam && !inside ? `${title} · ${room.members.length} listening` : names.length ? (inside ? `${title} · with ${names.join(", ")}` : `${names.join(", ")} · ${title}`) : title}
               </Link>
               {inside ? (
                 <Button size="sm" variant="ghost" onClick={leaveSession} aria-label="Leave">
                   <LogOut className="size-4" />
                 </Button>
               ) : (
-                <Button size="sm" variant="primary" onClick={joinSession}>
+                <Button size="sm" variant="primary" onClick={() => joinSession(room.session_id)}>
                   Join
                 </Button>
               )}

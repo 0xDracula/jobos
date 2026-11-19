@@ -78,8 +78,8 @@ export default function InvitePage() {
     setBusy(true);
     setError("");
     try {
-      await pairApi.link(token);
-      window.location.assign("/");
+      const res = await pairApi.link(token);
+      window.location.assign(res.friend ? "/friends/?tab=people" : "/");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Server unreachable");
       setBusy(false);

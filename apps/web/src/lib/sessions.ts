@@ -31,6 +31,12 @@ export type ListeningSession = {
   position_ms: number;
   together_ms: number;
   members: string[];
+  pair_id?: string | null;
+  conversation_id?: string | null;
+  audience?: string[];
+  friends_join?: boolean;
+  anyone_add?: boolean;
+  anyone_skip?: boolean;
   item_count: number;
   played_count: number;
   covers: string[];

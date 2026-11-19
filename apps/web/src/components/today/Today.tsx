@@ -24,7 +24,7 @@ import { useProfile, useQuestion } from "@/lib/profiles";
 import { useOurSong } from "@/lib/keepsakes";
 import { useMode, usePair } from "@/lib/pair";
 import { useMe, useMembers } from "@/lib/session";
-import { sendMessage, useChat, usePresence, type Person } from "@/lib/social";
+import { sendMessage, useChat, useConversations, usePresence, type Person } from "@/lib/social";
 import { toast } from "@/lib/toast";
 import type { Track } from "@/lib/types";
 import { playTracks } from "@/player/controls";
@@ -34,7 +34,8 @@ import { useCity, useWeather } from "@/room/data";
 import { useLamp, type LampState } from "@/room/lamp";
 import { localTime, RoomView } from "@/room/ui/RoomView";
 
-import { SoloToday } from "./SoloToday";
+import { FriendsSection, SoloToday } from "./SoloToday";
+import { PreviewsCard } from "@/components/friends/Previews";
 
 type User = { id: string; display_name: string };
 
@@ -312,12 +313,17 @@ function Duet({ me, other, friend }: { me: User; other: User | null; friend: boo
   );
 }
 
+function usePartnerChat(): string | null {
+  return useConversations().data?.find((c) => c.partner)?.id ?? null;
+}
+
 function NoteCard({ note, label, authorName, track }: { note: Pick<Note, "author_id" | "body" | "created_at">; label: string; authorName: string; track?: Track | null }) {
   const [text, setText] = useState("");
+  const conv = usePartnerChat();
   const send = () => {
     const body = text.trim();
-    if (!body) return;
-    sendMessage("text", body);
+    if (!body || !conv) return;
+    sendMessage(conv, "text", body);
     setText("");
     toast(`Sent to ${authorName}`);
   };
@@ -516,7 +522,8 @@ export function ComingUp() {
 const KIND_LABEL: Record<string, string> = { song: "Song", lyric: "Lyrics", swap: "Song swap", session: "Listen together", voice: "Voice note", photo: "Photo", sticker: "Sticker" };
 
 function ChatCard({ other }: { other: User }) {
-  const chat = useChat();
+  const conv = usePartnerChat();
+  const chat = useChat(conv);
   const unread = usePresence().data?.unread ?? 0;
   const messages = chat.data?.messages ?? [];
   let last = null;
@@ -575,7 +582,7 @@ export function NowMusic() {
 function FirstSteps({ friend }: { friend: boolean }) {
   const pair = usePair().data?.pair;
   const ourSong = useOurSong().data?.track;
-  const chat = useChat().data;
+  const chat = useChat(usePartnerChat()).data;
   if (!pair || !chat || chat.messages.length > 0 || Date.now() - Date.parse(pair.created_at) > 7 * 86_400_000) return null;
   const steps = [
     !friend && !ourSong && { href: "/song/", icon: "record" as PixelIconName, title: "Our song", meta: "Choose" },
@@ -621,6 +628,7 @@ export function Today() {
       <div className="mx-auto max-w-[1400px] lg:grid lg:grid-cols-[290px_minmax(0,1fr)_290px] lg:items-start lg:gap-6 lg:px-6 lg:pt-5">
         <Duet me={me} other={other} friend={friend} />
         <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-2.5 px-4 pt-6 lg:col-start-2 lg:row-start-1 lg:px-0 lg:pt-0">
+          <FriendsSection />
           <h2 className="font-display text-xl lg:text-[22px]">Between you</h2>
           <ContinueHere className="w-full" />
           <FirstSteps friend={friend} />
@@ -632,6 +640,7 @@ export function Today() {
             {other && <ChatCard other={other} />}
           </div>
           {!friend && <Letters />}
+          <PreviewsCard className="mt-4" />
           <div className="mt-4">
             <NowMusic />
           </div>

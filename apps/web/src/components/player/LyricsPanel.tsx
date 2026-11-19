@@ -10,7 +10,7 @@ import { cn } from "@/lib/cn";
 import { keepsakeApi, keepsakeKeys, useTrackNotes, type CardLine, type SongNote } from "@/lib/keepsakes";
 import { keys, queryClient } from "@/lib/queries";
 import { useMembers } from "@/lib/session";
-import { shareLyrics } from "@/lib/social";
+import { openSend } from "@/components/friends/sheets";
 import { toast } from "@/lib/toast";
 import { seek } from "@/player/controls";
 import { selectTrack, usePlayer } from "@/player/store";
@@ -163,7 +163,7 @@ function Lines({ trackId, lines, offset, synced }: { trackId: string; lines: Car
 
   const sendToChat = async () => {
     if (!track || !pickedLines.length) return;
-    shareLyrics(track, pickedLines);
+    openSend({ kind: "lyric", track, lines: pickedLines });
     toast("Sent to chat");
     setSelected(null);
   };

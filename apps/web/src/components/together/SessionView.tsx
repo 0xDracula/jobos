@@ -248,7 +248,7 @@ export function SessionView({ id }: { id: string }) {
               </>
             )}
             {live && !inside && (
-              <Button variant="primary" onClick={joinSession}>
+              <Button variant="primary" onClick={() => joinSession(s.id)}>
                 <Headphones className="size-5" /> Join
               </Button>
             )}

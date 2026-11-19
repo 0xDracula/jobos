@@ -11,7 +11,7 @@ import { cn } from "@/lib/cn";
 import { MOOD_MIX, useMix } from "@/lib/mixes";
 import { MOODS, moodOf, profileKeys, profilesApi, type Mood, type MoodKey } from "@/lib/profiles";
 import { queryClient } from "@/lib/queries";
-import { shareSong } from "@/lib/social";
+import { shareSongWithPartner } from "@/lib/social";
 import { toast } from "@/lib/toast";
 import type { Track } from "@/lib/types";
 
@@ -135,7 +135,7 @@ export function MoodReply({ mood, name }: { mood: Mood; name: string }) {
   const [note, setNote] = useState("");
   const send = () => {
     if (!track) return;
-    shareSong(track, { note: note.trim() || undefined, mood: mood.mood });
+    void shareSongWithPartner(track, { note: note.trim() || undefined, mood: mood.mood });
     toast("Song sent to chat");
     setOpen(false);
     setTrack(null);

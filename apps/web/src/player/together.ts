@@ -4,7 +4,7 @@ import { api } from "@/lib/api";
 import { queryClient } from "@/lib/queries";
 import { send, serverNow } from "@/lib/realtime";
 import { sessionApi } from "@/lib/sessions";
-import { fetchTogether, togetherKey, type TogetherState } from "@/lib/together";
+import { fetchTogether, jamApi, togetherKey, type JamOptions, type TogetherState } from "@/lib/together";
 import type { Track } from "@/lib/types";
 
 import { getEngine } from "./engine";
@@ -41,8 +41,20 @@ export async function listenAlong(trackId: string, positionMs: number): Promise<
   void sessionApi.invite(id).catch(() => {});
   return id;
 }
+export async function startJam(opts: JamOptions = {}): Promise<string | null> {
+  const s = usePlayer.getState();
+  const ids = s.queue.slice(Math.max(0, s.index)).map((q) => q.track.id);
+  if (!ids.length) return null;
+  const position = Math.round((getEngine()?.currentTime() ?? 0) * 1000);
+  const { id } = await jamApi.start({ ...opts, track_ids: ids.slice(0, 500), position_ms: position });
+  return id;
+}
+export async function jamAlong(friendId: string, trackId: string, positionMs: number): Promise<string> {
+  const { id } = await jamApi.start({ track_ids: [trackId], position_ms: Math.round(positionMs), invite: [friendId] });
+  return id;
+}
 export const react = (emoji: string) => send("room.react", { emoji });
-export const joinSession = () => send("room.join");
+export const joinSession = (sessionId?: string) => send("room.join", sessionId ? { session_id: sessionId } : {});
 export const leaveSession = () => send("room.leave");
 export const endSession = () => command("end");
 

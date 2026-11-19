@@ -15,6 +15,7 @@ import { startSocial } from "@/lib/social";
 import { startProfiles } from "@/lib/profiles";
 import { startGift } from "@/lib/gift";
 import { startPair } from "@/lib/pair";
+import { startPeople } from "@/lib/people";
 import { startTogetherState } from "@/lib/together";
 import { startSessionEvents } from "@/lib/sessions";
 import { startRadioWatch } from "@/player/radio";
@@ -26,6 +27,7 @@ import { CommandPalette } from "./CommandPalette";
 import { sectionActive, UnreadBadge, useSections } from "./nav";
 import { Sidebar } from "./Sidebar";
 import { GlobalDialogs } from "./dialogs";
+import { SendSheet } from "./friends/sheets";
 import { KeepsakeDialogs } from "./KeepsakeDialogs";
 import { EffectLayer } from "./chat/Effects";
 import { LettersLayer } from "./letters/LettersLayer";
@@ -153,6 +155,7 @@ function AuthGate({ children }: { children: ReactNode }) {
     startRadioWatch();
     startGift();
     startPair();
+    startPeople();
     startProfiles();
   }, [me.data]);
   useEffect(() => {
@@ -216,6 +219,7 @@ function appFrame(pathname: string, children: ReactNode) {
       <Toasts />
       <CommandPalette />
       <GlobalDialogs />
+      <SendSheet />
       <KeepsakeDialogs />
       <LettersLayer />
       <TogetherBanner />

@@ -61,7 +61,7 @@ export const pairApi = {
   revoke: (id: string) => request<null>(`/api/pair/invites/${id}`, { method: "DELETE" }),
   unlink: (keep: boolean) => request<null>("/api/pair/unlink", json("POST", { keep })),
   setKind: (kind: PairKind) => request<null>("/api/pair", json("PATCH", { kind })),
-  link: (token: string) => request<{ pair: Pair }>(`/api/invites/${token}/link`, { method: "POST" }),
+  link: (token: string) => request<{ pair: Pair | null; friend?: string }>(`/api/invites/${token}/link`, { method: "POST" }),
 };
 
 let wired = false;

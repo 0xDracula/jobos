@@ -153,10 +153,11 @@ export type TableCount = { total: number; placeholders: number };
 export type MemoriesSummary = { counts: Record<string, TableCount>; map: MapInfo };
 
 export const memoriesApi = {
-  uploadPhoto: (file: File, opts: { albumId?: string | null; caption?: string } = {}) => {
+  uploadPhoto: (file: File, opts: { albumId?: string | null; caption?: string; conversationId?: string } = {}) => {
     const form = new FormData();
     form.append("file", file);
     if (opts.albumId) form.append("album_id", opts.albumId);
+    if (opts.conversationId) form.append("conversation_id", opts.conversationId);
     if (opts.caption) form.append("caption", opts.caption);
     return request<Photo>("/api/photos", { method: "POST", body: form });
   },

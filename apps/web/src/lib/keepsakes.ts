@@ -58,9 +58,10 @@ export const keepsakeApi = {
   addClipping: (trackId: string, lines: CardLine[]) => request<Clipping>("/api/scrapbook", json("POST", { track_id: trackId, lines })),
   deleteClipping: (id: string) => request<null>(`/api/scrapbook/${id}`, { method: "DELETE" }),
 
-  uploadClip: (file: Blob, name: string) => {
+  uploadClip: (file: Blob, name: string, conversationId?: string) => {
     const form = new FormData();
     form.append("file", file, name);
+    if (conversationId) form.append("conversation_id", conversationId);
     return request<VoiceClip>("/api/clips", { method: "POST", body: form });
   },
   clip: (id: string) => request<VoiceClip>(`/api/clips/${id}`),

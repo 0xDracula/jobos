@@ -3,6 +3,8 @@
 import { ChevronRight, Heart, UserPlus } from "lucide-react";
 import Link from "next/link";
 
+import { FriendStrip } from "@/components/friends/people";
+import { PreviewsCard } from "@/components/friends/Previews";
 import { ContinueHere } from "@/components/ContinueHere";
 import { Artwork } from "@/components/media";
 import { ReleasesShelf } from "@/components/mixes/Mixes";
@@ -89,11 +91,25 @@ export function LinkRow() {
         <UserPlus className="size-[22px]" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[15px] font-extrabold">Link with someone</span>
-        <span className="block text-[13px] font-semibold text-muted">Partner or friend</span>
+        <span className="block text-[15px] font-extrabold">Invite someone</span>
+        <span className="block text-[13px] font-semibold text-muted">Friend or partner</span>
       </span>
       <ChevronRight className="size-5 text-muted" />
     </Link>
+  );
+}
+
+export function FriendsSection() {
+  return (
+    <section className="grid gap-2">
+      <div className="flex items-baseline justify-between">
+        <h2 className="font-display text-xl lg:text-[22px]">Friends</h2>
+        <Link href="/friends/?tab=activity" className="text-[13px] font-bold text-muted">
+          All
+        </Link>
+      </div>
+      <FriendStrip />
+    </section>
   );
 }
 
@@ -103,7 +119,9 @@ export function SoloToday() {
       <RoomBand search={false} />
       <div className="mx-auto grid max-w-[1400px] grid-cols-[minmax(0,1fr)] gap-8 px-4 pt-3 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-12 lg:px-6 lg:pt-6">
         <div className="grid grid-cols-[minmax(0,1fr)] content-start gap-8">
+          <FriendsSection />
           <ContinueHere className="w-full" />
+          <PreviewsCard />
           <NowMusic />
           <Recent />
         </div>

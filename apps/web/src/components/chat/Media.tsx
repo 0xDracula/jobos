@@ -126,7 +126,7 @@ function pickMime(): string {
 
 const MAX_MS = 5 * 60_000;
 
-export function VoiceButton({ replyTo, onSent }: { replyTo: string | null; onSent: () => void }) {
+export function VoiceButton({ conv, replyTo, onSent }: { conv: string; replyTo: string | null; onSent: () => void }) {
   const [mode, setMode] = useState<"idle" | "hold" | "tap">("idle");
   const [elapsed, setElapsed] = useState(0);
   const rec = useRef<{ r: MediaRecorder; stream: MediaStream; chunks: Blob[]; started: number; cancel: boolean } | null>(null);
@@ -158,8 +158,8 @@ export function VoiceButton({ replyTo, onSent }: { replyTo: string | null; onSen
         const type = r.mimeType || mime || "audio/webm";
         const blob = new Blob(c.chunks, { type });
         const ext = type.includes("mp4") ? "m4a" : type.includes("ogg") ? "ogg" : "webm";
-        sendUpload("voice", { duration_ms: ms, peaks: Array(40).fill(0.3) }, async () => {
-          const [{ peaks, ms: decoded }, clip] = await Promise.all([peaksOf(blob), keepsakeApi.uploadClip(blob, `voice.${ext}`)]);
+        sendUpload(conv, "voice", { duration_ms: ms, peaks: Array(40).fill(0.3) }, async () => {
+          const [{ peaks, ms: decoded }, clip] = await Promise.all([peaksOf(blob), keepsakeApi.uploadClip(blob, `voice.${ext}`, conv)]);
           return { clip_id: clip.id, peaks, duration_ms: decoded || ms } satisfies ChatData;
         }, "", replyTo);
         onSent();
@@ -249,14 +249,14 @@ async function shrink(file: File): Promise<{ blob: Blob; width: number; height: 
   return { blob, width, height };
 }
 
-export function PhotoButton({ replyTo, onSent }: { replyTo: string | null; onSent: () => void }) {
+export function PhotoButton({ conv, replyTo, onSent }: { conv: string; replyTo: string | null; onSent: () => void }) {
   const input = useRef<HTMLInputElement>(null);
   const pick = async (file: File) => {
     try {
       const { blob, width, height } = await shrink(file);
       const local = URL.createObjectURL(blob);
-      sendUpload("photo", { width, height, local_url: local }, async () => {
-        const p = await memoriesApi.uploadPhoto(new File([blob], "photo.jpg", { type: "image/jpeg" }));
+      sendUpload(conv, "photo", { width, height, local_url: local }, async () => {
+        const p = await memoriesApi.uploadPhoto(new File([blob], "photo.jpg", { type: "image/jpeg" }), { conversationId: conv });
         return { photo_id: p.id, width, height } satisfies ChatData;
       }, "", replyTo);
       onSent();
@@ -322,11 +322,11 @@ export function StickerMessage({ m }: { m: ChatMessage }) {
   return <img src={src} alt="Sticker" className={cn("size-32", d.sticker && "[image-rendering:pixelated]")} />;
 }
 
-export function StickerButton({ replyTo, onSent }: { replyTo: string | null; onSent: () => void }) {
+export function StickerButton({ conv, replyTo, onSent }: { conv: string; replyTo: string | null; onSent: () => void }) {
   const uploaded = useUploadedStickers();
   const [open, setOpen] = useState(false);
   const send = (data: ChatData) => {
-    sendMessage("sticker", "", data, replyTo);
+    sendMessage(conv, "sticker", "", data, replyTo);
     setOpen(false);
     onSent();
   };

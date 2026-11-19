@@ -1,6 +1,8 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ChevronRight } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { Avatar, AvatarEditor } from "@/avatar";
@@ -13,7 +15,7 @@ import { Artwork } from "@/components/media";
 import { Button, Empty, Segmented, Switch } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { cn } from "@/lib/cn";
-import { afterPairChange, pairApi, usePair, type PairKind } from "@/lib/pair";
+import { afterPairChange, pairApi, usePair } from "@/lib/pair";
 import { toast } from "@/lib/toast";
 import { deviceName, isIOS } from "@/lib/device";
 import { install, useInstall } from "@/lib/install";
@@ -99,26 +101,25 @@ function UnlinkDialog({ open, onOpenChange, name }: { open: boolean; onOpenChang
 function LinkedAccount() {
   const pair = usePair().data?.pair;
   const [unlinking, setUnlinking] = useState(false);
-  const setKind = async (kind: PairKind) => {
-    try {
-      await pairApi.setKind(kind);
-      afterPairChange();
-    } catch (err) {
-      toast(err instanceof ApiError ? err.message : "Change unavailable");
-    }
-  };
   if (pair === undefined) return null;
+  const privacy = (
+    <Link href="/settings/privacy/" className="flex min-h-14 items-center gap-3 rounded-card border border-line bg-surface px-4 transition-colors hover:border-line-strong">
+      <span className="flex-1 font-extrabold">Privacy</span>
+      <ChevronRight className="size-5 text-muted" />
+    </Link>
+  );
   if (!pair?.partner) {
     return (
-      <section className="mb-10">
-        <h2 className="mb-3 font-display text-xl font-semibold">Linked account</h2>
+      <section className="mb-10 grid gap-3">
+        <h2 className="font-display text-xl font-semibold">People</h2>
+        {privacy}
         <LinkRow />
       </section>
     );
   }
   const partner = pair.partner;
   return (
-    <Section title="Linked account">
+    <Section title="Partner">
       <div className="flex min-h-14 items-center gap-3 px-3 py-2">
         <span className="overflow-hidden rounded-full bg-surface-2">
           <Avatar userId={partner.id} size={40} />
@@ -130,17 +131,10 @@ function LinkedAccount() {
           <span className="block text-[13px] font-semibold text-muted">Since {sinceDate(pair.created_at)}</span>
         </span>
       </div>
-      <Row label="Kind">
-        <Segmented<PairKind>
-          label="Kind"
-          value={pair.kind}
-          onChange={(v) => void setKind(v)}
-          options={[
-            ["partner", "Partner"],
-            ["friend", "Friend"],
-          ]}
-        />
-      </Row>
+      <Link href="/settings/privacy/" className="flex min-h-14 items-center justify-between gap-3 px-3">
+        <span className="font-extrabold">Privacy</span>
+        <ChevronRight className="size-5 text-muted" />
+      </Link>
       <Row label="Unlink">
         <Button variant="danger" size="sm" onClick={() => setUnlinking(true)}>
           Unlink

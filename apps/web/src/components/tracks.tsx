@@ -26,7 +26,7 @@ import { cn } from "@/lib/cn";
 import { fmtMs } from "@/lib/format";
 import { downloadTracks, removeDownload, useOfflineStatus } from "@/lib/offline";
 import { isHidden, setLiked, useHide, useHiddenIds, useLikedIds } from "@/lib/queries";
-import { shareSong } from "@/lib/social";
+import { openSend } from "@/components/friends/sheets";
 import { toast } from "@/lib/toast";
 import type { Track } from "@/lib/types";
 import { addToQueue, playNext, playTracks } from "@/player/controls";
@@ -127,12 +127,9 @@ export function TrackMenu({
         <MenuSeparator />
         <MenuItem
           icon={<MessageCircleHeart />}
-          onSelect={() => {
-            shareSong(track);
-            toast("Sent to chat");
-          }}
+          onSelect={() => openSend({ kind: "song", track })}
         >
-          Send to chat
+          Send
         </MenuItem>
         <MenuItem icon={<NotebookPen />} onSelect={() => openSongNote(track)}>
           Note

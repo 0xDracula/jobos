@@ -33,8 +33,8 @@ export function messageText(m: ChatMessage): string {
 
 const dateOf = (iso: string) => new Date(iso).toLocaleDateString([], { day: "numeric", month: "short", year: "numeric" });
 
-export function PinnedBar({ onJump }: { onJump: (id: string) => void }) {
-  const pins = usePins();
+export function PinnedBar({ conv, onJump }: { conv: string; onJump: (id: string) => void }) {
+  const pins = usePins(conv);
   const list = pins.data ?? [];
   if (!list.length) return null;
   return (
@@ -63,14 +63,14 @@ export function PinnedBar({ onJump }: { onJump: (id: string) => void }) {
   );
 }
 
-export function ChatSearch({ nameOf, onJump, onClose }: { nameOf: (id: string) => string; onJump: (id: string) => void; onClose: () => void }) {
+export function ChatSearch({ conv, nameOf, onJump, onClose }: { conv: string; nameOf: (id: string) => string; onJump: (id: string) => void; onClose: () => void }) {
   const [q, setQ] = useState("");
   const [term, setTerm] = useState("");
   useEffect(() => {
     const t = setTimeout(() => setTerm(q.trim()), 250);
     return () => clearTimeout(t);
   }, [q]);
-  const results = useQuery({ queryKey: ["chat-search", term], queryFn: () => socialApi.search(term), enabled: term.length >= 2, staleTime: 30_000 });
+  const results = useQuery({ queryKey: ["chat-search", conv, term], queryFn: () => socialApi.search(conv, term), enabled: term.length >= 2, staleTime: 30_000 });
   const list = results.data?.messages ?? [];
   return (
     <div className="relative">

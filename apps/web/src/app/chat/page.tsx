@@ -1,18 +1,19 @@
 "use client";
 
-import { ArrowDown, BellOff, Check, CheckCheck, Clock, Headphones, Lamp, MessageCircle, Music2, Pencil, Pin, PinOff, Play, Reply, RotateCcw, Search, Send, Smile, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowLeft, BellOff, Check, CheckCheck, Clock, Headphones, Lamp, MessageCircle, Music2, Pencil, Pin, PinOff, Play, Reply, RotateCcw, Search, Send, Settings2, Smile, Trash2, UserRound, X } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 
-import { Avatar } from "@/avatar";
+import { Avatar, lookOf } from "@/avatar";
+import { AvatarStack } from "@/components/friends/people";
+import { GroupSheet, JamSheet } from "@/components/friends/sheets";
 import { PhotoButton, PhotoMessage, StickerButton, StickerMessage, VoiceButton, VoiceNote } from "@/components/chat/Media";
 import { ChatSearch, messageText, PinnedBar } from "@/components/chat/PinsSearch";
 import { MoodChip } from "@/components/profile/Mood";
 import { SwapSheet } from "@/components/SwapSheet";
 import { Artwork } from "@/components/media";
 import { PixelIcon } from "@/components/pixel/PixelIcon";
-import { LinkRow } from "@/components/today/SoloToday";
 import { Button, IconButton, Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { groupMessages } from "@/lib/chatGroups";
@@ -22,17 +23,17 @@ import { effectOf, jumboEmoji, playEffect } from "@/lib/effects";
 import { fmtTime, plural } from "@/lib/format";
 import { moodOf, useProfile } from "@/lib/profiles";
 import { keys, queryClient } from "@/lib/queries";
-import { useMode } from "@/lib/pair";
+import { useFriends } from "@/lib/people";
 import { useMe, useMembers } from "@/lib/session";
 import {
-  jumpTo, loadNewer, loadOlder, notifyTyping, retryMessage, sendMessage, showLatest, socialApi, socialKeys, typing, useChat, useChatEffects,
-  usePresence, type ChatMessage,
+  conversationApi, conversationName, jumpTo, loadNewer, loadOlder, notifyTyping, retryMessage, sendMessage, showLatest, socialApi, socialKeys,
+  typing, useChat, useChatEffects, useConversation, useConversations, usePresence, type ChatMessage, type Conversation,
 } from "@/lib/social";
 import { toast } from "@/lib/toast";
 import { useTogether } from "@/lib/together";
 import { playTracks, seek } from "@/player/controls";
 import { selectTrack, usePlayer } from "@/player/store";
-import { joinSession, listenAlong } from "@/player/together";
+import { jamAlong, joinSession, listenAlong } from "@/player/together";
 
 const QUICK = ["❤️", "😂", "😮", "😢", "🔥", "👍"];
 
@@ -126,19 +127,19 @@ function SwapCard({ m, mine, nameOf, me }: { m: ChatMessage; mine: boolean; name
 }
 
 function SessionCard({ m }: { m: ChatMessage }) {
-  const d = (m.data ?? {}) as unknown as { session_id?: string; title?: string; scheduled_at?: string | null; songs?: number };
+  const d = (m.data ?? {}) as unknown as { session_id?: string; title?: string; scheduled_at?: string | null; songs?: number; jam?: boolean };
   return (
-    <Link href={`/together/?id=${d.session_id ?? ""}`} className="flex items-center gap-3">
+    <Link href={d.jam ? `/jam/?id=${d.session_id ?? ""}` : `/together/?id=${d.session_id ?? ""}`} className="flex items-center gap-3">
       <span className="grid size-14 shrink-0 place-items-center rounded-[10px] bg-[var(--chat-action)]">
         <PixelIcon name="headphones" size={36} />
       </span>
       <span className="min-w-0">
-        <span className="block text-xs font-extrabold opacity-70">Listen together</span>
+        <span className="block text-xs font-extrabold opacity-70">{d.jam ? "Jam" : "Listen together"}</span>
         <span dir="auto" className="block truncate font-bold">
           {d.title || m.body}
         </span>
         <span className="block text-sm opacity-75">
-          {sessionWhen(d.scheduled_at ?? null)}
+          {d.jam ? "Join" : sessionWhen(d.scheduled_at ?? null)}
           {d.songs ? ` · ${plural(d.songs, "song")}` : ""}
         </span>
       </span>
@@ -147,8 +148,9 @@ function SessionCard({ m }: { m: ChatMessage }) {
 }
 
 function Bubble({
-  m, mine, tail, replyTo, nameOf, onReply, onEdit, me, focused,
+  conv, m, mine, tail, replyTo, nameOf, onReply, onEdit, me, focused,
 }: {
+  conv: string;
   focused: boolean;
   m: ChatMessage;
   mine: boolean;
@@ -271,7 +273,7 @@ function Bubble({
             </span>
           )}
           {m.status === "failed" ? (
-            <button type="button" onClick={() => retryMessage(m.client_key)} className="flex items-center gap-1 font-bold text-danger">
+            <button type="button" onClick={() => retryMessage(conv, m.client_key)} className="flex items-center gap-1 font-bold text-danger">
               <RotateCcw className="size-3.5" /> Not sent · Retry
             </button>
           ) : m.status === "sending" ? (
@@ -317,35 +319,46 @@ function ChatAction({ label, pressed, children, className, ...props }: Component
 }
 
 export default function ChatPage() {
-  const mode = useMode();
-  if (mode === "solo") {
+  return (
+    <Suspense>
+      <ChatRoute />
+    </Suspense>
+  );
+}
+
+function ChatRoute() {
+  const params = useSearchParams();
+  const list = useConversations();
+  const id = params.get("c") ?? list.data?.find((c) => c.partner)?.id ?? null;
+  if (!id && list.data) {
     return (
       <div className="mx-auto grid min-h-[60vh] max-w-md content-center justify-items-center gap-3 px-4 text-center">
         <span className="grid size-14 place-items-center rounded-[16px] bg-surface-2 text-muted">
           <MessageCircle className="size-[26px]" />
         </span>
-        <p className="font-display text-lg">No one linked</p>
-        <div className="mt-2 w-full">
-          <LinkRow />
-        </div>
+        <p className="font-display text-lg">No chat open</p>
+        <Link href="/friends/" className="inline-flex min-h-11 items-center rounded-[12px] bg-accent px-4 font-extrabold text-on-accent">
+          Friends
+        </Link>
       </div>
     );
   }
-  return (
-    <Suspense>
-      <Chat />
-    </Suspense>
-  );
+  return id ? <Chat key={id} convId={id} /> : null;
 }
 
 const EFFECTS_SEEN = "jobbos.chat.effects-seen";
 
-function Chat() {
+function Chat({ convId }: { convId: string }) {
   const params = useSearchParams();
+  const router = useRouter();
   const me = useMe().data;
   const members = useMembers();
   const presence = usePresence();
-  const chat = useChat();
+  const conv = useConversation(convId).data;
+  const chat = useChat(convId);
+  const friends = useFriends().data?.friends;
+  const [jamOpen, setJamOpen] = useState(false);
+  const [groupOpen, setGroupOpen] = useState(false);
   const track = usePlayer(selectTrack);
   const room = useTogether().data;
   const [text, setText] = useState("");
@@ -363,11 +376,17 @@ function Chat() {
   const actionsRef = useRef<HTMLDivElement>(null);
   const atBottom = useRef(true);
 
-  const other = members.data?.find((u) => u.id !== me?.id) ?? null;
-  const otherState = presence.data?.people.find((p) => p.id === other?.id);
-  const otherProfile = useProfile(other?.id);
+  const partnerChat = !!conv?.partner;
+  const group = conv?.kind === "group";
+  const other = (conv && !group ? conv.members.find((m) => m.id !== me?.id) : null) ?? (partnerChat || !conv ? (members.data?.find((u) => u.id !== me?.id) ?? null) : null);
+  const friendState = friends?.find((f) => f.person.id === other?.id);
+  const otherState = partnerChat
+    ? presence.data?.people.find((p) => p.id === other?.id)
+    : friendState && { online: friendState.online, last_seen: null as string | null, quiet: false, listening: !!friendState.playing, playing: friendState.playing ?? null };
+  const otherProfile = useProfile(partnerChat ? other?.id : undefined);
   const myState = presence.data?.people.find((p) => p.id === me?.id);
-  const nameOf = (id: string) => (id === me?.id ? "You" : (members.data?.find((u) => u.id === id)?.display_name ?? "Someone"));
+  const memberOf = (id: string) => conv?.members.find((m) => m.id === id);
+  const nameOf = (id: string) => (id === me?.id ? "You" : (memberOf(id)?.display_name ?? members.data?.find((u) => u.id === id)?.display_name ?? "Someone"));
   const messages = useMemo(() => chat.data?.messages ?? [], [chat.data]);
   const byId = useMemo(() => new Map(messages.map((m) => [m.id, m])), [messages]);
   const rows = useMemo(() => groupMessages(messages), [messages]);
@@ -377,7 +396,7 @@ function Chat() {
   const jump = async (id: string) => {
     setSearching(false);
     try {
-      await jumpTo(id);
+      await jumpTo(convId, id);
     } catch {
       toast("Message unavailable");
       return;
@@ -396,10 +415,10 @@ function Chat() {
   useEffect(() => {
     const el = bottomRef.current;
     if (!el || !hasNewer) return;
-    const io = new IntersectionObserver(([e]) => e.isIntersecting && void loadNewer());
+    const io = new IntersectionObserver(([e]) => e.isIntersecting && void loadNewer(convId));
     io.observe(el);
     return () => io.disconnect();
-  }, [hasNewer]);
+  }, [hasNewer, convId]);
 
   useEffect(() => {
     if (!me || !effects.data || chat.isPending || hasNewer) return;
@@ -431,7 +450,8 @@ function Chat() {
       clearInterval(t);
     };
   }, []);
-  const otherTyping = !!other && typing.user === other.id && typing.until > Date.now();
+  const typer = typing.conv === convId && typing.user !== me?.id && typing.until > Date.now() ? typing.user : "";
+  const otherTyping = !!typer && (group || typer === other?.id);
 
   useLayoutEffect(() => {
     const el = listRef.current;
@@ -445,25 +465,35 @@ function Chat() {
       if (!e.isIntersecting) return;
       const list = listRef.current;
       const before = list ? list.scrollHeight - list.scrollTop : 0;
-      await loadOlder();
+      await loadOlder(convId);
       requestAnimationFrame(() => {
         if (list) list.scrollTop = list.scrollHeight - before;
       });
     });
     io.observe(el);
     return () => io.disconnect();
-  }, [chat.data?.hasMore]);
+  }, [chat.data?.hasMore, convId]);
 
   const newestTheirs = [...messages].reverse().find((m) => m.sender_id !== me?.id && !m.status);
   useEffect(() => {
     if (!newestTheirs || document.visibilityState !== "visible") return;
-    socialApi.read(newestTheirs.id).catch(() => {});
-    queryClient.setQueryData(socialKeys.presence, (p: { unread: number } | undefined) => (p ? { ...p, unread: 0 } : p));
+    socialApi
+      .read(convId, newestTheirs.id)
+      .then(() => {
+        void queryClient.invalidateQueries({ queryKey: socialKeys.presence });
+        void queryClient.invalidateQueries({ queryKey: socialKeys.conversations });
+      })
+      .catch(() => {});
   }, [newestTheirs?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const lastMine = [...messages].reverse().find((m) => m.sender_id === me?.id && !m.status);
-  const theirRead = chat.data?.reads.find((r) => r.user_id === other?.id);
-  const seen = !!lastMine && !!theirRead?.message_id && (byId.get(theirRead.message_id)?.created_at ?? "") >= lastMine.created_at;
+  const readPast = (userId: string) => {
+    const r = chat.data?.reads.find((x) => x.user_id === userId);
+    return !!lastMine && !!r?.message_id && (byId.get(r.message_id)?.created_at ?? "") >= lastMine.created_at;
+  };
+  const others = conv?.members.filter((m) => m.id !== me?.id) ?? [];
+  const seenBy = group ? others.filter((m) => readPast(m.id)).length : 0;
+  const seen = group ? others.length > 0 && seenBy === others.length : !!other && readPast(other.id);
 
   const submit = async () => {
     const body = text.trim();
@@ -478,8 +508,8 @@ function Chat() {
       }
       return;
     }
-    if (hasNewer) await showLatest();
-    sendMessage("text", body, undefined, replyTo?.id ?? null);
+    if (hasNewer) await showLatest(convId);
+    sendMessage(convId, "text", body, undefined, replyTo?.id ?? null);
     setText("");
     setReplyTo(null);
     atBottom.current = true;
@@ -487,7 +517,7 @@ function Chat() {
   const sentOther = () => {
     setReplyTo(null);
     atBottom.current = true;
-    if (hasNewer) void showLatest();
+    if (hasNewer) void showLatest(convId);
   };
 
   const toggleQuiet = () =>
@@ -509,31 +539,54 @@ function Chat() {
   const status = otherState?.online ? "Online" : otherState?.last_seen ? lastSeenText(otherState.last_seen) : "";
   const theirSong = !together ? otherState?.playing : null;
   const joinThem = async () => {
-    if (room?.active) return joinSession();
-    if (!theirSong) return;
+    if (partnerChat && room?.active) return joinSession(room.session_id);
+    if (!theirSong || !other) return;
     const elapsed = Date.now() - new Date(theirSong.at).getTime();
     try {
-      await listenAlong(theirSong.track_id, theirSong.position_ms + Math.max(0, elapsed));
+      if (partnerChat) await listenAlong(theirSong.track_id, theirSong.position_ms + Math.max(0, elapsed));
+      else router.push(`/jam/?id=${await jamAlong(other.id, theirSong.track_id, theirSong.position_ms + Math.max(0, elapsed))}`);
     } catch {
       toast("Listen together unavailable");
+    }
+  };
+  const answerRequest = async (accept: boolean) => {
+    try {
+      if (accept) await conversationApi.accept(convId);
+      else {
+        await conversationApi.remove(convId);
+        router.push("/friends/");
+      }
+      void queryClient.invalidateQueries({ queryKey: socialKeys.conversations });
+      void queryClient.invalidateQueries({ queryKey: socialKeys.conversation(convId) });
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : "Not saved");
     }
   };
 
   return (
     <div className="fixed inset-x-0 top-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] flex flex-col bg-bg lg:bottom-0 lg:left-[88px]">
       <header className="relative flex items-center gap-3 border-b border-line bg-sidebar px-4 pb-2.5 pt-[max(env(safe-area-inset-top),12px)] lg:px-8 lg:pb-3 lg:pt-4">
-        {other && (
-          <Link href={`/profile/?id=${other.id}`} aria-label={other.display_name} className="shrink-0 rounded-full bg-[var(--chat-action)]">
-            <Avatar userId={other.id} size={44} pose={otherState?.listening ? "listening" : "idle"} />
-          </Link>
+        <Link href="/friends/" aria-label="Friends" className="-ms-2 grid size-10 shrink-0 place-items-center rounded-full text-ink lg:hidden">
+          <ArrowLeft className="size-[22px]" />
+        </Link>
+        {group && conv ? (
+          <button type="button" onClick={() => setGroupOpen(true)} aria-label="Group" className="shrink-0">
+            <AvatarStack people={conv.members.filter((m) => m.id !== me?.id)} size={32} />
+          </button>
+        ) : (
+          other && (
+            <Link href={`/people/?u=${encodeURIComponent(other.username)}`} aria-label={other.display_name} className="shrink-0 rounded-full bg-[var(--chat-action)]">
+              <Avatar userId={other.id} size={44} pose={otherState?.listening ? "listening" : "idle"} look={memberOf(other.id) ? lookOf(other.id, memberOf(other.id)!.avatar) : undefined} />
+            </Link>
+          )
         )}
         <div ref={headRef} className="min-w-0 flex-1">
           <h1 dir="auto" className={cn("truncate font-display text-[22px] font-semibold leading-tight text-ink", ON_SKY)}>
-            {other?.display_name ?? "Chat"}
+            {conv ? conversationName(conv, me?.id) : (other?.display_name ?? "Chat")}
           </h1>
           <p className={cn("flex items-center gap-1.5 truncate text-[13px] font-bold text-[var(--chat-meta)]", ON_SKY)}>
-            {otherState?.online && <span aria-hidden className="size-2 shrink-0 rounded-full bg-sage" />}
-            {otherTyping ? "Typing…" : status}
+            {!group && otherState?.online && <span aria-hidden className="size-2 shrink-0 rounded-full bg-sage" />}
+            {group ? (otherTyping ? `${nameOf(typer)} is typing…` : conv ? `${conv.members.length} people` : "") : otherTyping ? "Typing…" : status}
             {together && (
               <Link href="/together/" className="flex items-center gap-1">
                 <Headphones className="size-3.5" /> Listening together
@@ -563,22 +616,50 @@ function Chat() {
           )}
         </div>
         <div ref={actionsRef} className="flex shrink-0">
-          <ChatAction label="Lamp" title={lampOn ? "Switch off their lamp" : "Thinking of you"} pressed={lampOn} onClick={sendLamp} disabled={!other}>
-            <Lamp />
-          </ChatAction>
-          <ChatAction label="Search" title="Search messages" pressed={searching} onClick={() => setSearching((v) => !v)}>
-            <Search />
-          </ChatAction>
-          <ChatAction label="Swap" title="Song swap" onClick={() => setSwapOpen(true)}>
-            <Music2 />
-          </ChatAction>
-          <ChatAction label="Quiet" title={myState?.quiet ? "Quiet mode on" : "Quiet mode off"} pressed={!!myState?.quiet} onClick={toggleQuiet}>
-            <BellOff />
-          </ChatAction>
+          {partnerChat ? (
+            <>
+              <ChatAction label="Lamp" title={lampOn ? "Switch off their lamp" : "Thinking of you"} pressed={lampOn} onClick={sendLamp} disabled={!other}>
+                <Lamp />
+              </ChatAction>
+              <ChatAction label="Search" title="Search messages" pressed={searching} onClick={() => setSearching((v) => !v)}>
+                <Search />
+              </ChatAction>
+              <ChatAction label="Swap" title="Song swap" onClick={() => setSwapOpen(true)}>
+                <Music2 />
+              </ChatAction>
+              <ChatAction label="Quiet" title={myState?.quiet ? "Quiet mode on" : "Quiet mode off"} pressed={!!myState?.quiet} onClick={toggleQuiet}>
+                <BellOff />
+              </ChatAction>
+            </>
+          ) : (
+            <>
+              <ChatAction label="Search" title="Search messages" pressed={searching} onClick={() => setSearching((v) => !v)}>
+                <Search />
+              </ChatAction>
+              <ChatAction label="Jam" title="Start a jam" onClick={() => setJamOpen(true)}>
+                <Headphones />
+              </ChatAction>
+              {group ? (
+                <ChatAction label="Group" title="Group" onClick={() => setGroupOpen(true)}>
+                  <Settings2 />
+                </ChatAction>
+              ) : (
+                other && (
+                  <ChatAction label="Profile" title="Profile" onClick={() => router.push(`/people/?u=${encodeURIComponent(other.username)}`)}>
+                    <UserRound />
+                  </ChatAction>
+                )
+              )}
+            </>
+          )}
         </div>
       </header>
       <div className="relative z-10 mx-auto w-full max-w-3xl px-4 pb-1 lg:px-8">
-        {searching ? <ChatSearch nameOf={nameOf} onJump={(id) => void jump(id)} onClose={() => setSearching(false)} /> : <PinnedBar onJump={(id) => void jump(id)} />}
+        {searching ? (
+          <ChatSearch conv={convId} nameOf={nameOf} onJump={(id) => void jump(id)} onClose={() => setSearching(false)} />
+        ) : (
+          <PinnedBar conv={convId} onJump={(id) => void jump(id)} />
+        )}
       </div>
 
       <div
@@ -608,13 +689,19 @@ function Chat() {
               <div key={row.key} className={cn("flex items-end gap-2", mine ? "justify-end" : "justify-start")}>
                 {!mine && (
                   <span className="mb-5 shrink-0 overflow-hidden rounded-full bg-[var(--chat-action)]">
-                    <Avatar userId={row.sender} size={28} />
+                    <Avatar userId={row.sender} size={28} look={memberOf(row.sender) ? lookOf(row.sender, memberOf(row.sender)!.avatar) : undefined} />
                   </span>
                 )}
                 <div className={cn("flex min-w-0 max-w-[82%] flex-col gap-1", mine ? "items-end" : "items-start")}>
+                  {group && !mine && (
+                    <p dir="auto" className={cn("px-1 text-xs font-extrabold text-[var(--chat-meta)]", ON_SKY)}>
+                      {nameOf(row.sender)}
+                    </p>
+                  )}
                   {row.items.map((m, i) => (
                     <Bubble
                       key={m.id}
+                      conv={convId}
                       m={m}
                       me={me?.id ?? ""}
                       mine={mine}
@@ -639,12 +726,12 @@ function Chat() {
                       (seen ? (
                         <>
                           {" · "}
-                          <CheckCheck className="size-3.5" /> Seen
+                          <CheckCheck className="size-3.5" /> Seen{group && others.length > 1 ? " by all" : ""}
                         </>
                       ) : (
                         <>
                           {" · "}
-                          <Check className="size-3.5" /> Sent
+                          <Check className="size-3.5" /> {group && seenBy > 0 ? `Seen by ${seenBy}` : "Sent"}
                         </>
                       ))}
                   </p>
@@ -665,7 +752,7 @@ function Chat() {
             size="sm"
             onClick={() => {
               atBottom.current = true;
-              void showLatest();
+              void showLatest(convId);
             }}
             className="pointer-events-auto absolute bottom-3 left-1/2 -translate-x-1/2 shadow-soft"
           >
@@ -681,6 +768,17 @@ function Chat() {
         }}
         className="relative mx-auto w-full max-w-3xl px-3 pb-3 pt-2 lg:px-8 lg:pb-6"
       >
+        {conv && !conv.accepted && (
+          <div className="mb-2 flex flex-wrap items-center gap-2 rounded-[14px] border border-[var(--chat-theirs-line)] bg-[var(--chat-theirs)] px-3 py-2 text-sm">
+            <p className="min-w-0 flex-1 font-bold">Message request</p>
+            <Button size="sm" variant="primary" onClick={() => void answerRequest(true)}>
+              Accept
+            </Button>
+            <Button size="sm" onClick={() => void answerRequest(false)}>
+              Delete
+            </Button>
+          </div>
+        )}
         {(replyTo || editing) && (
           <div className="mb-2 flex items-center gap-2 rounded-[14px] border border-[var(--chat-theirs-line)] bg-[var(--chat-theirs)] px-3 py-2 text-sm">
             {editing ? <Pencil className="size-4 shrink-0" /> : <Reply className="size-4 shrink-0" />}
@@ -704,8 +802,8 @@ function Chat() {
         <div className="flex items-end gap-1.5">
           {!editing && (
             <span className="flex shrink-0 rounded-full bg-[var(--chat-input)]">
-              <StickerButton replyTo={replyTo?.id ?? null} onSent={sentOther} />
-              <PhotoButton replyTo={replyTo?.id ?? null} onSent={sentOther} />
+              <StickerButton conv={convId} replyTo={replyTo?.id ?? null} onSent={sentOther} />
+              <PhotoButton conv={convId} replyTo={replyTo?.id ?? null} onSent={sentOther} />
             </span>
           )}
           <textarea
@@ -716,7 +814,7 @@ function Chat() {
             placeholder="Message"
             onChange={(e) => {
               setText(e.target.value);
-              notifyTyping();
+              notifyTyping(convId);
               e.target.style.height = "auto";
               e.target.style.height = `${Math.min(160, e.target.scrollHeight)}px`;
             }}
@@ -734,13 +832,15 @@ function Chat() {
                 <Send className="size-5" />
               </Button>
             ) : (
-              <VoiceButton replyTo={replyTo?.id ?? null} onSent={sentOther} />
+              <VoiceButton conv={convId} replyTo={replyTo?.id ?? null} onSent={sentOther} />
             )}
           </span>
         </div>
       </form>
       {track && <div aria-hidden className="h-[calc(0.6rem+74px)] shrink-0 lg:h-[calc(1rem+78px)]" />}
-      <SwapSheet open={swapOpen} onOpenChange={setSwapOpen} />
+      {partnerChat && <SwapSheet open={swapOpen} onOpenChange={setSwapOpen} />}
+      {jamOpen && <JamSheet open={jamOpen} onOpenChange={setJamOpen} conversation={group ? conv : null} invite={!group && other ? [other.id] : []} />}
+      {groupOpen && conv && <GroupSheet open={groupOpen} onOpenChange={setGroupOpen} conversation={conv} />}
     </div>
   );
 }

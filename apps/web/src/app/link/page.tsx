@@ -14,8 +14,8 @@ import { useMe } from "@/lib/session";
 import { toast } from "@/lib/toast";
 
 const KINDS: { kind: PairKind; title: string; icon: typeof Heart; shares: string[] }[] = [
-  { kind: "partner", title: "Partner", icon: Heart, shares: ["Chat", "Listen together", "Letters", "Notes", "Lamp", "Anniversary", "Our song"] },
-  { kind: "friend", title: "Friend", icon: Headphones, shares: ["Chat", "Listen together", "Picks", "Song swap", "Daily question", "Stats"] },
+  { kind: "friend", title: "Friend", icon: Headphones, shares: ["Follow each other", "Chat", "Jams", "Activity"] },
+  { kind: "partner", title: "Partner", icon: Heart, shares: ["Us", "Letters", "Notes", "Lamp", "Anniversary", "Our song"] },
 ];
 
 const expiry = (iso: string) => new Date(iso).toLocaleDateString([], { day: "numeric", month: "short" });
@@ -108,7 +108,7 @@ function InviteLink({ url, kind, expiresAt }: { url: string; kind: PairKind; exp
 
 export default function LinkPage() {
   const state = usePair().data;
-  const [kind, setKind] = useState<PairKind>("partner");
+  const [kind, setKind] = useState<PairKind>("friend");
   const [made, setMade] = useState<{ url: string; kind: PairKind; expiresAt: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const create = async () => {
@@ -134,9 +134,9 @@ export default function LinkPage() {
   const partner = state?.pair?.partner;
   return (
     <>
-      <PageHero title="Link with someone" />
+      <PageHero title="Invite someone" />
       <div className="grid max-w-xl gap-3">
-        {partner ? (
+        {partner && (
           <div className="flex items-center gap-3 rounded-card border border-line bg-surface p-4">
             <span className="overflow-hidden rounded-full bg-surface-2">
               <Avatar userId={partner.id} size={44} />
@@ -151,12 +151,13 @@ export default function LinkPage() {
               Settings
             </Link>
           </div>
-        ) : made ? (
+        )}
+        {made ? (
           <InviteLink url={made.url} kind={made.kind} expiresAt={made.expiresAt} />
         ) : (
           <>
             <div role="radiogroup" aria-label="Kind" className="grid gap-2.5">
-              {KINDS.map((k) => (
+              {KINDS.filter((k) => !partner || k.kind === "friend").map((k) => (
                 <KindCard key={k.kind} k={k} on={kind === k.kind} onPick={() => setKind(k.kind)} />
               ))}
             </div>
@@ -165,7 +166,7 @@ export default function LinkPage() {
             </Button>
           </>
         )}
-        {!partner && !!state?.invites.length && (
+        {!!state?.invites.length && (
           <section className="mt-6">
             <h2 className="mb-2 font-display text-xl">Open invites</h2>
             <ul className="grid gap-2">

@@ -10,6 +10,7 @@ import { useNames } from "@/components/letters/Letters";
 import { Artwork, Cover } from "@/components/media";
 import { HolidaySection, RadioSection } from "@/components/mixes/DiscoverSections";
 import { MixShelf, ReleasesShelf, TimeMixShelf } from "@/components/mixes/Mixes";
+import { NewForYou } from "@/components/friends/Previews";
 import { PageHero } from "@/components/sky/PageHero";
 import { IconButton, SectionTitle } from "@/components/ui";
 import { cn } from "@/lib/cn";
@@ -91,6 +92,7 @@ function Picks() {
 function ForYou() {
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-10">
+      <NewForYou />
       <HolidaySection />
       <MixShelf title="Made for you" kinds={MADE_FOR_YOU} />
       <Picks />
