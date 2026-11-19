@@ -189,7 +189,7 @@ function Feed() {
               </span>
             )}
           </button>
-          <div className="mt-5">
+          <div className="mt-5 text-left">
             <h1 dir="auto" className="font-display text-[26px] leading-tight">
               {cur.track.title}
             </h1>

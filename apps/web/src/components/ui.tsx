@@ -3,7 +3,8 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import * as RadixSlider from "@radix-ui/react-slider";
 import * as RadixSwitch from "@radix-ui/react-switch";
-import { LoaderCircle } from "lucide-react";
+import { ChevronRight, LoaderCircle } from "lucide-react";
+import Link from "next/link";
 import { forwardRef, type ButtonHTMLAttributes, type ComponentProps, type ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
@@ -122,14 +123,22 @@ export function Segmented<T extends string>({
   options,
   onChange,
   label,
+  full,
+  className,
 }: {
   value: T;
   options: [T, string][];
   onChange: (v: T) => void;
   label: string;
+  full?: boolean;
+  className?: string;
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className="inline-flex rounded-[11px] bg-surface-2 p-[3px]">
+    <div
+      role="radiogroup"
+      aria-label={label}
+      className={cn("rounded-[11px] bg-surface-2 p-[3px]", full ? "grid auto-cols-fr grid-flow-col" : "inline-flex", className)}
+    >
       {options.map(([v, text]) => (
         <button
           key={v}
@@ -138,7 +147,8 @@ export function Segmented<T extends string>({
           aria-checked={value === v}
           onClick={() => onChange(v)}
           className={cn(
-            "min-h-8 rounded-[8px] px-3.5 text-[13px] font-extrabold transition-colors",
+            "min-h-8 rounded-[8px] px-3.5 text-[13px] font-extrabold transition-[background-color,color,box-shadow]",
+            full && "min-h-9",
             value === v ? "bg-seg-on text-ink shadow-[0_1px_3px_rgba(0,0,0,0.22)]" : "text-muted hover:text-ink",
           )}
         >
@@ -146,6 +156,48 @@ export function Segmented<T extends string>({
         </button>
       ))}
     </div>
+  );
+}
+
+export function RowLink({
+  href,
+  icon,
+  title,
+  sub,
+  quiet,
+  className,
+}: {
+  href: string;
+  icon: ReactNode;
+  title: ReactNode;
+  sub?: ReactNode;
+  quiet?: boolean;
+  className?: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "group flex min-h-[68px] items-center gap-3 rounded-card border border-line bg-surface p-3 transition-colors hover:border-line-strong hover:bg-surface-2/40",
+        className,
+      )}
+    >
+      <span
+        className={cn(
+          "grid size-11 shrink-0 place-items-center rounded-[12px] [&_svg]:size-[22px]",
+          quiet ? "bg-surface-2 text-ink-2" : "bg-accent-soft text-accent-strong",
+        )}
+      >
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span dir="auto" className="block truncate text-[15px] font-extrabold">
+          {title}
+        </span>
+        {sub && <span className="block truncate text-[13px] font-semibold text-muted">{sub}</span>}
+      </span>
+      <ChevronRight className="size-5 shrink-0 text-muted transition-transform group-hover:translate-x-0.5 rtl:rotate-180" />
+    </Link>
   );
 }
 

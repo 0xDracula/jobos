@@ -8,6 +8,7 @@ import { SwitchRow } from "@/components/friends/sheets";
 import { Segmented } from "@/components/ui";
 import { ApiError } from "@/lib/api";
 import { cn } from "@/lib/cn";
+import { usePair } from "@/lib/pair";
 import { peopleApi, peopleKeys, useFollowRequests, usePrivacy, type Privacy } from "@/lib/people";
 import { queryClient } from "@/lib/queries";
 import { toast } from "@/lib/toast";
@@ -19,6 +20,7 @@ export default function PrivacyPage() {
   const q = usePrivacy();
   const requests = useFollowRequests().data ?? [];
   const p = q.data;
+  const partnered = !!usePair().data?.pair?.partner;
   const save = async (patch: Partial<Privacy> & { private_session_hours?: number }) => {
     if (!p) return;
     const next = { ...p, ...patch };
@@ -60,10 +62,11 @@ export default function PrivacyPage() {
                 label="Listening activity"
                 value={p.activity_audience}
                 onChange={(v) => void save({ activity_audience: v })}
+                full
                 options={[
                   ["followers", "Followers"],
                   ["friends", "Friends"],
-                  ["partner", "Partner"],
+                  ...(partnered || p.activity_audience === "partner" ? [["partner", "Partner"] as [Privacy["activity_audience"], string]] : []),
                   ["none", "No one"],
                 ]}
               />

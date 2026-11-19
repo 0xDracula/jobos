@@ -15,13 +15,22 @@ export function PreviewsCard({ className }: { className?: string }) {
   const covers = list.slice(0, 3).map((p) => p.track.artwork_thumb_url ?? p.track.artwork_url);
   const fresh = list.filter((p) => !p.seen).length;
   return (
-    <Link href="/previews/" className={cn("flex items-center gap-3 rounded-card border border-line bg-surface p-3 transition-colors hover:border-line-strong", className)}>
-      <span className="relative size-16 shrink-0">
-        {[2, 1, 0].map((k) => (
-          <span key={k} className="absolute" style={{ left: `${(2 - k) * 7}px`, top: `${k * 7}px` }}>
-            <Artwork src={covers[k] ?? null} className="size-[50px] rounded-[9px] ring-2 ring-surface" />
-          </span>
-        ))}
+    <Link
+      href="/previews/"
+      className={cn("group flex items-center gap-3.5 rounded-card border border-line bg-surface p-3 transition-colors hover:border-line-strong hover:bg-surface-2/40", className)}
+    >
+      <span className="relative h-14 w-[78px] shrink-0">
+        {[2, 1, 0].map((k) =>
+          covers[k] || k === 0 ? (
+            <span
+              key={k}
+              className="absolute top-1/2 overflow-hidden rounded-[10px] shadow-[0_2px_8px_rgba(0,0,0,0.28)] transition-transform duration-300 ease-out group-hover:translate-x-[var(--fan)]"
+              style={{ left: k * 11, zIndex: 3 - k, transform: `translateY(-50%) scale(${1 - k * 0.12})`, filter: k ? `brightness(${1 - k * 0.22})` : undefined, ["--fan" as string]: `${k * 3}px` }}
+            >
+              <Artwork src={covers[k] ?? null} className="size-14" />
+            </span>
+          ) : null,
+        )}
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-base font-extrabold">Previews</span>
@@ -95,7 +104,7 @@ function HoldTile({ p }: { p: Preview }) {
           </span>
         )}
       </Link>
-      <span className="min-w-0">
+      <span className="min-w-0 text-left">
         <span dir="auto" className="block truncate text-sm font-extrabold">
           {p.track.title}
         </span>
@@ -114,9 +123,9 @@ export function NewForYou() {
       <PreviewsCard />
       {list.length > 0 && (
         <>
-          <div className="flex items-baseline justify-between">
+          <div className="mt-3 flex items-baseline justify-between">
             <h2 className="font-display text-xl">New for you</h2>
-            <Link href="/previews/" className="text-[13px] font-bold text-muted">
+            <Link href="/previews/" className="text-[13px] font-bold text-muted transition-colors hover:text-ink">
               All
             </Link>
           </div>

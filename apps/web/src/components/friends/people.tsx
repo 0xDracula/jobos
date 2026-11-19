@@ -1,12 +1,12 @@
 "use client";
 
-import { ChevronRight, Headphones, Lock, Pin, UserPlus } from "lucide-react";
+import { Headphones, Lock, Pin, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
 import { Avatar, lookOf } from "@/avatar";
 import { Artwork } from "@/components/media";
-import { Button } from "@/components/ui";
+import { Button, RowLink } from "@/components/ui";
 import { ApiError } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import {
@@ -46,6 +46,16 @@ export function AvatarStack({ people, size = 28 }: { people: Who[]; size?: numbe
   );
 }
 
+export function GroupAvatar({ people, size }: { people: Who[]; size: number }) {
+  const one = Math.round(size * 0.7);
+  return (
+    <span className="relative block shrink-0" style={{ width: size, height: size }}>
+      {people[0] && <PersonAvatar person={people[0]} size={one} className="absolute start-0 top-0" />}
+      {people[1] && <PersonAvatar person={people[1]} size={one} className="absolute bottom-0 end-0 ring-[2.5px] ring-bg" />}
+    </span>
+  );
+}
+
 export function FollowButton({ person, size = "sm", className }: { person: Person; size?: "sm" | "md"; className?: string }) {
   const [busy, setBusy] = useState(false);
   const r = person.relation;
@@ -75,7 +85,7 @@ export function FollowButton({ person, size = "sm", className }: { person: Perso
 
 export function PersonRow({ person, note, action }: { person: Person; note?: string; action?: React.ReactNode }) {
   return (
-    <li className="flex items-center gap-3 py-2">
+    <li className="-mx-2 rounded-[14px] px-2 transition-colors hover:bg-surface-2/50 flex items-center gap-3 py-2">
       <Link href={`/people/?u=${encodeURIComponent(person.username)}`} className="flex min-w-0 flex-1 items-center gap-3">
         <PersonAvatar person={person} size={48} />
         <span className="min-w-0">
@@ -83,7 +93,7 @@ export function PersonRow({ person, note, action }: { person: Person; note?: str
             <span dir="auto" className="truncate text-[15px] font-extrabold">
               {person.display_name}
             </span>
-            {person.relation.partner ? <Tag>Partner</Tag> : person.relation.friend ? <Tag>Friend</Tag> : null}
+            {person.relation.partner ? <Tag>Partner</Tag> : person.relation.friend && action ? <Tag>Friend</Tag> : null}
             {person.private && !person.relation.self && <Lock aria-label="Private" className="size-3.5 shrink-0 text-muted" />}
           </span>
           <span dir="auto" className="block truncate text-[13px] font-semibold text-muted">
@@ -130,15 +140,7 @@ export function FriendStrip({ className }: { className?: string }) {
   const friends = data?.friends ?? [];
   if (!data) return null;
   if (!friends.length) {
-    return (
-      <Link href="/friends/?tab=people" className={cn("flex items-center gap-3 rounded-card border border-line bg-surface p-3 hover:border-line-strong", className)}>
-        <span className="grid size-11 shrink-0 place-items-center rounded-[12px] bg-accent-soft text-accent-strong">
-          <UserPlus className="size-[22px]" />
-        </span>
-        <span className="min-w-0 flex-1 text-[15px] font-extrabold">Find friends</span>
-        <ChevronRight className="size-5 text-muted" />
-      </Link>
-    );
+    return <RowLink href="/friends/?tab=people" icon={<UserPlus />} title="Find friends" className={className} />;
   }
   return (
     <ul className={cn("-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 pt-1.5 [scrollbar-width:none] lg:mx-0 lg:px-0", className)}>
@@ -261,7 +263,7 @@ function ActivityRow({ f }: { f: FriendActivity }) {
   const t = f.playing ?? (f.last ? { title: f.last.track.title, artists: f.last.track.artists, artwork_thumb_url: f.last.track.artwork_thumb_url } : null);
   return (
     <li>
-      <Link href={`/people/?u=${encodeURIComponent(f.person.username)}`} className="flex items-center gap-3 py-2">
+      <Link href={`/people/?u=${encodeURIComponent(f.person.username)}`} className="-mx-2 rounded-[14px] px-2 transition-colors hover:bg-surface-2/50 flex items-center gap-3 py-2">
         <span className="relative">
           <PersonAvatar person={f.person} size={48} />
           {f.online && <span className="absolute bottom-0 end-0 size-3 rounded-full bg-sage ring-[2.5px] ring-bg" />}
@@ -322,12 +324,9 @@ export function ConversationRow({ c }: { c: Conversation }) {
   const unread = c.unread > 0;
   return (
     <li>
-      <Link href={`/chat/?c=${c.id}`} className="flex items-center gap-3 py-2.5">
+      <Link href={`/chat/?c=${c.id}`} className="-mx-2 rounded-[14px] px-2 transition-colors hover:bg-surface-2/50 flex items-center gap-3 py-2.5">
         {c.kind === "group" ? (
-          <span className="relative size-[52px] shrink-0">
-            {others[0] && <PersonAvatar person={others[0]} size={36} className="absolute start-0 top-0" />}
-            {others[1] && <PersonAvatar person={others[1]} size={36} className="absolute bottom-0 end-0 ring-[2.5px] ring-bg" />}
-          </span>
+          <GroupAvatar people={others} size={52} />
         ) : (
           others[0] && <PersonAvatar person={others[0]} size={52} />
         )}

@@ -1,52 +1,43 @@
 "use client";
 
-import { Check, Copy, Headphones, Heart, Share2 } from "lucide-react";
+import { Check, Copy, Heart, Link2, Share2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
 import { Avatar } from "@/avatar";
 import { PageHero } from "@/components/sky/PageHero";
-import { Button } from "@/components/ui";
+import { Button, Segmented } from "@/components/ui";
 import { ApiError } from "@/lib/api";
-import { cn } from "@/lib/cn";
 import { pairApi, refreshPair, usePair, type PairKind } from "@/lib/pair";
-import { useMe } from "@/lib/session";
+import { useIsAdmin, useMe } from "@/lib/session";
 import { toast } from "@/lib/toast";
 
-const KINDS: { kind: PairKind; title: string; icon: typeof Heart; shares: string[] }[] = [
-  { kind: "friend", title: "Friend", icon: Headphones, shares: ["Follow each other", "Chat", "Jams", "Activity"] },
-  { kind: "partner", title: "Partner", icon: Heart, shares: ["Us", "Letters", "Notes", "Lamp", "Anniversary", "Our song"] },
-];
+const KINDS: Record<PairKind, { title: string; icon: typeof Heart; shares: string[] }> = {
+  friend: { title: "Friends", icon: Link2, shares: ["Follow each other", "Chat", "Jams", "Activity"] },
+  partner: { title: "Partner", icon: Heart, shares: ["Us", "Letters", "Notes", "Lamp", "Anniversary", "Our song"] },
+};
 
 const expiry = (iso: string) => new Date(iso).toLocaleDateString([], { day: "numeric", month: "short" });
 
-function KindCard({ k, on, onPick }: { k: (typeof KINDS)[number]; on: boolean; onPick: () => void }) {
+function Shares({ kind }: { kind: PairKind }) {
+  const k = KINDS[kind];
   const Icon = k.icon;
   return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={on}
-      onClick={onPick}
-      className={cn("grid w-full gap-3.5 rounded-card border-[1.5px] bg-surface p-4 text-start transition-colors", on ? "border-accent" : "border-line hover:border-line-strong")}
-    >
+    <div className="grid gap-3.5 rounded-card border border-line bg-surface p-4">
       <span className="flex items-center gap-3">
-        <span className={cn("grid size-12 shrink-0 place-items-center rounded-[14px]", on ? "bg-accent text-on-accent" : "bg-surface-2 text-ink")}>
+        <span className="grid size-12 shrink-0 place-items-center rounded-[14px] bg-accent-soft text-accent-strong">
           <Icon className="size-[22px]" />
         </span>
-        <span className="flex-1 font-display text-lg">{k.title}</span>
-        <span className={cn("grid size-[22px] shrink-0 place-items-center rounded-full border-2", on ? "border-accent" : "border-line-strong")}>
-          {on && <span className="size-2.5 rounded-full bg-accent" />}
-        </span>
+        <span className="font-display text-lg">{k.title}</span>
       </span>
-      <span className="flex flex-wrap gap-1.5">
-        {k.shares.map((s) => (
-          <span key={s} className="inline-flex h-7 items-center rounded-[10px] bg-surface-2 px-2.5 text-[12.5px] font-bold text-ink-2">
-            {s}
-          </span>
+      <ul className="flex flex-wrap gap-1.5">
+        {k.shares.map((x) => (
+          <li key={x} className="inline-flex h-7 items-center rounded-[10px] bg-surface-2 px-2.5 text-[12.5px] font-bold text-ink-2">
+            {x}
+          </li>
         ))}
-      </span>
-    </button>
+      </ul>
+    </div>
   );
 }
 
@@ -84,9 +75,9 @@ function InviteLink({ url, kind, expiresAt }: { url: string; kind: PairKind; exp
             {me.display_name}
           </span>
         )}
-        <span className="inline-flex h-6 items-center rounded-full bg-accent-soft px-2.5 text-xs font-extrabold text-accent-strong">
-          {kind === "partner" ? "Partner" : "Friend"}
-        </span>
+        {kind === "partner" && (
+          <span className="inline-flex h-6 items-center rounded-full bg-accent-soft px-2.5 text-xs font-extrabold text-accent-strong">Partner</span>
+        )}
         <code className="w-full truncate rounded-[12px] bg-surface-2 px-3 py-2.5 text-[13px] font-bold text-ink-2" dir="ltr">
           {url}
         </code>
@@ -108,14 +99,18 @@ function InviteLink({ url, kind, expiresAt }: { url: string; kind: PairKind; exp
 
 export default function LinkPage() {
   const state = usePair().data;
+  const admin = useIsAdmin();
   const [kind, setKind] = useState<PairKind>("friend");
   const [made, setMade] = useState<{ url: string; kind: PairKind; expiresAt: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const partner = state?.pair?.partner;
+  const choose = admin && !partner;
+  const pick = choose ? kind : "friend";
   const create = async () => {
     setBusy(true);
     try {
-      const { invite, path } = await pairApi.invite(kind);
-      setMade({ url: `${window.location.origin}${path}`, kind, expiresAt: invite.expires_at });
+      const { invite, path } = await pairApi.invite(pick);
+      setMade({ url: `${window.location.origin}${path}`, kind: pick, expiresAt: invite.expires_at });
       refreshPair();
     } catch (err) {
       toast(err instanceof ApiError ? err.message : "Invite unavailable");
@@ -131,11 +126,10 @@ export default function LinkPage() {
       toast(err instanceof ApiError ? err.message : "Revoke unavailable");
     }
   };
-  const partner = state?.pair?.partner;
   return (
-    <>
-      <PageHero title="Invite someone" />
-      <div className="grid max-w-xl gap-3">
+    <div className="max-w-xl">
+      <PageHero title="Link with someone" />
+      <div className="grid gap-3">
         {partner && (
           <div className="flex items-center gap-3 rounded-card border border-line bg-surface p-4">
             <span className="overflow-hidden rounded-full bg-surface-2">
@@ -156,12 +150,20 @@ export default function LinkPage() {
           <InviteLink url={made.url} kind={made.kind} expiresAt={made.expiresAt} />
         ) : (
           <>
-            <div role="radiogroup" aria-label="Kind" className="grid gap-2.5">
-              {KINDS.filter((k) => !partner || k.kind === "friend").map((k) => (
-                <KindCard key={k.kind} k={k} on={kind === k.kind} onPick={() => setKind(k.kind)} />
-              ))}
-            </div>
-            <Button variant="primary" className="mt-2 h-[52px] text-[15px]" onClick={() => void create()} disabled={busy || !state}>
+            {choose && (
+              <Segmented<PairKind>
+                label="Kind"
+                full
+                value={kind}
+                onChange={setKind}
+                options={[
+                  ["friend", "Friends"],
+                  ["partner", "Partner"],
+                ]}
+              />
+            )}
+            <Shares kind={pick} />
+            <Button variant="primary" className="mt-1 h-[52px] text-[15px]" onClick={() => void create()} disabled={busy || !state}>
               Make invite link
             </Button>
           </>
@@ -173,7 +175,7 @@ export default function LinkPage() {
               {state.invites.map((inv) => (
                 <li key={inv.id} className="flex items-center gap-3 rounded-card border border-line bg-surface px-4 py-3">
                   <span className="min-w-0 flex-1">
-                    <span className="block font-extrabold">{inv.link_kind === "friend" ? "Friend" : "Partner"}</span>
+                    <span className="block font-extrabold">{inv.link_kind === "partner" ? "Partner link" : "Invite link"}</span>
                     <span className="block text-[13px] font-semibold text-muted">
                       {inv.status === "declined" ? "Declined" : "Pending"} · expires {expiry(inv.expires_at)}
                     </span>
@@ -187,6 +189,6 @@ export default function LinkPage() {
           </section>
         )}
       </div>
-    </>
+    </div>
   );
 }

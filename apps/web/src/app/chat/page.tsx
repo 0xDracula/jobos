@@ -1,12 +1,12 @@
 "use client";
 
-import { ArrowDown, ArrowLeft, BellOff, Check, CheckCheck, Clock, Headphones, Lamp, MessageCircle, Music2, Pencil, Pin, PinOff, Play, Reply, RotateCcw, Search, Send, Settings2, Smile, Trash2, UserRound, X } from "lucide-react";
+import { ArrowDown, ArrowLeft, BellOff, Check, CheckCheck, Clock, Headphones, Lamp, MessageCircle, Music2, Pencil, Pin, PinOff, Play, Reply, RotateCcw, Search, Send, Smile, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 
 import { Avatar, lookOf } from "@/avatar";
-import { AvatarStack } from "@/components/friends/people";
+import { GroupAvatar } from "@/components/friends/people";
 import { GroupSheet, JamSheet } from "@/components/friends/sheets";
 import { PhotoButton, PhotoMessage, StickerButton, StickerMessage, VoiceButton, VoiceNote } from "@/components/chat/Media";
 import { ChatSearch, messageText, PinnedBar } from "@/components/chat/PinsSearch";
@@ -27,7 +27,7 @@ import { useFriends } from "@/lib/people";
 import { useMe, useMembers } from "@/lib/session";
 import {
   conversationApi, conversationName, jumpTo, loadNewer, loadOlder, notifyTyping, retryMessage, sendMessage, showLatest, socialApi, socialKeys,
-  typing, useChat, useChatEffects, useConversation, useConversations, usePresence, type ChatMessage, type Conversation,
+  typing, useChat, useChatEffects, useConversation, useConversations, usePresence, type ChatMessage,
 } from "@/lib/social";
 import { toast } from "@/lib/toast";
 import { useTogether } from "@/lib/together";
@@ -130,9 +130,15 @@ function SessionCard({ m }: { m: ChatMessage }) {
   const d = (m.data ?? {}) as unknown as { session_id?: string; title?: string; scheduled_at?: string | null; songs?: number; jam?: boolean };
   return (
     <Link href={d.jam ? `/jam/?id=${d.session_id ?? ""}` : `/together/?id=${d.session_id ?? ""}`} className="flex items-center gap-3">
-      <span className="grid size-14 shrink-0 place-items-center rounded-[10px] bg-[var(--chat-action)]">
-        <PixelIcon name="headphones" size={36} />
-      </span>
+      {d.jam ? (
+        <span className="grid size-14 shrink-0 place-items-center rounded-[12px] bg-accent text-on-accent">
+          <Headphones className="size-7" />
+        </span>
+      ) : (
+        <span className="grid size-14 shrink-0 place-items-center rounded-[10px] bg-[var(--chat-action)]">
+          <PixelIcon name="headphones" size={36} />
+        </span>
+      )}
       <span className="min-w-0">
         <span className="block text-xs font-extrabold opacity-70">{d.jam ? "Jam" : "Listen together"}</span>
         <span dir="auto" className="block truncate font-bold">
@@ -571,7 +577,7 @@ function Chat({ convId }: { convId: string }) {
         </Link>
         {group && conv ? (
           <button type="button" onClick={() => setGroupOpen(true)} aria-label="Group" className="shrink-0">
-            <AvatarStack people={conv.members.filter((m) => m.id !== me?.id)} size={32} />
+            <GroupAvatar people={conv.members.filter((m) => m.id !== me?.id)} size={44} />
           </button>
         ) : (
           other && (
@@ -582,7 +588,15 @@ function Chat({ convId }: { convId: string }) {
         )}
         <div ref={headRef} className="min-w-0 flex-1">
           <h1 dir="auto" className={cn("truncate font-display text-[22px] font-semibold leading-tight text-ink", ON_SKY)}>
-            {conv ? conversationName(conv, me?.id) : (other?.display_name ?? "Chat")}
+            {group && conv ? (
+              <button type="button" onClick={() => setGroupOpen(true)} className="max-w-full truncate text-start">
+                {conversationName(conv, me?.id)}
+              </button>
+            ) : conv ? (
+              conversationName(conv, me?.id)
+            ) : (
+              (other?.display_name ?? "Chat")
+            )}
           </h1>
           <p className={cn("flex items-center gap-1.5 truncate text-[13px] font-bold text-[var(--chat-meta)]", ON_SKY)}>
             {!group && otherState?.online && <span aria-hidden className="size-2 shrink-0 rounded-full bg-sage" />}
@@ -639,17 +653,6 @@ function Chat({ convId }: { convId: string }) {
               <ChatAction label="Jam" title="Start a jam" onClick={() => setJamOpen(true)}>
                 <Headphones />
               </ChatAction>
-              {group ? (
-                <ChatAction label="Group" title="Group" onClick={() => setGroupOpen(true)}>
-                  <Settings2 />
-                </ChatAction>
-              ) : (
-                other && (
-                  <ChatAction label="Profile" title="Profile" onClick={() => router.push(`/people/?u=${encodeURIComponent(other.username)}`)}>
-                    <UserRound />
-                  </ChatAction>
-                )
-              )}
             </>
           )}
         </div>

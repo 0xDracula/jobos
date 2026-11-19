@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Shield } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 
@@ -12,7 +12,7 @@ import { PageHero } from "@/components/sky/PageHero";
 import { ConfirmDialog, Dialog } from "@/components/dialogs";
 import { LinkRow } from "@/components/today/SoloToday";
 import { Artwork } from "@/components/media";
-import { Button, Empty, Segmented, Switch } from "@/components/ui";
+import { Button, Empty, RowLink, Segmented, Switch } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { afterPairChange, pairApi, usePair } from "@/lib/pair";
@@ -102,17 +102,11 @@ function LinkedAccount() {
   const pair = usePair().data?.pair;
   const [unlinking, setUnlinking] = useState(false);
   if (pair === undefined) return null;
-  const privacy = (
-    <Link href="/settings/privacy/" className="flex min-h-14 items-center gap-3 rounded-card border border-line bg-surface px-4 transition-colors hover:border-line-strong">
-      <span className="flex-1 font-extrabold">Privacy</span>
-      <ChevronRight className="size-5 text-muted" />
-    </Link>
-  );
   if (!pair?.partner) {
     return (
       <section className="mb-10 grid gap-3">
         <h2 className="font-display text-xl font-semibold">People</h2>
-        {privacy}
+        <RowLink href="/settings/privacy/" icon={<Shield />} quiet title="Privacy" />
         <LinkRow />
       </section>
     );

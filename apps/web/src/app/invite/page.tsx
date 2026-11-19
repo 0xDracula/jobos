@@ -120,11 +120,9 @@ export default function InvitePage() {
   const title = kind ? `Invite from ${invite?.from?.display_name ?? "someone"}` : invite?.display_name ? `For ${invite.display_name}` : "Invite";
   return (
     <AuthCard title={title}>
-      {kind && (
+      {kind === "partner" && (
         <p className="-mt-2 mb-5">
-          <span className="inline-flex h-6 items-center rounded-full bg-accent-soft px-2.5 text-xs font-extrabold text-accent-strong">
-            {kind === "partner" ? "Partner" : "Friend"}
-          </span>
+          <span className="inline-flex h-6 items-center rounded-full bg-accent-soft px-2.5 text-xs font-extrabold text-accent-strong">Partner</span>
         </p>
       )}
       {invite?.message && (

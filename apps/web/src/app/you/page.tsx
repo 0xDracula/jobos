@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ChevronRight, Globe, Heart, Lock, Settings, Shield } from "lucide-react";
+import { ChevronRight, Globe, Link2, Lock, Settings, Shield } from "lucide-react";
 import Link from "next/link";
 
 import { PersonAvatar, Tag } from "@/components/friends/people";
@@ -9,7 +9,7 @@ import { Cover } from "@/components/media";
 import { PixelIcon } from "@/components/pixel/PixelIcon";
 import { MoodChip } from "@/components/profile/Mood";
 import { PageHero } from "@/components/sky/PageHero";
-import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui";
+import { Menu, MenuContent, MenuItem, MenuTrigger, RowLink } from "@/components/ui";
 import { api } from "@/lib/api";
 import { plural } from "@/lib/format";
 import { usePair } from "@/lib/pair";
@@ -18,6 +18,8 @@ import { useProfile } from "@/lib/profiles";
 import { keys, queryClient } from "@/lib/queries";
 import { useMe } from "@/lib/session";
 import { toast } from "@/lib/toast";
+
+const AUDIENCE = { followers: "followers", friends: "friends", partner: "partner", none: "no one" } as const;
 
 const ROWS = [
   { href: "/stats/", icon: "stats", label: "Stats" },
@@ -41,8 +43,9 @@ export default function YouPage() {
     }
   };
   const base = me ? `/people/follows/?u=${encodeURIComponent(me.username)}` : "";
+  const visibilities = (Object.keys(VISIBILITY_LABELS) as PlaylistVisibility[]).filter((v) => v !== "partner" || partner);
   return (
-    <>
+    <div className="max-w-xl">
       <PageHero
         title="You"
         actions={
@@ -51,7 +54,7 @@ export default function YouPage() {
           </Link>
         }
       />
-      <div className="grid max-w-xl gap-5">
+      <div className="grid gap-5">
         {me && (
           <section className="grid justify-items-center gap-1 rounded-card border border-line bg-surface p-5 text-center">
             <Link href={`/people/?u=${encodeURIComponent(me.username)}`}>
@@ -87,17 +90,17 @@ export default function YouPage() {
               </div>
             )}
             <div className="mt-4 grid w-full grid-cols-2 gap-2">
-              <Link href="/profile/" className="inline-flex min-h-11 items-center justify-center rounded-[12px] border border-line bg-surface-2 px-4 font-extrabold">
+              <Link href="/profile/" className="inline-flex min-h-11 items-center justify-center rounded-button border border-line bg-surface-2 px-4 font-extrabold transition-colors hover:bg-surface-3">
                 Edit profile
               </Link>
-              <Link href="/friends/?tab=people" className="inline-flex min-h-11 items-center justify-center rounded-[12px] border border-line bg-surface-2 px-4 font-extrabold">
+              <Link href="/friends/?tab=people" className="inline-flex min-h-11 items-center justify-center rounded-button border border-line bg-surface-2 px-4 font-extrabold transition-colors hover:bg-surface-3">
                 Find people
               </Link>
             </div>
           </section>
         )}
         {partner ? (
-          <Link href="/us/" className="flex items-center gap-3 rounded-card border border-line bg-surface p-3 transition-colors hover:border-line-strong">
+          <Link href="/us/" className="flex min-h-[68px] items-center gap-3 rounded-card border border-line bg-surface p-3 transition-colors hover:border-line-strong hover:bg-surface-2/40">
             <PersonAvatar person={partner} size={44} />
             <span className="min-w-0 flex-1">
               <span dir="auto" className="block truncate font-extrabold">
@@ -108,13 +111,7 @@ export default function YouPage() {
             <ChevronRight className="size-5 text-muted" />
           </Link>
         ) : (
-          <Link href="/link/" className="flex items-center gap-3 rounded-card border border-line bg-surface p-3 transition-colors hover:border-line-strong">
-            <span className="grid size-11 shrink-0 place-items-center rounded-[12px] bg-accent-soft text-accent-strong">
-              <Heart className="size-[22px]" />
-            </span>
-            <span className="min-w-0 flex-1 text-[15px] font-extrabold">Link a partner</span>
-            <ChevronRight className="size-5 text-muted" />
-          </Link>
+          <RowLink href="/link/" icon={<Link2 />} title="Link with someone" sub="Invite link" />
         )}
         {mine.length > 0 && (
           <section>
@@ -136,7 +133,7 @@ export default function YouPage() {
                       {VISIBILITY_LABELS[p.visibility ?? "private"]}
                     </MenuTrigger>
                     <MenuContent align="end">
-                      {(Object.keys(VISIBILITY_LABELS) as PlaylistVisibility[]).map((v) => (
+                      {visibilities.map((v) => (
                         <MenuItem key={v} onSelect={() => void setVisibility(p.id, v)}>
                           {VISIBILITY_LABELS[v]}
                         </MenuItem>
@@ -148,20 +145,13 @@ export default function YouPage() {
             </ul>
           </section>
         )}
-        <Link href="/settings/privacy/" className="flex items-center gap-3 rounded-card border border-line bg-surface p-3 transition-colors hover:border-line-strong">
-          <span className="grid size-11 shrink-0 place-items-center rounded-[12px] bg-accent-soft text-accent-strong">
-            <Shield className="size-[22px]" />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-[15px] font-extrabold">Privacy</span>
-            {privacy && (
-              <span className="block text-[13px] font-semibold text-muted">
-                {privacy.private ? "Private" : "Public"} · activity for {privacy.activity_audience === "none" ? "no one" : privacy.activity_audience}
-              </span>
-            )}
-          </span>
-          <ChevronRight className="size-5 text-muted" />
-        </Link>
+        <RowLink
+          href="/settings/privacy/"
+          icon={<Shield />}
+          quiet
+          title="Privacy"
+          sub={privacy && `${privacy.private ? "Private" : "Public"} · activity: ${AUDIENCE[privacy.activity_audience]}`}
+        />
         <ul className="grid grid-cols-2 gap-2.5">
           {ROWS.map((r) => (
             <li key={r.href}>
@@ -176,6 +166,6 @@ export default function YouPage() {
           ))}
         </ul>
       </div>
-    </>
+    </div>
   );
 }

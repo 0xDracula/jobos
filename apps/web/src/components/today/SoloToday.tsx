@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, Heart, UserPlus } from "lucide-react";
+import { Heart, Link2 } from "lucide-react";
 import Link from "next/link";
 
 import { FriendStrip } from "@/components/friends/people";
@@ -8,7 +8,7 @@ import { PreviewsCard } from "@/components/friends/Previews";
 import { ContinueHere } from "@/components/ContinueHere";
 import { Artwork } from "@/components/media";
 import { ReleasesShelf } from "@/components/mixes/Mixes";
-import { SectionTitle } from "@/components/ui";
+import { RowLink, SectionTitle } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { fmtMs } from "@/lib/format";
 import { useRecent, useTop } from "@/lib/queries";
@@ -85,29 +85,13 @@ function OnRepeat() {
 }
 
 export function LinkRow() {
-  return (
-    <Link href="/link/" className="flex items-center gap-3 rounded-card border border-line bg-surface p-3 transition-colors hover:border-line-strong">
-      <span className="grid size-11 shrink-0 place-items-center rounded-[12px] bg-accent-soft text-accent-strong">
-        <UserPlus className="size-[22px]" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-[15px] font-extrabold">Invite someone</span>
-        <span className="block text-[13px] font-semibold text-muted">Friend or partner</span>
-      </span>
-      <ChevronRight className="size-5 text-muted" />
-    </Link>
-  );
+  return <RowLink href="/link/" icon={<Link2 />} title="Link with someone" sub="Invite link" />;
 }
 
 export function FriendsSection() {
   return (
-    <section className="grid gap-2">
-      <div className="flex items-baseline justify-between">
-        <h2 className="font-display text-xl lg:text-[22px]">Friends</h2>
-        <Link href="/friends/?tab=activity" className="text-[13px] font-bold text-muted">
-          All
-        </Link>
-      </div>
+    <section>
+      <SectionTitle action={<Link href="/friends/?tab=activity" className={more}>All</Link>}>Friends</SectionTitle>
       <FriendStrip />
     </section>
   );

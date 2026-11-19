@@ -1,7 +1,6 @@
 "use client";
 
-import { ChevronDown, Inbox, Search, SquarePen, UserPlus } from "lucide-react";
-import Link from "next/link";
+import { ChevronDown, Inbox, Link2, Search, SquarePen, UserPlus } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
@@ -9,7 +8,7 @@ import { useDebounced } from "@/components/common";
 import { ActivityList, ConversationRow, FriendStrip, PersonRow } from "@/components/friends/people";
 import { NewChatSheet } from "@/components/friends/sheets";
 import { PageHero } from "@/components/sky/PageHero";
-import { Button, IconButton, inputClass, Segmented } from "@/components/ui";
+import { Button, IconButton, inputClass, RowLink, Segmented } from "@/components/ui";
 import { ApiError } from "@/lib/api";
 import { afterFollowChange, peopleApi, useFollowRequests, useFriends, usePeopleSearch, useSuggested } from "@/lib/people";
 import { queryClient } from "@/lib/queries";
@@ -33,7 +32,7 @@ function Friends() {
   const [newChat, setNewChat] = useState(false);
   const setTab = (t: Tab) => router.replace(t === "chats" ? "/friends/" : `/friends/?tab=${t}`, { scroll: false });
   return (
-    <>
+    <div className="max-w-2xl">
       <PageHero
         title="Friends"
         actions={
@@ -47,11 +46,12 @@ function Friends() {
           </div>
         }
       />
-      <div className="grid max-w-2xl gap-5">
+      <div className="grid gap-5">
         <FriendStrip />
         <div>
           <Segmented<Tab>
             label="Show"
+            full
             value={tab}
             onChange={setTab}
             options={[
@@ -66,7 +66,7 @@ function Friends() {
         {tab === "people" && <People />}
       </div>
       <NewChatSheet open={newChat} onOpenChange={setNewChat} />
-    </>
+    </div>
   );
 }
 
@@ -214,15 +214,7 @@ function People() {
               </ul>
             </section>
           )}
-          <Link href="/link/" className="flex items-center gap-3 rounded-card border border-line bg-surface p-3 transition-colors hover:border-line-strong">
-            <span className="grid size-11 shrink-0 place-items-center rounded-[12px] bg-accent-soft text-accent-strong">
-              <UserPlus className="size-[22px]" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-[15px] font-extrabold">Invite someone</span>
-              <span className="block text-[13px] font-semibold text-muted">Friend or partner</span>
-            </span>
-          </Link>
+          <RowLink href="/link/" icon={<Link2 />} title="Link with someone" sub="Invite link" />
         </>
       )}
     </div>
