@@ -1,11 +1,12 @@
 "use client";
 
-import { ChevronDown, ChevronUp, Heart, Play, Plus, Send, Volume2, VolumeX } from "lucide-react";
+import { ChevronDown, ChevronUp, Heart, Play, Plus, Send, Sparkles, Volume2, VolumeX } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Avatar, lookOf } from "@/avatar";
 import { openAddToPlaylist } from "@/components/dialogs";
+import { Vinyl } from "@/components/friends/Previews";
 import { openSend } from "@/components/friends/sheets";
 import { Artwork } from "@/components/media";
 import { api } from "@/lib/api";
@@ -30,7 +31,7 @@ function tintOf(p: Preview | undefined): string {
   const hex = p?.track.palette?.[0]?.hex;
   if (!hex) return "#1b1e26";
   const n = parseInt(hex.slice(1), 16);
-  const mix = (c: number) => Math.round(c * 0.28 + 14);
+  const mix = (c: number) => Math.round(c * 0.36 + 12);
   return `rgb(${mix((n >> 16) & 255)}, ${mix((n >> 8) & 255)}, ${mix(n & 255)})`;
 }
 
@@ -115,14 +116,14 @@ function Feed() {
 
   const bars = previewBars(cur?.highlight);
   const dur = cur?.track.duration_ms ?? 0;
-  const winL = dur ? (start / dur) * 100 : 0;
-  const winW = dur ? (Math.min(CLIP_MS, Math.max(0, dur - start)) / dur) * 100 : 0;
-  const head = dur && clip.at >= start ? Math.min(winW, ((clip.at - start) / dur) * 100) : 0;
+  const left = Math.max(0, Math.round((start + CLIP_MS - Math.max(clip.at, start)) / 1000));
   const fromFriend = cur?.from_user ? friends?.find((f) => f.person.id === cur.from_user)?.person : null;
+  const art = cur ? (cur.track.artwork_url ?? cur.track.artwork_thumb_url) : null;
+  const isLiked = !!cur && liked.has(cur.track.id);
 
   return (
     <div
-      className="fixed inset-0 z-[70] overflow-hidden text-white transition-colors duration-300"
+      className="fixed inset-0 z-[70] flex flex-col overflow-hidden text-white transition-colors duration-500"
       style={{ background: tintOf(cur) }}
       onTouchStart={(e) => (touch.current = e.touches[0].clientY)}
       onTouchEnd={(e) => {
@@ -139,9 +140,9 @@ function Feed() {
         go(e.deltaY > 0 ? 1 : -1);
       }}
     >
-      <div aria-hidden className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.28)_0%,transparent_22%,transparent_60%,rgba(0,0,0,0.34)_100%)]" />
-      <header className="relative z-10 flex items-center gap-1 px-2 pt-[max(env(safe-area-inset-top),8px)]">
-        <button type="button" aria-label="Close" onClick={() => router.back()} className="grid size-11 place-items-center rounded-full">
+      <div aria-hidden className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.2)_0%,transparent_16%,rgba(12,8,6,0.5)_58%,rgba(12,8,6,0.82)_100%)]" />
+      <header className="relative z-10 flex shrink-0 items-center gap-1 px-2 pt-[max(env(safe-area-inset-top),8px)]">
+        <button type="button" aria-label="Close" onClick={() => router.back()} className="grid size-11 place-items-center rounded-full transition-colors hover:bg-white/10">
           <ChevronDown className="size-6" />
         </button>
         <div className="flex flex-1 justify-center">
@@ -153,7 +154,7 @@ function Feed() {
                 role="radio"
                 aria-checked={mode === m}
                 onClick={() => setMode(m)}
-                className={cn("h-8 rounded-[8px] px-3.5 text-[13px] font-extrabold", mode === m ? "bg-white/22 text-white" : "text-white/72")}
+                className={cn("h-8 rounded-[8px] px-3.5 text-[13px] font-extrabold transition-colors", mode === m ? "bg-white/22 text-white" : "text-white/72 hover:text-white")}
               >
                 {m === "you" ? "For you" : "Friends"}
               </button>
@@ -167,112 +168,139 @@ function Feed() {
             setPreviewMuted(!muted);
             setMuted(!muted);
           }}
-          className="grid size-11 place-items-center rounded-full"
+          className="grid size-11 place-items-center rounded-full transition-colors hover:bg-white/10"
         >
           {muted ? <VolumeX className="size-[22px]" /> : <Volume2 className="size-[22px]" />}
         </button>
       </header>
 
       {!cur ? (
-        <div className="relative z-10 grid h-[70dvh] place-items-center px-6 text-center">
+        <div className="relative z-10 grid flex-1 place-items-center px-6 text-center">
           <p className="font-display text-xl">{q.isError ? "Previews unavailable" : list && !q.data?.growing ? (mode === "friends" ? "No songs from friends yet" : "No previews yet") : "Finding songs"}</p>
         </div>
       ) : (
-        <main className="relative z-10 mx-auto grid max-w-md gap-0 px-6 pt-3">
-          <button type="button" aria-label={clip.playing ? "Pause" : "Play"} onClick={togglePreview} className="relative mx-auto aspect-square w-full max-w-[400px]">
-            <Artwork src={cur.track.artwork_url ?? cur.track.artwork_thumb_url} className="size-full rounded-[16px] object-cover shadow-[0_28px_60px_-18px_rgba(0,0,0,0.7)]" />
-            {!clip.playing && (
-              <span className="absolute inset-0 grid place-items-center">
-                <span className="grid size-16 place-items-center rounded-full bg-black/45">
-                  <Play className="size-8 fill-current" />
+        <main className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-7 py-4 [--s:min(56vw,32dvh,260px)]">
+          <button
+            type="button"
+            aria-label={clip.playing ? "Pause" : "Play"}
+            onClick={togglePreview}
+            className="relative block h-[var(--s)] w-full shrink-0 text-start"
+          >
+            <span key={cur.track.id} className="absolute top-[calc(var(--s)*0.03)] start-[calc(var(--s)*0.55)] animate-[record-out_700ms_cubic-bezier(0.16,1,0.3,1)_150ms_both]">
+              <Vinyl src={art} size="calc(var(--s) * 0.94)" spin={clip.playing ? "on" : "off"} />
+            </span>
+            <span className="absolute start-0 top-0 block size-[var(--s)] overflow-hidden rounded-[6px] shadow-[12px_18px_40px_-10px_rgba(0,0,0,0.75)]">
+              <Artwork src={art} className="size-full object-cover" eager />
+              {!clip.playing && (
+                <span className="absolute inset-0 grid place-items-center bg-black/25">
+                  <span className="grid size-14 place-items-center rounded-full bg-black/50 backdrop-blur-sm">
+                    <Play className="ms-0.5 size-7 fill-current" />
+                  </span>
                 </span>
-              </span>
-            )}
+              )}
+            </span>
           </button>
-          <div className="mt-5 text-left">
-            <h1 dir="auto" className="font-display text-[26px] leading-tight">
+
+          <div className="mt-7 text-left">
+            <h1 dir="auto" className="truncate font-display text-[30px] font-extrabold leading-tight tracking-[-0.02em]">
               {cur.track.title}
             </h1>
-            <p dir="auto" className="mt-0.5 text-base font-bold text-white/78">
+            <p dir="auto" className="mt-0.5 truncate text-base font-bold text-white/75">
               {cur.track.artists.join(", ")}
             </p>
             {cur.reason && (
-              <span className="mt-3 inline-flex h-7 items-center gap-1.5 rounded-[10px] bg-white/12 px-2.5 text-[12.5px] font-extrabold text-white/90">
-                {fromFriend && <Avatar userId={fromFriend.id} size={18} look={lookOf(fromFriend.id, fromFriend.avatar)} />}
+              <p className="mt-2 flex items-center gap-1.5 text-[12.5px] font-extrabold text-white/60">
+                {fromFriend ? <Avatar userId={fromFriend.id} size={18} look={lookOf(fromFriend.id, fromFriend.avatar)} /> : <Sparkles className="size-3.5" />}
                 {cur.reason}
-              </span>
+              </p>
             )}
           </div>
-          <div className="mt-5">
-            <div className="mb-2 flex items-center justify-between text-xs font-extrabold text-white/80 tabular-nums">
-              <span className="flex items-center gap-1.5 text-white">
-                <span className="size-[7px] rounded-full bg-accent" />
-                {previewLabel(cur.highlight, start)}
-              </span>
-              <span>30 s</span>
-            </div>
-            <div className="relative flex h-10 items-end gap-[2px]" aria-hidden>
+
+          <div className="mt-5" aria-hidden>
+            <div className="flex h-10 items-end gap-[2px]">
               {bars.map((v, k) => {
-                const inside = dur > 0 && ((k + 0.5) / bars.length) * dur >= start && ((k + 0.5) / bars.length) * dur <= start + CLIP_MS;
-                return <i key={k} className={cn("block min-h-[3px] flex-1 rounded-[1.5px]", inside ? "bg-white" : "bg-white/25")} style={{ height: `${Math.round(4 + v * 36)}px` }} />;
+                const t = ((k + 0.5) / bars.length) * dur;
+                const inside = dur > 0 && t >= start && t <= start + CLIP_MS;
+                return (
+                  <i
+                    key={k}
+                    className={cn("block min-h-[3px] flex-1 rounded-[2px] transition-colors duration-300", inside && t <= clip.at ? "bg-accent" : inside ? "bg-white/55" : "bg-white/20")}
+                    style={{ height: `${Math.round(4 + v * 36)}px` }}
+                  />
+                );
               })}
-              {dur > 0 && (
-                <>
-                  <span className="absolute -inset-y-1 rounded-[6px] border-[1.5px] border-white/90" style={{ left: `${winL}%`, width: `${winW}%` }} />
-                  <span className="absolute -inset-y-1.5 w-0.5 rounded-[1px] bg-accent" style={{ left: `${winL + head}%` }} />
-                </>
-              )}
+            </div>
+            <div className="mt-2 flex justify-between text-xs font-extrabold text-white/65 tabular-nums">
+              <span>{previewLabel(cur.highlight, start)}</span>
+              <span>0:{String(left).padStart(2, "0")}</span>
             </div>
           </div>
-          <div className="mt-6 grid grid-cols-4 text-xs font-extrabold text-white/85">
-            <Action label="Like" on={liked.has(cur.track.id)} onClick={() => void like()}>
-              <Heart className={cn("size-6", liked.has(cur.track.id) && "fill-current")} />
-            </Action>
-            <Action
+
+          <div className="mt-6 flex items-center gap-2.5">
+            <Round label="Like" on={isLiked} onClick={() => void like()}>
+              <Heart className={cn("size-[22px]", isLiked && "fill-current")} />
+            </Round>
+            <Round
               label="Add"
               onClick={() => {
                 void previewApi.react(cur.track.id, "add");
                 openAddToPlaylist([cur.track]);
               }}
             >
-              <Plus className="size-6" />
-            </Action>
-            <Action
-              label="Send"
-              onClick={() => openSend({ kind: "song", track: cur.track, startMs: start, onSent: () => void previewApi.react(cur.track.id, "send") })}
+              <Plus className="size-[22px]" />
+            </Round>
+            <Round label="Send" onClick={() => openSend({ kind: "song", track: cur.track, startMs: start, onSent: () => void previewApi.react(cur.track.id, "send") })}>
+              <Send className="size-5" />
+            </Round>
+            <button
+              type="button"
+              onClick={full}
+              className="ms-auto inline-flex h-[50px] items-center gap-2 rounded-full bg-accent px-5 text-[15px] font-extrabold text-on-accent transition-[filter,transform] hover:brightness-105 active:scale-[0.97]"
             >
-              <Send className="size-[22px]" />
-            </Action>
-            <Action label="Full song" onClick={full}>
-              <Play className="size-[22px] fill-current" />
-            </Action>
+              <Play className="size-4 fill-current" /> Full song
+            </button>
           </div>
         </main>
       )}
 
       {next && (
-        <>
+        <div className="relative z-10 mx-auto w-full max-w-md shrink-0 px-7 pb-[max(env(safe-area-inset-bottom),20px)]">
           <button
             type="button"
             onClick={() => go(1)}
-            className="absolute bottom-[max(env(safe-area-inset-bottom),12px)] left-1/2 z-20 inline-flex h-[30px] -translate-x-1/2 items-center gap-1.5 rounded-full bg-black/34 px-3 text-[12.5px] font-extrabold"
+            className="flex w-full items-center gap-2.5 rounded-[14px] bg-white/7 p-2 text-start transition-colors hover:bg-white/12"
           >
-            <ChevronUp className="size-4" />
-            <span dir="auto" className="max-w-[60vw] truncate">
-              {next.track.title}
+            <Artwork src={next.track.artwork_thumb_url ?? next.track.artwork_url} className="size-10 shrink-0 rounded-[8px] object-cover" />
+            <span className="min-w-0 flex-1 text-left">
+              <span dir="auto" className="block truncate text-sm font-extrabold">
+                {next.track.title}
+              </span>
+              <span dir="auto" className="block truncate text-[12.5px] font-bold text-white/60">
+                {next.track.artists.join(", ")}
+              </span>
             </span>
+            <ChevronUp aria-label="Next" className="me-1.5 size-5 shrink-0 text-white/60" />
           </button>
-        </>
+        </div>
       )}
     </div>
   );
 }
 
-function Action({ label, on, onClick, children }: { label: string; on?: boolean; onClick: () => void; children: React.ReactNode }) {
+function Round({ label, on, onClick, children }: { label: string; on?: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button type="button" aria-pressed={on} onClick={onClick} className="grid justify-items-center gap-1.5">
-      <span className={cn("grid size-[52px] place-items-center rounded-full", on ? "bg-accent text-on-accent" : "bg-white/13 text-white")}>{children}</span>
-      {label}
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      aria-pressed={on}
+      onClick={onClick}
+      className={cn(
+        "grid size-[50px] shrink-0 place-items-center rounded-full border-[1.5px] transition-colors active:scale-95",
+        on ? "border-accent bg-accent text-on-accent" : "border-white/25 text-white hover:border-white/45 hover:bg-white/8",
+      )}
+    >
+      {children}
     </button>
   );
 }

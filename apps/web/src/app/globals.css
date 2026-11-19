@@ -340,6 +340,22 @@ html {
   to { opacity: 1; }
 }
 
+.vinyl {
+  border-radius: 9999px;
+  background: repeating-radial-gradient(circle at 50% 50%, #121212 0 2px, #1c1c1c 2px 4px);
+}
+.vinyl-sheen {
+  border-radius: 9999px;
+  background: conic-gradient(from 25deg, transparent 0 8%, rgba(255, 255, 255, 0.09) 14%, transparent 21% 54%, rgba(255, 255, 255, 0.07) 61%, transparent 68%);
+}
+@keyframes record-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes record-out {
+  from { transform: translateX(-46%); }
+  to { transform: none; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   :root:not([data-motion="full"]) *,
   :root:not([data-motion="full"]) *::before,
