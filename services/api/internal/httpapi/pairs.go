@@ -138,7 +138,7 @@ func (a *api) pairState(w http.ResponseWriter, r *http.Request) {
 		out = &pairJSON{ID: p.ID, Kind: p.Kind, CreatedAt: p.CreatedAt, Partner: p.Other(me)}
 	}
 	invites := []store.Invite{}
-	if ps := a.pairStore(); ps != nil && out == nil {
+	if ps := a.pairStore(); ps != nil {
 		list, err := ps.LinkInvites(r.Context(), me)
 		if err != nil {
 			a.serverError(w, "link invites", err)
@@ -165,6 +165,10 @@ func (a *api) setPairKind(w http.ResponseWriter, r *http.Request) {
 	}
 	if in.Kind != store.PairPartner {
 		writeError(w, http.StatusBadRequest, "kind is partner")
+		return
+	}
+	if !isAdmin(r) {
+		writeError(w, http.StatusForbidden, "Admin only")
 		return
 	}
 	if err := ps.SetPairKind(r.Context(), p.ID, in.Kind); err != nil {
@@ -219,8 +223,15 @@ func (a *api) createLinkInvite(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotImplemented, "Linking unavailable")
 		return
 	}
+	if in.Kind == "" {
+		in.Kind = store.PairFriend
+	}
 	if !store.ValidPairKind(in.Kind) {
 		writeError(w, http.StatusBadRequest, "kind is partner or friend")
+		return
+	}
+	if in.Kind == store.PairPartner && !isAdmin(r) {
+		writeError(w, http.StatusForbidden, "Admin only")
 		return
 	}
 	if in.Kind == store.PairPartner && pairOf(r.Context()) != nil {
