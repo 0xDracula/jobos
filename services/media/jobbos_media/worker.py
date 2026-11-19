@@ -10,7 +10,7 @@ from pathlib import Path
 
 import httpx
 
-from . import analysis, artists, candidates, config, enrich, fonts, ingest, lyrics, match, photos, ytdlp_update
+from . import analysis, artists, candidates, config, enrich, fonts, highlight, ingest, lyrics, match, photos, ytdlp_update
 
 log = logging.getLogger("jobbos.worker")
 
@@ -121,6 +121,10 @@ def handle_releases(payload: dict) -> dict:
     return candidates.fetch_releases(payload)
 
 
+def handle_highlight(payload: dict) -> dict:
+    return highlight.find(payload)
+
+
 def handle_update_ytdlp(payload: dict) -> dict:
     return ytdlp_update.update()
 
@@ -141,6 +145,7 @@ HANDLERS = {
     "fetch_tags": handle_fetch_tags,
     "fetch_candidates": handle_candidates,
     "fetch_releases": handle_releases,
+    "find_highlight": handle_highlight,
 }
 
 HEAVY_HANDLERS = {
@@ -178,6 +183,10 @@ def describe(kind: str, payload: dict, result: dict) -> str:
         return f"{len(result['candidates'])} candidates ({counts}){errors}"
     if kind == "fetch_releases":
         return f"{len(result['releases'])} releases"
+    if kind == "find_highlight":
+        if result["start_ms"] is None:
+            return f"none {payload.get('video_id') or payload.get('path')}"
+        return f"{result['source']} at {result['start_ms'] / 1000:.0f} s {payload.get('video_id') or payload.get('path')}"
     if kind == "analyze_audio":
         return f"{result['tempo_bpm']} BPM, {result['musical_key']}, energy {result['energy']} {payload['path']}"
     return "done"
