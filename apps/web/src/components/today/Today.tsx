@@ -575,7 +575,8 @@ export function NowMusic() {
 function FirstSteps({ friend }: { friend: boolean }) {
   const pair = usePair().data?.pair;
   const ourSong = useOurSong().data?.track;
-  if (!pair || Date.now() - Date.parse(pair.created_at) > 7 * 86_400_000) return null;
+  const chat = useChat().data;
+  if (!pair || !chat || chat.messages.length > 0 || Date.now() - Date.parse(pair.created_at) > 7 * 86_400_000) return null;
   const steps = [
     !friend && !ourSong && { href: "/song/", icon: "record" as PixelIconName, title: "Our song", meta: "Choose" },
     { href: "/chat/", icon: "bubble" as PixelIconName, title: "Send a song", meta: "Chat" },
