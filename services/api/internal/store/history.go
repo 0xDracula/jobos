@@ -40,8 +40,10 @@ func (s *Store) RecordEvents(ctx context.Context, userID uuid.UUID, events []Lis
 			context = e.Context
 		}
 		batch.Queue(`insert into listening_events (user_id, device_id, track_id, event, position_ms, context, created_at)
-			select $1, (select id from devices where id = $2 and user_id = $1), $3, $4, $5, $6, coalesce($7, now())
-			where exists (select 1 from tracks where id = $3)`, userID, e.DeviceID, e.TrackID, e.Event, e.PositionMs, context, e.At)
+			select $1, (select id from devices where id = $2 and user_id = $1), $3, $4, $5,
+				case when u.private_session_until > coalesce($7, now()) then coalesce($6::jsonb, '{}'::jsonb) || '{"private": true}'::jsonb
+					else $6::jsonb end, coalesce($7, now())
+			from users u where u.id = $1 and exists (select 1 from tracks where id = $3)`, userID, e.DeviceID, e.TrackID, e.Event, e.PositionMs, context, e.At)
 	}
 	return s.pool.SendBatch(ctx, batch).Close()
 }

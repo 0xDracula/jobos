@@ -220,6 +220,11 @@ func linkTx(ctx context.Context, tx pgx.Tx, a, b uuid.UUID, kind string) (uuid.U
 	if !ValidPairKind(kind) {
 		return uuid.Nil, fmt.Errorf("unknown pair kind %q", kind)
 	}
+	if kind == PairFriend {
+		_, err := tx.Exec(ctx, `insert into follows (follower_id, followee_id) values ($1, $2), ($2, $1)
+			on conflict (follower_id, followee_id) do update set status = 'accepted'`, a, b)
+		return uuid.Nil, err
+	}
 	if _, err := tx.Exec(ctx, `select id from users where id = any($1) order by id for update`, []uuid.UUID{a, b}); err != nil {
 		return uuid.Nil, err
 	}
@@ -237,18 +242,26 @@ func linkTx(ctx context.Context, tx pgx.Tx, a, b uuid.UUID, kind string) (uuid.U
 		order by p.created_at desc limit 1`, []uuid.UUID{a, b}).Scan(&id)
 	switch {
 	case err == nil:
-		_, err = tx.Exec(ctx, `update pairs set ended_at = null, ended_by = null, kind = $2 where id = $1`, id, kind)
-		return id, err
+		if _, err := tx.Exec(ctx, `update pairs set ended_at = null, ended_by = null, kind = $2 where id = $1`, id, kind); err != nil {
+			return uuid.Nil, err
+		}
 	case errors.Is(err, pgx.ErrNoRows):
 		id = newID()
 		if _, err := tx.Exec(ctx, `insert into pairs (id, kind) values ($1, $2)`, id, kind); err != nil {
 			return uuid.Nil, err
 		}
-		_, err = tx.Exec(ctx, `insert into pair_members (pair_id, user_id) values ($1, $2), ($1, $3)`, id, a, b)
-		return id, err
+		if _, err := tx.Exec(ctx, `insert into pair_members (pair_id, user_id) values ($1, $2), ($1, $3)`, id, a, b); err != nil {
+			return uuid.Nil, err
+		}
 	default:
 		return uuid.Nil, err
 	}
+	if _, err := ensurePairConversation(ctx, tx, id); err != nil {
+		return uuid.Nil, err
+	}
+	_, err = tx.Exec(ctx, `insert into follows (follower_id, followee_id) values ($1, $2), ($2, $1)
+		on conflict (follower_id, followee_id) do update set status = 'accepted'`, a, b)
+	return id, err
 }
 
 func (s *Store) Unlink(ctx context.Context, userID uuid.UUID, keep bool) error {

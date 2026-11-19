@@ -174,7 +174,11 @@ func (a *api) uploadPhoto(w http.ResponseWriter, r *http.Request) {
 		a.serverError(w, "save photo", err)
 		return
 	}
-	p, err := a.Store.CreatePhoto(r.Context(), uid(r), albumID, path, caption)
+	ctx, ok := a.uploadConversation(w, r)
+	if !ok {
+		return
+	}
+	p, err := a.Store.CreatePhoto(ctx, uid(r), albumID, path, caption)
 	if err != nil {
 		a.notFoundOr(w, err, "album")
 		return

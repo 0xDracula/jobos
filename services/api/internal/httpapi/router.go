@@ -137,12 +137,12 @@ type Store interface {
 	UserSetting(ctx context.Context, userID uuid.UUID, key string) (json.RawMessage, error)
 	SendChat(ctx context.Context, sender uuid.UUID, in store.ChatInput) (*store.ChatMessage, bool, error)
 	ChatMessage(ctx context.Context, id uuid.UUID) (*store.ChatMessage, error)
-	ChatPage(ctx context.Context, before, after *uuid.UUID, limit int) ([]store.ChatMessage, error)
+	ChatPage(ctx context.Context, conv uuid.UUID, before, after *uuid.UUID, limit int) ([]store.ChatMessage, error)
 	EditChat(ctx context.Context, sender, id uuid.UUID, body string) (*store.ChatMessage, error)
 	DeleteChat(ctx context.Context, sender, id uuid.UUID) (*store.ChatMessage, error)
 	ReactChat(ctx context.Context, userID, id uuid.UUID, emoji string) (*store.ChatMessage, error)
-	ReadChat(ctx context.Context, userID, id uuid.UUID) (time.Time, error)
-	ChatReads(ctx context.Context) ([]store.ChatRead, error)
+	ReadChat(ctx context.Context, userID, conv, id uuid.UUID) (time.Time, error)
+	ChatReads(ctx context.Context, conv uuid.UUID) ([]store.ChatRead, error)
 	UnreadCount(ctx context.Context, userID uuid.UUID) (int, error)
 	SendLamp(ctx context.Context, from, to uuid.UUID, until time.Time) (*store.Lamp, error)
 	LampOff(ctx context.Context, from, to uuid.UUID) error
@@ -269,13 +269,13 @@ func New(d Deps) http.Handler {
 			r.Post("/tracks/{id}/cover", a.setCover)
 			r.Post("/uploads", a.upload)
 			r.Post("/prefetch", a.prefetch)
-			r.Patch("/playlists/{id}", a.updatePlaylist)
+			r.With(a.playlistGuard).Patch("/playlists/{id}", a.updatePlaylist)
 			r.Post("/playlists", a.createPlaylist)
-			r.Delete("/playlists/{id}", a.deletePlaylist)
-			r.Post("/playlists/{id}/items", a.addToPlaylist)
-			r.Put("/playlists/{id}/items", a.reorderPlaylist)
-			r.Delete("/playlists/{id}/items/{trackID}", a.removeFromPlaylist)
-			r.Post("/playlists/{id}/cover", a.setPlaylistCover)
+			r.With(a.playlistGuard).Delete("/playlists/{id}", a.deletePlaylist)
+			r.With(a.playlistGuard).Post("/playlists/{id}/items", a.addToPlaylist)
+			r.With(a.playlistGuard).Put("/playlists/{id}/items", a.reorderPlaylist)
+			r.With(a.playlistGuard).Delete("/playlists/{id}/items/{trackID}", a.removeFromPlaylist)
+			r.With(a.playlistGuard).Post("/playlists/{id}/cover", a.setPlaylistCover)
 			r.Get("/albums/{id}", a.album)
 			r.Get("/artists/{id}", a.artist)
 			r.Post("/artists/{id}/top/{rank}", a.addTopTrack)
@@ -285,6 +285,10 @@ func New(d Deps) http.Handler {
 			r.Get("/members", a.members)
 			a.registerPairRoutes(r)
 			a.registerStartRoutes(r)
+			a.registerConversationRoutes(r)
+			a.registerPeopleRoutes(r)
+			a.registerJamRoutes(r)
+			a.registerPreviewRoutes(r)
 			r.Get("/ws", a.websocket)
 			r.Get("/presence", a.presence)
 			r.Put("/quiet", a.setQuiet)
@@ -364,8 +368,8 @@ func New(d Deps) http.Handler {
 			r.Get("/media/{file}", a.mediaFile)
 			r.Get("/playlists", a.listPlaylists)
 			r.Post("/playlists/import", a.importPlaylist)
-			r.Get("/playlists/{id}", a.playlist)
-			r.Post("/playlists/{id}/rematch", a.rematchPlaylist)
+			r.With(a.playlistGuard).Get("/playlists/{id}", a.playlist)
+			r.With(a.playlistGuard).Post("/playlists/{id}/rematch", a.rematchPlaylist)
 		})
 	})
 	if d.WebRoot != "" {
@@ -797,7 +801,13 @@ func (a *api) importPlaylist(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *api) listPlaylists(w http.ResponseWriter, r *http.Request) {
-	playlists, err := a.Store.Playlists(r.Context())
+	var playlists []store.PlaylistSummary
+	var err error
+	if s := a.social(); s != nil {
+		playlists, err = s.LibraryPlaylists(r.Context(), uid(r))
+	} else {
+		playlists, err = a.Store.Playlists(r.Context())
+	}
 	if err != nil {
 		a.serverError(w, "list playlists", err)
 		return

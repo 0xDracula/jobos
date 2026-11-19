@@ -37,8 +37,10 @@ func (s *Store) CreateVoiceClip(ctx context.Context, authorID uuid.UUID, path st
 	}
 	defer tx.Rollback(ctx)
 	c := VoiceClip{ID: newID(), AuthorID: authorID, Status: "processing"}
-	if err := tx.QueryRow(ctx, `insert into voice_clips (id, author_id, original_path) values ($1, $2, $3) returning created_at`,
-		c.ID, authorID, path).Scan(&c.CreatedAt); err != nil {
+	conv := ConversationFrom(ctx)
+	if err := tx.QueryRow(ctx, `insert into voice_clips (id, author_id, original_path, conversation_id, pair_id)
+		values ($1, $2, $3, $4, case when $4::uuid is null then jobbos_pair() end) returning created_at`,
+		c.ID, authorID, path, conv).Scan(&c.CreatedAt); err != nil {
 		return c, err
 	}
 	if _, _, err := enqueue(ctx, tx, JobSpec{Kind: KindProcessClip, DedupeKey: "clip:" + c.ID.String(), Priority: PriorityInteractive,

@@ -102,9 +102,11 @@ func (s *Store) CreatePhoto(ctx context.Context, by uuid.UUID, albumID *uuid.UUI
 	}
 	defer tx.Rollback(ctx)
 	id := newID()
-	if _, err := tx.Exec(ctx, `insert into photos (id, album_id, position, original_path, caption, uploaded_by)
-		values ($1, $2, coalesce((select max(position) + 1 from photos where album_id = $2), 0), $3, $4, $5)`,
-		id, albumID, path, caption, by); err != nil {
+	conv := ConversationFrom(ctx)
+	if _, err := tx.Exec(ctx, `insert into photos (id, album_id, position, original_path, caption, uploaded_by, conversation_id, pair_id)
+		values ($1, $2, coalesce((select max(position) + 1 from photos where album_id = $2), 0), $3, $4, $5, $6,
+			case when $6::uuid is null then jobbos_pair() end)`,
+		id, albumID, path, caption, by, conv); err != nil {
 		if isForeignKey(err) {
 			return Photo{}, ErrNotFound
 		}

@@ -585,7 +585,11 @@ func (a *api) uploadClip(w http.ResponseWriter, r *http.Request) {
 		a.serverError(w, "save clip", err)
 		return
 	}
-	clip, err := a.Store.CreateVoiceClip(r.Context(), uid(r), path)
+	ctx, ok := a.uploadConversation(w, r)
+	if !ok {
+		return
+	}
+	clip, err := a.Store.CreateVoiceClip(ctx, uid(r), path)
 	if err != nil {
 		a.serverError(w, "create clip", err)
 		return

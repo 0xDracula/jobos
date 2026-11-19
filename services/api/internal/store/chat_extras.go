@@ -25,22 +25,22 @@ func (s *Store) PinChat(ctx context.Context, userID, id uuid.UUID, on bool) (*Ch
 	return s.ChatMessage(ctx, id)
 }
 
-func (s *Store) ChatPins(ctx context.Context) ([]ChatMessage, error) {
-	return s.chatList(ctx, `select `+chatCols+` from chat_messages m where m.pinned_at is not null and m.deleted_at is null
-		order by m.pinned_at desc limit 100`)
+func (s *Store) ChatPins(ctx context.Context, conv uuid.UUID) ([]ChatMessage, error) {
+	return s.chatList(ctx, `select `+chatCols+` from chat_messages m where m.conversation_id = $1 and m.pinned_at is not null
+		and m.deleted_at is null order by m.pinned_at desc limit 100`, conv)
 }
 
-func (s *Store) ChatAround(ctx context.Context, id uuid.UUID, limit int) ([]ChatMessage, error) {
+func (s *Store) ChatAround(ctx context.Context, conv, id uuid.UUID, limit int) ([]ChatMessage, error) {
 	half := limit / 2
 	return s.chatList(ctx, `select * from (
 			(select `+chatCols+` from chat_messages m
-				where (m.created_at, m.id) < ((select created_at from chat_messages where id = $1), $1)
+				where m.conversation_id = $4 and (m.created_at, m.id) < ((select created_at from chat_messages where id = $1), $1)
 				order by m.created_at desc, m.id desc limit $2)
 			union all
 			(select `+chatCols+` from chat_messages m
-				where (m.created_at, m.id) >= ((select created_at from chat_messages where id = $1), $1)
+				where m.conversation_id = $4 and (m.created_at, m.id) >= ((select created_at from chat_messages where id = $1), $1)
 				order by m.created_at, m.id limit $3)
-		) p order by 8, 1`, id, half, limit-half)
+		) p order by 8, 1`, id, half, limit-half, conv)
 }
 
 const chatSearchText = `chat_fold(m.body || ' ' || coalesce(m.data->'track'->>'title', '') || ' ' ||
@@ -60,15 +60,15 @@ func SearchTerms(q string) []string {
 	return out
 }
 
-func (s *Store) SearchChat(ctx context.Context, q string, limit int) ([]ChatMessage, error) {
+func (s *Store) SearchChat(ctx context.Context, conv uuid.UUID, q string, limit int) ([]ChatMessage, error) {
 	terms := SearchTerms(q)
 	if len(terms) == 0 {
 		return []ChatMessage{}, nil
 	}
 	return s.chatList(ctx, `select `+chatCols+` from chat_messages m
-		where m.deleted_at is null and not exists (
+		where m.conversation_id = $3 and m.deleted_at is null and not exists (
 			select 1 from unnest($1::text[]) t where `+chatSearchText+` not like '%' || chat_fold(t) || '%' escape '\')
-		order by m.created_at desc, m.id desc limit $2`, terms, limit)
+		order by m.created_at desc, m.id desc limit $2`, terms, limit, conv)
 }
 
 func (s *Store) chatList(ctx context.Context, q string, args ...any) ([]ChatMessage, error) {

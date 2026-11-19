@@ -224,6 +224,8 @@ func (s *Store) CompleteJob(ctx context.Context, id int64, result json.RawMessag
 		err = completeCandidates(ctx, tx, payload, result)
 	case KindFetchReleases:
 		err = completeReleases(ctx, tx, payload, result)
+	case KindFindHighlight:
+		err = completeHighlight(ctx, tx, payload, result)
 	}
 	if err != nil {
 		return err
@@ -272,6 +274,9 @@ func completeDownload(ctx context.Context, tx pgx.Tx, payload, result []byte, pr
 			return err
 		}
 		if err := enqueueTrackEnrichment(ctx, tx, p.TrackID); err != nil {
+			return err
+		}
+		if err := enqueueHighlightAfterDownload(ctx, tx, p.TrackID); err != nil {
 			return err
 		}
 		var looked bool

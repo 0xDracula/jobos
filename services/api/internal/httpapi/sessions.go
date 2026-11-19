@@ -154,14 +154,15 @@ func (a *api) updateListening(w http.ResponseWriter, r *http.Request) {
 		a.serverError(w, "update session", err)
 		return
 	}
-	rm := a.roomOf(r.Context())
+	rctx := withRoom(r.Context(), id)
+	rm := a.roomOf(rctx)
 	rm.mu.Lock()
 	if rm.state.Active && rm.state.SessionID == id && rm.state.Title != title {
 		rm.state.Title = title
 		rm.state.Version++
 	}
 	rm.mu.Unlock()
-	a.publishRoom(r.Context())
+	a.publishRoom(rctx)
 	a.sessionChanged(r.Context(), id)
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -183,7 +184,7 @@ func (a *api) deleteListening(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *api) afterItemsChange(ctx context.Context, id uuid.UUID) {
-	if st := a.together(ctx); st.Active && st.SessionID == id {
+	if st := a.together(withRoom(ctx, id)); st.Active && st.SessionID == id {
 		if err := a.reloadLiveQueue(ctx, id); err != nil {
 			a.Log.Warn("reload live setlist", "err", err)
 		}
@@ -212,7 +213,7 @@ func (a *api) addSessionItems(w http.ResponseWriter, r *http.Request) {
 	if in.At != nil {
 		at = *in.At
 	}
-	if st := a.together(r.Context()); in.Next && st.Active && st.SessionID == id {
+	if st := a.together(withRoom(r.Context(), id)); in.Next && st.Active && st.SessionID == id {
 		at = st.Index + 1
 	}
 	if err := a.Store.AddSessionItems(r.Context(), id, uid(r), in.TrackIDs, at); errors.Is(err, store.ErrSessionState) {
@@ -235,7 +236,7 @@ func (a *api) removeSessionItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	key := chi.URLParam(r, "key")
-	if st := a.together(r.Context()); st.Active && st.SessionID == id && st.currentKey() == key {
+	if st := a.together(withRoom(r.Context(), id)); st.Active && st.SessionID == id && st.currentKey() == key {
 		writeError(w, http.StatusConflict, "the song playing now can't be removed")
 		return
 	}
@@ -309,7 +310,9 @@ func (a *api) startListening(w http.ResponseWriter, r *http.Request) {
 	if st := a.together(ctx); st.Active && st.SessionID != id && len(st.Members) == 0 {
 		idle := st.SessionID
 		endIdle = &idle
+		a.endLive(withRoom(ctx, idle))
 	}
+	a.endHostedRooms(ctx, uid(r))
 	switch err := a.Store.StartSession(ctx, id, endIdle); {
 	case errors.Is(err, store.ErrSessionLive):
 		writeError(w, http.StatusConflict, "another session is live")
@@ -331,9 +334,12 @@ func (a *api) startListening(w http.ResponseWriter, r *http.Request) {
 	}
 	me := currentUser(r)
 	a.goLive(ctx, sess, me.ID)
-	a.saveLive(ctx, true)
-	a.publishRoom(ctx)
+	a.saveLive(withRoom(ctx, id), true)
+	a.publishRoom(withRoom(ctx, id))
 	a.sessionChanged(ctx, id)
+	if sess.PairID == nil {
+		a.activityChanged(ctx, me.ID)
+	}
 	for _, u := range a.others(ctx, me.ID) {
 		a.notify(u.ID, "together", me.DisplayName, "Started "+sessionTitle(sess), "/together/?id="+id.String())
 	}
@@ -345,11 +351,11 @@ func (a *api) endListening(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if st := a.together(r.Context()); !st.Active || st.SessionID != id {
+	if st := a.together(withRoom(r.Context(), id)); !st.Active || st.SessionID != id {
 		writeError(w, http.StatusConflict, "this session isn't live")
 		return
 	}
-	a.endLive(r.Context())
+	a.endLive(withRoom(r.Context(), id))
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -391,14 +397,18 @@ func (a *api) inviteListening(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	me := currentUser(r)
+	conv, ok := a.chatConv(w, r)
+	if !ok {
+		return
+	}
 	data, _ := json.Marshal(map[string]any{"session_id": sess.ID, "title": sessionTitle(sess), "scheduled_at": sess.ScheduledAt, "songs": sess.ItemCount})
-	m, created, err := a.Store.SendChat(ctx, me.ID, store.ChatInput{ClientKey: "session-" + uuid.NewString(), Kind: "session", Body: sessionTitle(sess), Data: data})
+	m, created, err := a.Store.SendChat(ctx, me.ID, store.ChatInput{ConversationID: conv.ID, ClientKey: "session-" + uuid.NewString(), Kind: "session", Body: sessionTitle(sess), Data: data})
 	if err != nil {
 		a.serverError(w, "session card", err)
 		return
 	}
 	if created {
-		a.broadcast(ctx, realtime.NewEvent("chat.message", m))
+		a.chatPosted(ctx, conv, me, m)
 	}
 	when := a.sessionWhen(sess.ScheduledAt)
 	for _, u := range a.others(ctx, me.ID) {

@@ -20,9 +20,9 @@ import (
 
 type ChatStore interface {
 	PinChat(ctx context.Context, userID, id uuid.UUID, on bool) (*store.ChatMessage, error)
-	ChatPins(ctx context.Context) ([]store.ChatMessage, error)
-	ChatAround(ctx context.Context, id uuid.UUID, limit int) ([]store.ChatMessage, error)
-	SearchChat(ctx context.Context, q string, limit int) ([]store.ChatMessage, error)
+	ChatPins(ctx context.Context, conv uuid.UUID) ([]store.ChatMessage, error)
+	ChatAround(ctx context.Context, conv, id uuid.UUID, limit int) ([]store.ChatMessage, error)
+	SearchChat(ctx context.Context, conv uuid.UUID, q string, limit int) ([]store.ChatMessage, error)
 	ChatStickers(ctx context.Context) ([]store.ChatSticker, error)
 	ChatSticker(ctx context.Context, id uuid.UUID) (*store.ChatSticker, error)
 	CreateChatSticker(ctx context.Context, by uuid.UUID, name, path, mime string) (*store.ChatSticker, error)
@@ -65,7 +65,7 @@ const (
 	maxVoicePeak = 64
 )
 
-func (a *api) mediaData(ctx context.Context, sender uuid.UUID, kind string, raw json.RawMessage) (json.RawMessage, string) {
+func (a *api) mediaData(ctx context.Context, sender uuid.UUID, kind string, raw json.RawMessage, _ uuid.UUID) (json.RawMessage, string) {
 	var d struct {
 		ClipID     uuid.UUID `json:"clip_id"`
 		PhotoID    uuid.UUID `json:"photo_id"`
@@ -123,15 +123,6 @@ func (a *api) mediaData(ctx context.Context, sender uuid.UUID, kind string, raw 
 	return b, ""
 }
 
-func (a *api) chatPins(w http.ResponseWriter, r *http.Request) {
-	pins, err := a.Store.ChatPins(r.Context())
-	if err != nil {
-		a.serverError(w, "chat pins", err)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"messages": pins})
-}
-
 func (a *api) pinChat(w http.ResponseWriter, r *http.Request) {
 	id, ok := urlID(w, r, "message")
 	if !ok {
@@ -139,20 +130,6 @@ func (a *api) pinChat(w http.ResponseWriter, r *http.Request) {
 	}
 	m, err := a.Store.PinChat(r.Context(), uid(r), id, r.Method == http.MethodPut)
 	a.chatUpdated(w, r, m, err)
-}
-
-func (a *api) searchChat(w http.ResponseWriter, r *http.Request) {
-	q := strings.TrimSpace(r.URL.Query().Get("q"))
-	if utf8.RuneCountInString(q) > 100 {
-		writeError(w, http.StatusBadRequest, "search of 100 characters at most")
-		return
-	}
-	msgs, err := a.Store.SearchChat(r.Context(), q, intParam(r, "limit", 50, 100))
-	if err != nil {
-		a.serverError(w, "search chat", err)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"messages": msgs})
 }
 
 const maxStickerBytes = 2 << 20
@@ -365,7 +342,11 @@ func (a *api) replySwap(w http.ResponseWriter, r *http.Request) {
 		data["track"] = map[string]any{"id": t.ID, "title": t.Title, "artists": t.Artists, "artwork_url": t.ArtworkURL, "artwork_thumb_url": t.ArtworkThumbURL, "duration_ms": t.DurationMs}
 	}
 	raw, _ := json.Marshal(data)
-	a.postChat(w, r, store.ChatInput{ClientKey: in.ClientKey, Kind: "swap", Body: in.Body, Data: raw})
+	conv, ok := a.chatConv(w, r)
+	if !ok {
+		return
+	}
+	a.postChat(w, r, conv, store.ChatInput{ClientKey: in.ClientKey, Kind: "swap", Body: in.Body, Data: raw})
 }
 
 func swapRevealWeek(now time.Time, loc *time.Location, notified string) (string, bool) {

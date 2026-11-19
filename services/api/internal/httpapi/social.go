@@ -135,15 +135,35 @@ func (a *api) registerRealtime() {
 	}
 	a.Hub.Handle("chat.typing", func(ctx context.Context, user uuid.UUID, e realtime.Event, _ func(realtime.Event)) {
 		ctx = a.spaceFor(ctx, user)
+		var d struct {
+			ConversationID uuid.UUID `json:"conversation_id"`
+		}
+		_ = json.Unmarshal(e.Data, &d)
+		if s := a.social(); s != nil && d.ConversationID != uuid.Nil {
+			c, err := s.Conversation(ctx, user, d.ConversationID)
+			if err != nil {
+				return
+			}
+			if !c.Partner {
+				ev := realtime.NewEvent("chat.typing", map[string]any{"user": user, "conversation_id": c.ID})
+				for _, id := range c.MemberIDs() {
+					if id != user {
+						a.Hub.Send(id, ev)
+					}
+				}
+				return
+			}
+		}
 		subject := a.member(ctx, user)
 		if subject == nil {
 			return
 		}
+		convID := a.pairConversationID(ctx)
 		modes := a.visibility(ctx)
 		for _, viewer := range a.others(ctx, user) {
 			viewer := viewer
 			if canSee(modes, &viewer, subject, "typing") {
-				a.Hub.Send(viewer.ID, realtime.NewEvent("chat.typing", map[string]any{"user": user}))
+				a.Hub.Send(viewer.ID, realtime.NewEvent("chat.typing", map[string]any{"user": user, "conversation_id": convID}))
 			}
 		}
 	})
@@ -290,6 +310,10 @@ func (a *api) setVisibility(w http.ResponseWriter, r *http.Request) {
 const maxChatBody = 4000
 
 func (a *api) chatMessages(w http.ResponseWriter, r *http.Request) {
+	conv, ok := a.chatConv(w, r)
+	if !ok {
+		return
+	}
 	parse := func(name string) (*uuid.UUID, bool) {
 		v := r.URL.Query().Get(name)
 		if v == "" {
@@ -307,12 +331,12 @@ func (a *api) chatMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if around != nil {
-		msgs, err := a.Store.ChatAround(r.Context(), *around, intParam(r, "limit", 50, 200))
+		msgs, err := a.Store.ChatAround(r.Context(), conv.ID, *around, intParam(r, "limit", 50, 200))
 		if err != nil {
 			a.serverError(w, "chat around", err)
 			return
 		}
-		reads, err := a.visibleReads(r.Context(), currentUser(r))
+		reads, err := a.visibleReads(r.Context(), currentUser(r), conv)
 		if err != nil {
 			a.serverError(w, "chat reads", err)
 			return
@@ -328,12 +352,12 @@ func (a *api) chatMessages(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	msgs, err := a.Store.ChatPage(r.Context(), before, after, intParam(r, "limit", 50, 200))
+	msgs, err := a.Store.ChatPage(r.Context(), conv.ID, before, after, intParam(r, "limit", 50, 200))
 	if err != nil {
 		a.serverError(w, "chat page", err)
 		return
 	}
-	reads, err := a.visibleReads(r.Context(), currentUser(r))
+	reads, err := a.visibleReads(r.Context(), currentUser(r), conv)
 	if err != nil {
 		a.serverError(w, "chat reads", err)
 		return
@@ -341,10 +365,13 @@ func (a *api) chatMessages(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"messages": msgs, "reads": reads})
 }
 
-func (a *api) visibleReads(ctx context.Context, viewer *store.User) ([]store.ChatRead, error) {
-	reads, err := a.Store.ChatReads(ctx)
+func (a *api) visibleReads(ctx context.Context, viewer *store.User, conv *store.Conversation) ([]store.ChatRead, error) {
+	reads, err := a.Store.ChatReads(ctx, conv.ID)
 	if err != nil {
 		return nil, err
+	}
+	if !a.pairScopedConv(conv) {
+		return reads, nil
 	}
 	modes := a.visibility(ctx)
 	out := []store.ChatRead{}
@@ -354,6 +381,10 @@ func (a *api) visibleReads(ctx context.Context, viewer *store.User) ([]store.Cha
 		}
 	}
 	return out, nil
+}
+
+func (a *api) pairScopedConv(conv *store.Conversation) bool {
+	return conv == nil || conv.ID == uuid.Nil || conv.Partner
 }
 
 func (a *api) cardData(ctx context.Context, kind string, raw json.RawMessage) (json.RawMessage, string) {
@@ -400,6 +431,10 @@ func (a *api) cardData(ctx context.Context, kind string, raw json.RawMessage) (j
 }
 
 func (a *api) sendChat(w http.ResponseWriter, r *http.Request) {
+	conv, ok := a.chatConv(w, r)
+	if !ok {
+		return
+	}
 	var in struct {
 		ClientKey string          `json:"client_key"`
 		Kind      string          `json:"kind"`
@@ -437,7 +472,7 @@ func (a *api) sendChat(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "only a photo takes a caption, of 1000 characters at most")
 			return
 		}
-		data, problem := a.mediaData(r.Context(), uid(r), in.Kind, in.Data)
+		data, problem := a.mediaData(r.Context(), uid(r), in.Kind, in.Data, conv.ID)
 		if problem != "" {
 			writeError(w, http.StatusBadRequest, problem)
 			return
@@ -447,25 +482,48 @@ func (a *api) sendChat(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "kind must be text, song, lyric, voice, photo or sticker")
 		return
 	}
-	a.postChat(w, r, store.ChatInput{ClientKey: in.ClientKey, Kind: in.Kind, Body: in.Body, Data: in.Data, ReplyTo: in.ReplyTo})
+	a.postChat(w, r, conv, store.ChatInput{ClientKey: in.ClientKey, Kind: in.Kind, Body: in.Body, Data: in.Data, ReplyTo: in.ReplyTo})
 }
 
-func (a *api) postChat(w http.ResponseWriter, r *http.Request, in store.ChatInput) {
+func (a *api) postChat(w http.ResponseWriter, r *http.Request, conv *store.Conversation, in store.ChatInput) {
+	in.ConversationID = conv.ID
 	m, created, err := a.Store.SendChat(r.Context(), uid(r), in)
 	if err != nil {
 		a.serverError(w, "send chat", err)
 		return
 	}
 	if created {
-		a.broadcast(r.Context(), realtime.NewEvent("chat.message", m))
-		me := currentUser(r)
-		for _, u := range a.others(r.Context(), me.ID) {
-			if a.Hub == nil || !a.Hub.Online(u.ID) {
-				a.notify(u.ID, "messages", me.DisplayName, chatPreview(m), "/chat/")
+		a.chatPosted(r.Context(), conv, currentUser(r), m)
+	}
+	writeJSON(w, http.StatusOK, m)
+}
+
+func (a *api) chatPosted(ctx context.Context, conv *store.Conversation, sender *store.User, m *store.ChatMessage) {
+	e := realtime.NewEvent("chat.message", m)
+	if conv.ID == uuid.Nil {
+		a.broadcast(ctx, e)
+	} else {
+		a.sendToConversation(ctx, conv.ID, e)
+	}
+	title, body := chatPreviewFor(conv, sender, m)
+	url := "/chat/"
+	if conv.ID != uuid.Nil && !conv.Partner {
+		url = "/chat/?c=" + conv.ID.String()
+	}
+	targets := a.others(ctx, sender.ID)
+	if conv.ID != uuid.Nil {
+		targets = targets[:0]
+		for _, mem := range conv.Members {
+			if mem.ID != sender.ID {
+				targets = append(targets, store.User{ID: mem.ID})
 			}
 		}
 	}
-	writeJSON(w, http.StatusOK, m)
+	for _, u := range targets {
+		if a.Hub == nil || !a.Hub.Online(u.ID) {
+			a.notify(u.ID, "messages", title, body, url)
+		}
+	}
 }
 
 func chatPreview(m *store.ChatMessage) string {
@@ -552,28 +610,48 @@ func (a *api) chatUpdated(w http.ResponseWriter, r *http.Request, m *store.ChatM
 		a.serverError(w, "update chat", err)
 		return
 	}
-	a.broadcast(r.Context(), realtime.NewEvent("chat.updated", m))
+	e := realtime.NewEvent("chat.updated", m)
+	if m.ConversationID == uuid.Nil || a.social() == nil {
+		a.broadcast(r.Context(), e)
+	} else {
+		a.sendToConversation(r.Context(), m.ConversationID, e)
+	}
 	writeJSON(w, http.StatusOK, m)
 }
 
 func (a *api) readChat(w http.ResponseWriter, r *http.Request) {
+	conv, ok := a.chatConv(w, r)
+	if !ok {
+		return
+	}
 	var in struct {
 		MessageID uuid.UUID `json:"message_id"`
 	}
 	if !readJSON(w, r, &in) {
 		return
 	}
-	at, err := a.Store.ReadChat(r.Context(), uid(r), in.MessageID)
+	at, err := a.Store.ReadChat(r.Context(), uid(r), conv.ID, in.MessageID)
 	if err != nil {
 		a.serverError(w, "read chat", err)
 		return
 	}
+	if a.Hub == nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
 	me := currentUser(r)
-	modes := a.visibility(r.Context())
-	for _, viewer := range a.memberList(r.Context()) {
-		viewer := viewer
-		if canSee(modes, &viewer, me, "read_receipts") {
-			a.Hub.Send(viewer.ID, realtime.NewEvent("chat.read", store.ChatRead{UserID: me.ID, MessageID: &in.MessageID, ReadAt: at}))
+	e := realtime.NewEvent("chat.read", map[string]any{"conversation_id": conv.ID, "user_id": me.ID, "message_id": in.MessageID, "read_at": at})
+	if a.pairScopedConv(conv) {
+		modes := a.visibility(r.Context())
+		for _, viewer := range a.memberList(r.Context()) {
+			viewer := viewer
+			if canSee(modes, &viewer, me, "read_receipts") {
+				a.Hub.Send(viewer.ID, e)
+			}
+		}
+	} else {
+		for _, id := range conv.MemberIDs() {
+			a.Hub.Send(id, e)
 		}
 	}
 	w.WriteHeader(http.StatusNoContent)

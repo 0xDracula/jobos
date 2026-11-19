@@ -250,6 +250,7 @@ func (a *api) announcePlaying(r *http.Request, playing bool) {
 			a.Hub.Send(u.ID, e)
 		}
 	}
+	a.activityChanged(r.Context(), me.ID)
 }
 
 func (a *api) playback(w http.ResponseWriter, r *http.Request) {

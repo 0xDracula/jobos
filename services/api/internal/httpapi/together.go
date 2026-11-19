@@ -33,26 +33,59 @@ type roomState struct {
 	ApplyAtServerMs   int64       `json:"apply_at_server_ms"`
 	Version           int         `json:"version"`
 	StartedBy         uuid.UUID   `json:"started_by"`
+	Jam               bool        `json:"jam"`
+	Host              uuid.UUID   `json:"host"`
+	AnyoneAdd         bool        `json:"anyone_add"`
+	AnyoneSkip        bool        `json:"anyone_skip"`
 }
 
 type rooms struct {
-	mu sync.Mutex
-	m  map[uuid.UUID]*together
+	mu   sync.Mutex
+	none together
+	m    map[uuid.UUID]*together
+	user map[uuid.UUID]uuid.UUID
+	pair map[uuid.UUID]uuid.UUID
 }
 
-func (a *api) roomOf(ctx context.Context) *together {
-	id := uuid.Nil
-	if sp := spaceOf(ctx); sp != nil && a.pairStore() != nil {
-		id = sp.me
-		if sp.pair != nil {
-			id = sp.pair.ID
-		}
+type roomKey struct{}
+
+func withRoom(ctx context.Context, id uuid.UUID) context.Context {
+	return context.WithValue(ctx, roomKey{}, id)
+}
+
+func (r *rooms) init() {
+	if r.m == nil {
+		r.m, r.user, r.pair = map[uuid.UUID]*together{}, map[uuid.UUID]uuid.UUID{}, map[uuid.UUID]uuid.UUID{}
+	}
+}
+
+func (a *api) roomID(ctx context.Context) uuid.UUID {
+	if id, ok := ctx.Value(roomKey{}).(uuid.UUID); ok {
+		return id
 	}
 	a.rooms.mu.Lock()
 	defer a.rooms.mu.Unlock()
-	if a.rooms.m == nil {
-		a.rooms.m = map[uuid.UUID]*together{}
+	a.rooms.init()
+	sp := spaceOf(ctx)
+	if sp == nil {
+		return uuid.Nil
 	}
+	if id, ok := a.rooms.user[sp.me]; ok && sp.me != uuid.Nil {
+		return id
+	}
+	if sp.pair != nil {
+		return a.rooms.pair[sp.pair.ID]
+	}
+	return uuid.Nil
+}
+
+func (a *api) room(id uuid.UUID) *together {
+	if id == uuid.Nil {
+		return &a.rooms.none
+	}
+	a.rooms.mu.Lock()
+	defer a.rooms.mu.Unlock()
+	a.rooms.init()
 	t := a.rooms.m[id]
 	if t == nil {
 		t = &together{}
@@ -61,9 +94,45 @@ func (a *api) roomOf(ctx context.Context) *together {
 	return t
 }
 
+func (a *api) roomOf(ctx context.Context) *together {
+	return a.room(a.roomID(ctx))
+}
+
+func (a *api) userRoom(user uuid.UUID) (uuid.UUID, bool) {
+	a.rooms.mu.Lock()
+	defer a.rooms.mu.Unlock()
+	a.rooms.init()
+	id, ok := a.rooms.user[user]
+	return id, ok
+}
+
+func (a *api) setUserRoom(user, id uuid.UUID) {
+	a.rooms.mu.Lock()
+	defer a.rooms.mu.Unlock()
+	a.rooms.init()
+	if id == uuid.Nil {
+		delete(a.rooms.user, user)
+	} else {
+		a.rooms.user[user] = id
+	}
+}
+
+type roomMeta struct {
+	pairID      *uuid.UUID
+	host        uuid.UUID
+	audience    []uuid.UUID
+	conv        *uuid.UUID
+	anyoneAdd   bool
+	anyoneSkip  bool
+	friendsJoin bool
+}
+
+func (m roomMeta) jam() bool { return m.pairID == nil }
+
 type together struct {
 	mu         sync.Mutex
 	state      roomState
+	meta       roomMeta
 	togetherMs int64
 	accruedAt  int64
 }
@@ -95,9 +164,10 @@ func (t *together) accrue(now int64) {
 }
 
 func (a *api) together(ctx context.Context) roomState {
-	a.roomOf(ctx).mu.Lock()
-	defer a.roomOf(ctx).mu.Unlock()
-	st := a.roomOf(ctx).state
+	t := a.roomOf(ctx)
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	st := t.state
 	if st.Members == nil {
 		st.Members = []uuid.UUID{}
 	}
@@ -108,16 +178,35 @@ func (a *api) together(ctx context.Context) roomState {
 }
 
 func (a *api) publishRoom(ctx context.Context) {
+	if a.Hub == nil {
+		return
+	}
+	t := a.roomOf(ctx)
 	st := a.together(ctx)
-	a.broadcast(ctx, realtime.NewEvent("room.state", st))
+	t.mu.Lock()
+	to := append(append([]uuid.UUID{}, t.meta.audience...), st.Members...)
+	t.mu.Unlock()
+	if len(to) == 0 {
+		a.broadcast(ctx, realtime.NewEvent("room.state", st))
+		return
+	}
+	sent := map[uuid.UUID]bool{}
+	e := realtime.NewEvent("room.state", st)
+	for _, u := range to {
+		if !sent[u] {
+			sent[u] = true
+			a.Hub.Send(u, e)
+		}
+	}
 }
 
 func (a *api) saveLive(ctx context.Context, played bool) {
-	a.roomOf(ctx).mu.Lock()
-	st := a.roomOf(ctx).state
-	a.roomOf(ctx).accrue(time.Now().UnixMilli())
-	together := a.roomOf(ctx).togetherMs
-	a.roomOf(ctx).mu.Unlock()
+	t := a.roomOf(ctx)
+	t.mu.Lock()
+	st := t.state
+	t.accrue(time.Now().UnixMilli())
+	together := t.togetherMs
+	t.mu.Unlock()
 	if !st.Active || a.Store == nil {
 		return
 	}
@@ -151,6 +240,27 @@ func (a *api) saveLiveQueue(ctx context.Context) {
 }
 
 func (a *api) goLive(ctx context.Context, sess *store.ListeningSession, user uuid.UUID) {
+	ctx = withRoom(ctx, sess.ID)
+	meta := roomMeta{pairID: sess.PairID, host: sess.CreatedBy, conv: sess.ConversationID,
+		anyoneAdd: sess.AnyoneAdd, anyoneSkip: sess.AnyoneSkip, friendsJoin: sess.FriendsJoin}
+	if sess.PairID != nil {
+		if p, err := a.pairFor(ctx, sess.CreatedBy); err == nil && p != nil && p.ID == *sess.PairID {
+			for _, m := range p.Members {
+				meta.audience = append(meta.audience, m.ID)
+			}
+		} else if sp := spaceOf(ctx); sp != nil && sp.pair != nil {
+			for _, m := range sp.pair.Members {
+				meta.audience = append(meta.audience, m.ID)
+			}
+		}
+	} else {
+		meta.audience = append(append(meta.audience, sess.CreatedBy), sess.Audience...)
+		if sess.ConversationID != nil && a.social() != nil {
+			if ids, err := a.social().ConversationMemberIDs(store.AnyPair(ctx), *sess.ConversationID); err == nil {
+				meta.audience = append(meta.audience, ids...)
+			}
+		}
+	}
 	q := make([]queueItem, 0, len(sess.Items))
 	for _, it := range sess.Items {
 		by := user
@@ -161,12 +271,31 @@ func (a *api) goLive(ctx context.Context, sess *store.ListeningSession, user uui
 	}
 	now := time.Now().UnixMilli()
 	at := now + commandLead
-	a.roomOf(ctx).mu.Lock()
-	a.roomOf(ctx).state = roomState{Active: true, SessionID: sess.ID, Title: sess.Title, Members: []uuid.UUID{user}, Queue: q,
-		Playing: len(q) > 0, StartedAtServerMs: at, ApplyAtServerMs: at, StartedBy: user, Version: a.roomOf(ctx).state.Version + 1}
-	a.roomOf(ctx).togetherMs = sess.TogetherMs
-	a.roomOf(ctx).accruedAt = now
-	a.roomOf(ctx).mu.Unlock()
+	members := []uuid.UUID{}
+	if user != uuid.Nil {
+		members = append(members, user)
+	}
+	t := a.roomOf(ctx)
+	t.mu.Lock()
+	t.state = roomState{Active: true, SessionID: sess.ID, Title: sess.Title, Members: members, Queue: q,
+		Playing: len(q) > 0 && user != uuid.Nil, StartedAtServerMs: at, ApplyAtServerMs: at, StartedBy: sess.CreatedBy, Version: t.state.Version + 1,
+		Jam: meta.jam(), Host: sess.CreatedBy, AnyoneAdd: meta.anyoneAdd, AnyoneSkip: meta.anyoneSkip}
+	t.meta = meta
+	t.togetherMs = sess.TogetherMs
+	t.accruedAt = now
+	t.mu.Unlock()
+	a.rooms.mu.Lock()
+	a.rooms.init()
+	if sess.PairID != nil {
+		a.rooms.pair[*sess.PairID] = sess.ID
+	}
+	a.rooms.mu.Unlock()
+	if user != uuid.Nil {
+		if prev, ok := a.userRoom(user); ok && prev != sess.ID {
+			a.leaveRoom(withRoom(ctx, prev), user)
+		}
+		a.setUserRoom(user, sess.ID)
+	}
 }
 
 func (a *api) reloadLiveQueue(ctx context.Context, id uuid.UUID) error {
@@ -174,15 +303,17 @@ func (a *api) reloadLiveQueue(ctx context.Context, id uuid.UUID) error {
 	if err != nil {
 		return err
 	}
+	ctx = withRoom(ctx, id)
 	now := time.Now().UnixMilli()
 	at := now + commandLead
-	a.roomOf(ctx).mu.Lock()
-	st := &a.roomOf(ctx).state
+	t := a.roomOf(ctx)
+	t.mu.Lock()
+	st := &t.state
 	if !st.Active || st.SessionID != id {
-		a.roomOf(ctx).mu.Unlock()
+		t.mu.Unlock()
 		return nil
 	}
-	a.roomOf(ctx).accrue(now)
+	t.accrue(now)
 	current := st.currentKey()
 	q := make([]queueItem, 0, len(items))
 	index := 0
@@ -208,7 +339,7 @@ func (a *api) reloadLiveQueue(ctx context.Context, id uuid.UUID) error {
 	}
 	st.ApplyAtServerMs = at
 	st.Version++
-	a.roomOf(ctx).mu.Unlock()
+	t.mu.Unlock()
 	if resume {
 		a.saveLive(ctx, true)
 	}
@@ -217,18 +348,28 @@ func (a *api) reloadLiveQueue(ctx context.Context, id uuid.UUID) error {
 }
 
 func (a *api) restoreLive() {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	a.forEachPair(ctx, func(ctx context.Context) {
-		sess, err := a.Store.LiveSession(ctx)
+	ls, ok := a.Store.(interface {
+		LiveSessions(ctx context.Context) ([]store.ListeningSession, error)
+	})
+	if !ok {
+		return
+	}
+	list, err := ls.LiveSessions(store.AnyPair(ctx))
+	if err != nil {
+		a.Log.Warn("restore live sessions", "err", err)
+		return
+	}
+	for i := range list {
+		sess, err := a.Store.ListeningSessionByID(store.AnyPair(ctx), list[i].ID)
 		if err != nil {
-			return
+			continue
 		}
-		a.goLive(ctx, sess, sess.CreatedBy)
-		rm := a.roomOf(ctx)
+		a.goLive(ctx, sess, uuid.Nil)
+		rm := a.room(sess.ID)
 		rm.mu.Lock()
 		st := &rm.state
-		st.Members = []uuid.UUID{}
 		st.Playing = false
 		for i, q := range st.Queue {
 			if sess.CurrentKey != nil && q.Key == *sess.CurrentKey {
@@ -237,63 +378,173 @@ func (a *api) restoreLive() {
 		}
 		st.PositionAtStartMs = sess.PositionMs
 		rm.mu.Unlock()
-	})
+	}
 }
 
 func (a *api) endLive(ctx context.Context) {
+	id := a.roomID(ctx)
+	if id == uuid.Nil {
+		return
+	}
+	ctx = withRoom(ctx, id)
 	now := time.Now().UnixMilli()
-	a.roomOf(ctx).mu.Lock()
-	st := a.roomOf(ctx).state
-	a.roomOf(ctx).accrue(now)
-	together := a.roomOf(ctx).togetherMs
-	a.roomOf(ctx).state = roomState{Version: st.Version + 1}
-	a.roomOf(ctx).togetherMs = 0
-	a.roomOf(ctx).mu.Unlock()
+	t := a.roomOf(ctx)
+	t.mu.Lock()
+	st := t.state
+	meta := t.meta
+	t.accrue(now)
+	together := t.togetherMs
+	t.state = roomState{Version: st.Version + 1}
+	t.togetherMs = 0
+	t.mu.Unlock()
 	if st.Active && a.Store != nil {
-		if err := a.Store.EndSession(ctx, st.SessionID, st.position(now), together); err != nil {
+		if err := a.Store.EndSession(store.AnyPair(ctx), st.SessionID, st.position(now), together); err != nil {
 			a.Log.Warn("end session", "err", err)
 		}
 		a.broadcast(ctx, realtime.NewEvent("session.update", map[string]any{"id": st.SessionID}))
 	}
+	if a.Hub != nil {
+		e := realtime.NewEvent("room.state", roomState{Version: st.Version + 1, Members: []uuid.UUID{}, Queue: []queueItem{}, SessionID: st.SessionID})
+		sent := map[uuid.UUID]bool{}
+		for _, u := range append(append([]uuid.UUID{}, meta.audience...), st.Members...) {
+			if !sent[u] {
+				sent[u] = true
+				a.Hub.Send(u, e)
+			}
+		}
+	}
+	a.rooms.mu.Lock()
+	a.rooms.init()
+	for u, rid := range a.rooms.user {
+		if rid == id {
+			delete(a.rooms.user, u)
+		}
+	}
+	if meta.pairID != nil && a.rooms.pair[*meta.pairID] == id {
+		delete(a.rooms.pair, *meta.pairID)
+	}
+	delete(a.rooms.m, id)
+	a.rooms.mu.Unlock()
+	if meta.jam() {
+		a.activityChanged(ctx, meta.host)
+	}
+}
+
+func (a *api) leaveRoom(ctx context.Context, user uuid.UUID) {
+	ctx = withRoom(ctx, a.roomID(ctx))
+	t := a.roomOf(ctx)
+	now := time.Now().UnixMilli()
+	t.mu.Lock()
+	st := &t.state
+	if !st.Active || !containsID(st.Members, user) {
+		t.mu.Unlock()
+		return
+	}
+	if t.meta.jam() && t.meta.host == user {
+		t.mu.Unlock()
+		a.endLive(ctx)
+		return
+	}
+	t.accrue(now)
+	st.Members = removeID(st.Members, user)
+	if len(st.Members) == 0 && st.Playing {
+		st.PositionAtStartMs = st.position(now)
+		st.Playing = false
+	}
+	st.Version++
+	jam, host := t.meta.jam(), t.meta.host
+	t.mu.Unlock()
+	if rid, ok := a.userRoom(user); ok && rid == a.roomID(ctx) {
+		a.setUserRoom(user, uuid.Nil)
+	}
+	a.saveLive(ctx, false)
 	a.publishRoom(ctx)
+	if jam {
+		a.activityChanged(ctx, host)
+	}
+}
+
+func (a *api) joinRoom(ctx context.Context, user uuid.UUID) bool {
+	id := a.roomID(ctx)
+	if prev, ok := a.userRoom(user); ok && prev != id {
+		a.leaveRoom(withRoom(ctx, prev), user)
+	}
+	ctx = withRoom(ctx, id)
+	t := a.roomOf(ctx)
+	t.mu.Lock()
+	st := &t.state
+	if !st.Active {
+		t.mu.Unlock()
+		return false
+	}
+	joined := false
+	if !containsID(st.Members, user) {
+		t.accrue(time.Now().UnixMilli())
+		st.Members = append(st.Members, user)
+		st.Version++
+		joined = true
+	}
+	jam, host := t.meta.jam(), t.meta.host
+	t.mu.Unlock()
+	a.setUserRoom(user, id)
+	if joined {
+		a.saveLive(ctx, false)
+		if jam {
+			a.activityChanged(ctx, host)
+		}
+	}
+	a.publishRoom(ctx)
+	return true
+}
+
+func (a *api) canSeeSession(ctx context.Context, user, id uuid.UUID) (*store.ListeningSession, bool) {
+	sess, err := a.Store.ListeningSessionByID(a.spaceFor(ctx, user), id)
+	if err != nil || sess.Status != "live" {
+		return nil, false
+	}
+	return sess, true
 }
 
 func (a *api) registerTogether() {
-	a.Hub.Handle("room.join", func(ctx context.Context, user uuid.UUID, _ realtime.Event, reply func(realtime.Event)) {
+	a.Hub.Handle("room.join", func(ctx context.Context, user uuid.UUID, e realtime.Event, reply func(realtime.Event)) {
 		ctx = a.spaceFor(ctx, user)
-		a.roomOf(ctx).mu.Lock()
-		st := &a.roomOf(ctx).state
-		joined := false
-		if st.Active && !containsID(st.Members, user) {
-			a.roomOf(ctx).accrue(time.Now().UnixMilli())
-			st.Members = append(st.Members, user)
-			st.Version++
-			joined = true
+		var c struct {
+			SessionID *uuid.UUID `json:"session_id"`
 		}
-		a.roomOf(ctx).mu.Unlock()
-		if joined {
-			a.saveLive(ctx, false)
+		_ = json.Unmarshal(e.Data, &c)
+		if c.SessionID != nil {
+			sess, ok := a.canSeeSession(ctx, user, *c.SessionID)
+			if !ok {
+				reply(realtime.NewEvent("room.denied", map[string]any{"session_id": *c.SessionID}))
+				return
+			}
+			if !a.room(sess.ID).state.Active {
+				a.goLive(ctx, sess, uuid.Nil)
+			}
+			ctx = withRoom(ctx, sess.ID)
 		}
-		a.publishRoom(ctx)
+		a.joinRoom(ctx, user)
 	})
-	a.Hub.Handle("room.leave", func(ctx context.Context, user uuid.UUID, _ realtime.Event, _ func(realtime.Event)) {
+	a.Hub.Handle("room.leave", func(ctx context.Context, user uuid.UUID, _ realtime.Event, reply func(realtime.Event)) {
 		ctx = a.spaceFor(ctx, user)
-		now := time.Now().UnixMilli()
-		a.roomOf(ctx).mu.Lock()
-		st := &a.roomOf(ctx).state
-		a.roomOf(ctx).accrue(now)
-		st.Members = removeID(st.Members, user)
-		if len(st.Members) == 0 && st.Playing {
-			st.PositionAtStartMs = st.position(now)
-			st.Playing = false
+		id, ok := a.userRoom(user)
+		if !ok {
+			return
 		}
-		st.Version++
-		a.roomOf(ctx).mu.Unlock()
-		a.saveLive(ctx, false)
-		a.publishRoom(ctx)
+		a.leaveRoom(withRoom(ctx, id), user)
+		st := a.together(ctx)
+		if st.SessionID == uuid.Nil || !st.Active {
+			st = roomState{Version: st.Version, Members: []uuid.UUID{}, Queue: []queueItem{}}
+		}
+		reply(realtime.NewEvent("room.state", st))
 	})
 	a.Hub.Handle("room.react", func(ctx context.Context, user uuid.UUID, e realtime.Event, _ func(realtime.Event)) {
 		ctx = a.spaceFor(ctx, user)
+		id, ok := a.userRoom(user)
+		if !ok {
+			return
+		}
+		ctx = withRoom(ctx, id)
 		var c struct {
 			Emoji string `json:"emoji"`
 		}
@@ -301,10 +552,18 @@ func (a *api) registerTogether() {
 		if json.Unmarshal(e.Data, &c) != nil || !sessionReactions[c.Emoji] || !st.Active || !containsID(st.Members, user) {
 			return
 		}
-		a.broadcast(ctx, realtime.NewEvent("session.reaction", map[string]any{"session_id": st.SessionID, "from": user, "emoji": c.Emoji}))
+		ev := realtime.NewEvent("session.reaction", map[string]any{"session_id": st.SessionID, "from": user, "emoji": c.Emoji})
+		for _, u := range st.Members {
+			a.Hub.Send(u, ev)
+		}
 	})
 	a.Hub.Handle("room.command", func(ctx context.Context, user uuid.UUID, e realtime.Event, reply func(realtime.Event)) {
 		ctx = a.spaceFor(ctx, user)
+		rid, inRoom := a.userRoom(user)
+		if !inRoom {
+			return
+		}
+		ctx = withRoom(ctx, rid)
 		var c struct {
 			Action     string      `json:"action"`
 			TrackIDs   []uuid.UUID `json:"track_ids"`
@@ -319,6 +578,26 @@ func (a *api) registerTogether() {
 		if json.Unmarshal(e.Data, &c) != nil {
 			return
 		}
+		t := a.roomOf(ctx)
+		t.mu.Lock()
+		meta := t.meta
+		t.mu.Unlock()
+		if meta.jam() && user != meta.host {
+			switch c.Action {
+			case "end":
+				return
+			case "queue.add", "playnow":
+				if !meta.anyoneAdd {
+					reply(realtime.NewEvent("room.denied", map[string]any{"action": c.Action}))
+					return
+				}
+			default:
+				if !meta.anyoneSkip {
+					reply(realtime.NewEvent("room.denied", map[string]any{"action": c.Action}))
+					return
+				}
+			}
+		}
 		if c.Action == "end" {
 			if st := a.together(ctx); st.Active && containsID(st.Members, user) {
 				a.endLive(ctx)
@@ -327,13 +606,13 @@ func (a *api) registerTogether() {
 		}
 		now := time.Now().UnixMilli()
 		at := now + commandLead
-		a.roomOf(ctx).mu.Lock()
-		st := &a.roomOf(ctx).state
+		t.mu.Lock()
+		st := &t.state
 		if !st.Active || !containsID(st.Members, user) {
-			a.roomOf(ctx).mu.Unlock()
+			t.mu.Unlock()
 			return
 		}
-		a.roomOf(ctx).accrue(now)
+		t.accrue(now)
 		changed, played, queueChanged := true, false, false
 		addAt := func(pos int) []queueItem {
 			added := make([]queueItem, 0, len(c.TrackIDs))
@@ -497,7 +776,7 @@ func (a *api) registerTogether() {
 			st.ApplyAtServerMs = at
 			st.Version++
 		}
-		a.roomOf(ctx).mu.Unlock()
+		t.mu.Unlock()
 		if !changed {
 			return
 		}

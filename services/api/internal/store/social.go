@@ -58,19 +58,20 @@ func (s *Store) UserSetting(ctx context.Context, userID uuid.UUID, key string) (
 }
 
 type ChatMessage struct {
-	ID        uuid.UUID       `json:"id"`
-	SenderID  uuid.UUID       `json:"sender_id"`
-	ClientKey string          `json:"client_key"`
-	Kind      string          `json:"kind"`
-	Body      string          `json:"body"`
-	Data      json.RawMessage `json:"data,omitempty"`
-	ReplyTo   *uuid.UUID      `json:"reply_to"`
-	CreatedAt time.Time       `json:"created_at"`
-	EditedAt  *time.Time      `json:"edited_at"`
-	Deleted   bool            `json:"deleted"`
-	Reactions []Reaction      `json:"reactions"`
-	PinnedAt  *time.Time      `json:"pinned_at"`
-	PinnedBy  *uuid.UUID      `json:"pinned_by"`
+	ID             uuid.UUID       `json:"id"`
+	ConversationID uuid.UUID       `json:"conversation_id"`
+	SenderID       uuid.UUID       `json:"sender_id"`
+	ClientKey      string          `json:"client_key"`
+	Kind           string          `json:"kind"`
+	Body           string          `json:"body"`
+	Data           json.RawMessage `json:"data,omitempty"`
+	ReplyTo        *uuid.UUID      `json:"reply_to"`
+	CreatedAt      time.Time       `json:"created_at"`
+	EditedAt       *time.Time      `json:"edited_at"`
+	Deleted        bool            `json:"deleted"`
+	Reactions      []Reaction      `json:"reactions"`
+	PinnedAt       *time.Time      `json:"pinned_at"`
+	PinnedBy       *uuid.UUID      `json:"pinned_by"`
 }
 
 type Reaction struct {
@@ -79,22 +80,23 @@ type Reaction struct {
 }
 
 type ChatInput struct {
-	ClientKey string
-	Kind      string
-	Body      string
-	Data      json.RawMessage
-	ReplyTo   *uuid.UUID
+	ConversationID uuid.UUID
+	ClientKey      string
+	Kind           string
+	Body           string
+	Data           json.RawMessage
+	ReplyTo        *uuid.UUID
 }
 
 const chatCols = `m.id, m.sender_id, m.client_key, m.kind, case when m.deleted_at is null then m.body else '' end,
 	case when m.deleted_at is null then m.data end, m.reply_to, m.created_at, m.edited_at, m.deleted_at is not null,
 	coalesce((select json_agg(json_build_object('user_id', r.user_id, 'emoji', r.emoji) order by r.created_at)
-		from chat_reactions r where r.message_id = m.id), '[]'), m.pinned_at, m.pinned_by`
+		from chat_reactions r where r.message_id = m.id), '[]'), m.pinned_at, m.pinned_by, m.conversation_id`
 
 func scanChat(row pgx.Row) (*ChatMessage, error) {
 	var m ChatMessage
 	var data, reactions []byte
-	err := row.Scan(&m.ID, &m.SenderID, &m.ClientKey, &m.Kind, &m.Body, &data, &m.ReplyTo, &m.CreatedAt, &m.EditedAt, &m.Deleted, &reactions, &m.PinnedAt, &m.PinnedBy)
+	err := row.Scan(&m.ID, &m.SenderID, &m.ClientKey, &m.Kind, &m.Body, &data, &m.ReplyTo, &m.CreatedAt, &m.EditedAt, &m.Deleted, &reactions, &m.PinnedAt, &m.PinnedBy, &m.ConversationID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -110,14 +112,26 @@ func scanChat(row pgx.Row) (*ChatMessage, error) {
 }
 
 func (s *Store) SendChat(ctx context.Context, sender uuid.UUID, in ChatInput) (*ChatMessage, bool, error) {
+	if in.ConversationID == uuid.Nil {
+		return nil, false, ErrNotFound
+	}
 	var data any
 	if len(in.Data) > 0 {
 		data = []byte(in.Data)
 	}
 	var id uuid.UUID
-	err := s.pool.QueryRow(ctx, `insert into chat_messages (id, sender_id, client_key, kind, body, data, reply_to)
-		values ($1, $2, $3, $4, $5, $6, $7) on conflict (sender_id, client_key) do nothing returning id`,
-		newID(), sender, in.ClientKey, in.Kind, in.Body, data, in.ReplyTo).Scan(&id)
+	err := s.pool.QueryRow(ctx, `insert into chat_messages (id, conversation_id, sender_id, client_key, kind, body, data, reply_to,
+			pair_id)
+		values ($1, $2, $3, $4, $5, $6, $7, $8, (select pair_id from conversations where id = $2))
+		on conflict (sender_id, client_key) do nothing returning id`,
+		newID(), in.ConversationID, sender, in.ClientKey, in.Kind, in.Body, data, in.ReplyTo).Scan(&id)
+	if err == nil {
+		_, err = s.pool.Exec(ctx, `update conversations set last_message_at = now() where id = $1`, in.ConversationID)
+		if err == nil {
+			_, err = s.pool.Exec(ctx, `update conversation_members set accepted = true where conversation_id = $1 and user_id = $2 and not accepted`,
+				in.ConversationID, sender)
+		}
+	}
 	created := true
 	if errors.Is(err, pgx.ErrNoRows) {
 		created = false
@@ -134,22 +148,22 @@ func (s *Store) ChatMessage(ctx context.Context, id uuid.UUID) (*ChatMessage, er
 	return scanChat(s.pool.QueryRow(ctx, `select `+chatCols+` from chat_messages m where m.id = $1`, id))
 }
 
-func (s *Store) ChatPage(ctx context.Context, before, after *uuid.UUID, limit int) ([]ChatMessage, error) {
+func (s *Store) ChatPage(ctx context.Context, conv uuid.UUID, before, after *uuid.UUID, limit int) ([]ChatMessage, error) {
 	var rows pgx.Rows
 	var err error
 	switch {
 	case after != nil:
 		rows, err = s.pool.Query(ctx, `select `+chatCols+` from chat_messages m
-			where m.created_at > (select created_at from chat_messages where id = $1) or
-				(m.created_at = (select created_at from chat_messages where id = $1) and m.id > $1)
-			order by m.created_at, m.id limit $2`, *after, limit)
+			where m.conversation_id = $3 and (m.created_at > (select created_at from chat_messages where id = $1) or
+				(m.created_at = (select created_at from chat_messages where id = $1) and m.id > $1))
+			order by m.created_at, m.id limit $2`, *after, limit, conv)
 	case before != nil:
 		rows, err = s.pool.Query(ctx, `select * from (select `+chatCols+` from chat_messages m
-			where (m.created_at, m.id) < ((select created_at from chat_messages where id = $1), $1)
-			order by m.created_at desc, m.id desc limit $2) p order by 8, 1`, *before, limit)
+			where m.conversation_id = $3 and (m.created_at, m.id) < ((select created_at from chat_messages where id = $1), $1)
+			order by m.created_at desc, m.id desc limit $2) p order by 8, 1`, *before, limit, conv)
 	default:
-		rows, err = s.pool.Query(ctx, `select * from (select `+chatCols+` from chat_messages m
-			order by m.created_at desc, m.id desc limit $1) p order by 8, 1`, limit)
+		rows, err = s.pool.Query(ctx, `select * from (select `+chatCols+` from chat_messages m where m.conversation_id = $2
+			order by m.created_at desc, m.id desc limit $1) p order by 8, 1`, limit, conv)
 	}
 	if err != nil {
 		return nil, err
@@ -195,8 +209,8 @@ func (s *Store) ReactChat(ctx context.Context, userID, id uuid.UUID, emoji strin
 	if emoji == "" {
 		_, err = s.pool.Exec(ctx, `delete from chat_reactions where message_id = $1 and user_id = $2`, id, userID)
 	} else {
-		_, err = s.pool.Exec(ctx, `insert into chat_reactions (message_id, user_id, emoji) select $1, $2, $3
-			where exists (select 1 from chat_messages where id = $1 and deleted_at is null)
+		_, err = s.pool.Exec(ctx, `insert into chat_reactions (message_id, user_id, emoji, conversation_id)
+			select $1, $2, $3, m.conversation_id from chat_messages m where m.id = $1 and m.deleted_at is null
 			on conflict (message_id, user_id) do update set emoji = excluded.emoji, created_at = now()`, id, userID, emoji)
 	}
 	if err != nil {
@@ -205,13 +219,14 @@ func (s *Store) ReactChat(ctx context.Context, userID, id uuid.UUID, emoji strin
 	return s.ChatMessage(ctx, id)
 }
 
-func (s *Store) ReadChat(ctx context.Context, userID, id uuid.UUID) (time.Time, error) {
+func (s *Store) ReadChat(ctx context.Context, userID, conv, id uuid.UUID) (time.Time, error) {
 	var at time.Time
-	err := s.pool.QueryRow(ctx, `insert into chat_reads (user_id, message_id, read_at) values ($1, $2, now())
-		on conflict (pair_id, user_id) do update set message_id = excluded.message_id, read_at = now()
+	err := s.pool.QueryRow(ctx, `insert into chat_reads (conversation_id, user_id, message_id, read_at)
+		select $3, $1, $2, now() where exists (select 1 from chat_messages where id = $2 and conversation_id = $3)
+		on conflict (conversation_id, user_id) do update set message_id = excluded.message_id, read_at = now()
 		where chat_reads.message_id is null or
 			(select created_at from chat_messages where id = excluded.message_id) >= (select created_at from chat_messages where id = chat_reads.message_id)
-		returning read_at`, userID, id).Scan(&at)
+		returning read_at`, userID, id, conv).Scan(&at)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return time.Now(), nil
 	}
@@ -224,8 +239,8 @@ type ChatRead struct {
 	ReadAt    time.Time  `json:"read_at"`
 }
 
-func (s *Store) ChatReads(ctx context.Context) ([]ChatRead, error) {
-	rows, err := s.pool.Query(ctx, `select user_id, message_id, read_at from chat_reads`)
+func (s *Store) ChatReads(ctx context.Context, conv uuid.UUID) ([]ChatRead, error) {
+	rows, err := s.pool.Query(ctx, `select user_id, message_id, read_at from chat_reads where conversation_id = $1`, conv)
 	if err != nil {
 		return nil, err
 	}
@@ -243,8 +258,11 @@ func (s *Store) ChatReads(ctx context.Context) ([]ChatRead, error) {
 
 func (s *Store) UnreadCount(ctx context.Context, userID uuid.UUID) (int, error) {
 	var n int
-	err := s.pool.QueryRow(ctx, `select count(*) from chat_messages m where m.sender_id <> $1 and m.deleted_at is null and
-		m.created_at > coalesce((select c.created_at from chat_reads r join chat_messages c on c.id = r.message_id where r.user_id = $1), '-infinity')`, userID).Scan(&n)
+	err := s.pool.QueryRow(ctx, `select count(*) from conversation_members cm
+		join chat_messages m on m.conversation_id = cm.conversation_id
+		where cm.user_id = $1 and cm.accepted and m.sender_id <> $1 and m.deleted_at is null and
+			m.created_at > coalesce((select c.created_at from chat_reads r join chat_messages c on c.id = r.message_id
+				where r.conversation_id = cm.conversation_id and r.user_id = $1), '-infinity')`, userID).Scan(&n)
 	return n, err
 }
 

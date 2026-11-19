@@ -163,8 +163,8 @@ func (a *api) setPairKind(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, "Not linked")
 		return
 	}
-	if !store.ValidPairKind(in.Kind) {
-		writeError(w, http.StatusBadRequest, "kind is partner or friend")
+	if in.Kind != store.PairPartner {
+		writeError(w, http.StatusBadRequest, "kind is partner")
 		return
 	}
 	if err := ps.SetPairKind(r.Context(), p.ID, in.Kind); err != nil {
@@ -219,12 +219,12 @@ func (a *api) createLinkInvite(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotImplemented, "Linking unavailable")
 		return
 	}
-	if pairOf(r.Context()) != nil {
-		writeError(w, http.StatusConflict, "Already linked")
-		return
-	}
 	if !store.ValidPairKind(in.Kind) {
 		writeError(w, http.StatusBadRequest, "kind is partner or friend")
+		return
+	}
+	if in.Kind == store.PairPartner && pairOf(r.Context()) != nil {
+		writeError(w, http.StatusConflict, "Already linked")
 		return
 	}
 	token, hash, err := auth.NewToken()
@@ -268,6 +268,7 @@ func (a *api) linkByInvite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	me := uid(r)
+	inv, _ := a.Store.InviteByToken(r.Context(), hash)
 	p, err := ps.AcceptLinkInvite(r.Context(), hash, me)
 	switch {
 	case errors.Is(err, store.ErrInviteClosed):
@@ -281,6 +282,22 @@ func (a *api) linkByInvite(w http.ResponseWriter, r *http.Request) {
 		return
 	case err != nil:
 		a.serverError(w, "accept link invite", err)
+		return
+	}
+	if inv != nil && inv.LinkKind != nil && *inv.LinkKind == store.PairFriend {
+		var by uuid.UUID
+		if inv.CreatedBy != nil {
+			by = *inv.CreatedBy
+			me := currentUser(r)
+			a.notify(by, "follows", me.DisplayName, "You're friends now", "/people/?u="+me.Username)
+		}
+		a.Store.Audit(r.Context(), &me, "friend.link", by.String(), nil)
+		a.peopleChanged(me, by)
+		writeJSON(w, http.StatusOK, map[string]any{"pair": nil, "friend": by})
+		return
+	}
+	if p == nil {
+		writeError(w, http.StatusConflict, "Not linked")
 		return
 	}
 	a.Store.Audit(r.Context(), &me, "pair.link", p.ID.String(), nil)

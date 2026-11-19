@@ -255,6 +255,7 @@ func (a *api) acceptInvite(w http.ResponseWriter, r *http.Request) {
 		a.serverError(w, "hash password", err)
 		return
 	}
+	inv, _ := a.Store.InviteByToken(r.Context(), hash)
 	u, err := a.Store.AcceptInvite(r.Context(), hash, in.DisplayName, in.Username, pw)
 	switch {
 	case errors.Is(err, store.ErrUsernameTaken):
@@ -272,6 +273,10 @@ func (a *api) acceptInvite(w http.ResponseWriter, r *http.Request) {
 	a.team.mu.Lock()
 	a.team.at = time.Time{}
 	a.team.mu.Unlock()
+	if inv != nil && inv.LinkKind != nil && *inv.LinkKind == store.PairFriend && inv.CreatedBy != nil {
+		a.notify(*inv.CreatedBy, "follows", u.DisplayName, "Joined from your invite", "/people/?u="+u.Username)
+		a.peopleChanged(u.ID, *inv.CreatedBy)
+	}
 	if p, err := a.pairFor(r.Context(), u.ID); err == nil && p != nil {
 		a.pairChanged(r.Context(), p)
 		if err := a.applyHerPlaylist(withSpace(r.Context(), u.ID, p)); err != nil {
