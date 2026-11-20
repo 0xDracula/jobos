@@ -1,0 +1,19 @@
+[Unit]
+Description=Jobbos heavy worker
+Wants=network-online.target
+After=network-online.target jobbos-api.service
+
+[Service]
+WorkingDirectory=/srv/jobbos/services/media
+EnvironmentFile=/srv/jobbos/.env
+Environment=PATH=/srv/jobbos/services/media/.venv/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/srv/jobbos/services/media/.venv/bin/python -m jobbos_media.worker --queue heavy
+Nice=10
+CPUWeight=20
+MemoryHigh=700M
+MemoryMax=900M
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target

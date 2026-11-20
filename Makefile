@@ -9,7 +9,7 @@ MAP_DIR ?= $(CURDIR)/.data/map
 MODELS_DIR ?= $(CURDIR)/.data/models
 COMPOSE := docker compose -f deploy/compose.dev.yaml
 
-.PHONY: db-up db-down db-psql api media worker worker-heavy dev web web-install web-build geoip map models test test-api test-media test-web
+.PHONY: db-up db-down db-psql api media worker worker-heavy dev web web-install web-build geoip map models test test-api test-media test-web deploy
 
 db-up:
 	$(COMPOSE) up -d --wait
@@ -64,3 +64,6 @@ test-media:
 test-web:
 	cd apps/web && npm run typecheck && npm test
 
+
+deploy:
+	./tools/deploy.sh
