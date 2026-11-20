@@ -103,8 +103,8 @@ func clientAddr(r *http.Request) string {
 	return host
 }
 
-func secureRequest(r *http.Request) bool {
-	return r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
+func (a *api) secureRequest(r *http.Request) bool {
+	return a.SecureCookies || r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
 }
 
 func (a *api) startSession(w http.ResponseWriter, r *http.Request, userID uuid.UUID) error {
@@ -116,14 +116,14 @@ func (a *api) startSession(w http.ResponseWriter, r *http.Request, userID uuid.U
 		return err
 	}
 	http.SetCookie(w, &http.Cookie{
-		Name: sessionCookie, Value: token, Path: "/", HttpOnly: true, Secure: secureRequest(r),
+		Name: sessionCookie, Value: token, Path: "/", HttpOnly: true, Secure: a.secureRequest(r),
 		SameSite: http.SameSiteLaxMode, MaxAge: int(auth.SessionTTL / time.Second),
 	})
 	return nil
 }
 
-func clearSessionCookie(w http.ResponseWriter, r *http.Request) {
-	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: "", Path: "/", HttpOnly: true, Secure: secureRequest(r), SameSite: http.SameSiteLaxMode, MaxAge: -1})
+func (a *api) clearSessionCookie(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: "", Path: "/", HttpOnly: true, Secure: a.secureRequest(r), SameSite: http.SameSiteLaxMode, MaxAge: -1})
 }
 
 func (a *api) login(w http.ResponseWriter, r *http.Request) {
@@ -166,7 +166,7 @@ func (a *api) logout(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	clearSessionCookie(w, r)
+	a.clearSessionCookie(w, r)
 	w.WriteHeader(http.StatusNoContent)
 }
 

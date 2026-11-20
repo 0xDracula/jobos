@@ -107,20 +107,21 @@ func run(log *slog.Logger) error {
 		return err
 	}
 	deps := httpapi.Deps{
-		Hub:         hub,
-		Push:        push,
-		HomeTZ:      home,
-		Store:       st,
-		Media:       mediaService,
-		Resolver:    mediaService,
-		Links:       mediaService,
-		MediaStatus: mediaService,
-		World:       world.NewOpenMeteo(),
-		WebRoot:     cfg.WebRoot,
-		MediaRoot:   cfg.MediaRoot,
-		WorkerToken: cfg.WorkerToken,
-		DevUI:       cfg.DevUI,
-		Log:         log,
+		Hub:           hub,
+		Push:          push,
+		HomeTZ:        home,
+		Store:         st,
+		Media:         mediaService,
+		Resolver:      mediaService,
+		Links:         mediaService,
+		MediaStatus:   mediaService,
+		World:         world.NewOpenMeteo(),
+		WebRoot:       cfg.WebRoot,
+		MediaRoot:     cfg.MediaRoot,
+		WorkerToken:   cfg.WorkerToken,
+		DevUI:         cfg.DevUI,
+		SecureCookies: cfg.SecureCookies,
+		Log:           log,
 	}
 	if locator != nil {
 		deps.Locator = locator

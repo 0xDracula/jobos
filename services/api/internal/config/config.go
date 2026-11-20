@@ -28,6 +28,7 @@ type Config struct {
 	VAPIDPublicKey             string
 	VAPIDPrivateKey            string
 	VAPIDSubject               string
+	SecureCookies              bool
 }
 
 func Load() (Config, error) {
@@ -50,6 +51,7 @@ func Load() (Config, error) {
 		VAPIDPublicKey:    os.Getenv("VAPID_PUBLIC_KEY"),
 		VAPIDPrivateKey:   os.Getenv("VAPID_PRIVATE_KEY"),
 		VAPIDSubject:      getenv("VAPID_SUBJECT", "https://jobbos.app"),
+		SecureCookies:     strings.HasPrefix(os.Getenv("PUBLIC_URL"), "https://"),
 	}
 	for _, o := range strings.Split(os.Getenv("WS_ORIGINS"), ",") {
 		if o = strings.TrimSpace(o); o != "" {

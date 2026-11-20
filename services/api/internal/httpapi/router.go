@@ -197,22 +197,23 @@ type Searcher interface {
 }
 
 type Deps struct {
-	Store       Store
-	Media       Searcher
-	Resolver    Resolver
-	Links       Linker
-	MediaStatus StatusReader
-	World       WeatherSource
-	Locator     CityLocator
-	AutoUser    *store.User
-	Hub         *realtime.Hub
-	Push        *PushKeys
-	HomeTZ      *time.Location
-	WebRoot     string
-	MediaRoot   string
-	WorkerToken string
-	DevUI       bool
-	Log         *slog.Logger
+	Store         Store
+	Media         Searcher
+	Resolver      Resolver
+	Links         Linker
+	MediaStatus   StatusReader
+	World         WeatherSource
+	Locator       CityLocator
+	AutoUser      *store.User
+	Hub           *realtime.Hub
+	Push          *PushKeys
+	HomeTZ        *time.Location
+	WebRoot       string
+	MediaRoot     string
+	WorkerToken   string
+	DevUI         bool
+	SecureCookies bool
+	Log           *slog.Logger
 }
 
 type api struct {
