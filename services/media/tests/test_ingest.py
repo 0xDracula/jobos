@@ -130,6 +130,15 @@ def test_stream_info():
     assert stream_info({"url": "https://x.googlevideo.com/v", "ext": "webm"})["mime"] == "audio/webm"
 
 
+@pytest.mark.parametrize(("available_at", "slept"), [(None, []), (990.0, []), (1004.5, [4.5]), (1100.0, [15])])
+def test_wait_until_available(monkeypatch, available_at, slept):
+    calls = []
+    monkeypatch.setattr(ingest.time, "time", lambda: 1000.0)
+    monkeypatch.setattr(ingest.time, "sleep", calls.append)
+    ingest.wait_until_available({"available_at": available_at})
+    assert calls == slept
+
+
 def test_encoded_file_is_measured_within_the_peak_limit(tone, tmp_path):
     from jobbos_media import config
 

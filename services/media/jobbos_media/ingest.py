@@ -5,6 +5,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 from array import array
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -12,6 +13,8 @@ from urllib.parse import parse_qs, urlparse
 import yt_dlp
 
 from . import analysis, config
+
+MAX_WAIT_S = 15
 
 _SUMMARY_RE = re.compile(r"Summary:.*?\bI:\s+(-?(?:[\d.]+|inf)) LUFS.*?Peak:\s+(-?(?:[\d.]+|inf)) dBFS", re.S)
 
@@ -56,7 +59,14 @@ def resolve(provider: str, external_id: str) -> dict:
         opts["cookiefile"] = config.YTDLP_COOKIES
     with yt_dlp.YoutubeDL(opts) as ydl:
         info = ydl.extract_info(source_url(provider, external_id), download=False)
+    wait_until_available(info)
     return stream_info(info)
+
+
+def wait_until_available(info: dict) -> None:
+    delay = (info.get("available_at") or 0) - time.time()
+    if delay > 0:
+        time.sleep(min(delay, MAX_WAIT_S))
 
 
 def stream_info(info: dict) -> dict:
