@@ -5,6 +5,7 @@ description = "Jobbos media service: search, matching, downloads and audio proce
 requires-python = ">=3.12"
 dependencies = [
   "anyascii>=0.3.2",
+  "deno>=2",
   "essentia==2.1b6.dev1389",
   "fastapi>=0.115",
   "fonttools[woff]>=4.55",
@@ -14,7 +15,7 @@ dependencies = [
   "pillow>=11",
   "rapidfuzz>=3.9",
   "uvicorn>=0.30",
-  "yt-dlp>=2025.1.1",
+  "yt-dlp[default]>=2025.1.1",
   "ytmusicapi>=1.8",
 ]
 
