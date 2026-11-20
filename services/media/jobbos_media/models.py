@@ -15,7 +15,7 @@ SR = 16000
 FRAME, HOP = 512, 256
 EFFNET_PATCH, EFFNET_HOP = 128, 62
 MUSICNN_PATCH, MUSICNN_HOP = 187, 93
-BATCH = 64
+BATCH = 8
 MAX_S = 900
 STYLES = 5
 STYLE_MIN = 0.05
@@ -75,6 +75,7 @@ class Models:
         opts = ort.SessionOptions()
         opts.intra_op_num_threads = config.MODEL_THREADS
         opts.log_severity_level = 3
+        opts.enable_cpu_mem_arena = False
 
         def load(name: str):
             path = root / f"{name}.onnx"
