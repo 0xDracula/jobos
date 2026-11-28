@@ -1,3 +1,5 @@
+demo credentials: demo:demo-qbzd-4rdn-wt5p
+
 # Jobbos
 
 A music app I made for my partner as a sorry gift :P
